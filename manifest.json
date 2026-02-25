@@ -1,0 +1,22 @@
+{
+  "name": "Control de Inventario Pedropi",
+  "short_name": "InventarioPro",
+  "description": "Sistema de gestión de inventario para Pedropi Fruits s.r.l.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#00ff88",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

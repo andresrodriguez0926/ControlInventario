@@ -1,0 +1,75 @@
+/* Color Palettes */
+:root {
+  /* Colors - Premium Dark Theme (Inspired by Vercel/Linear) */
+  --bg-background: #09090b;
+  --bg-surface: #18181b;
+  --bg-surface-light: #27272a;
+  --bg-surface-hover: #3f3f46;
+  
+  --text-white: #ffffff;
+  --text-primary: #ededed;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  
+  --border-color: #27272a;
+  --border-hover: #3f3f46;
+  
+  /* Accents */
+  --accent-primary: #3b82f6; /* Blue */
+  --accent-primary-hover: #2563eb;
+  
+  --accent-success: #10b981; /* Emerald */
+  --accent-success-light: #d1fae5;
+  
+  --accent-warning: #f59e0b; /* Amber */
+  --accent-warning-light: #fef3c7;
+  
+  --accent-danger: #ef4444; /* Red */
+  --accent-danger-light: #fee2e2;
+  
+  --accent-info: #8b5cf6; /* Purple */
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-glass: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base tailwind-like utility equivalents for manual styling where needed */
+.bg-background { background-color: var(--bg-background); }
+.bg-surface { background-color: var(--bg-surface); }
+.bg-surface-light { background-color: var(--bg-surface-light); }
+
+.text-white { color: var(--text-white); }
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-success { color: var(--accent-success); }
+.text-warning { color: var(--accent-warning); }
+.text-danger { color: var(--accent-danger); }
+.text-info { color: var(--accent-info); }
+.text-danger-light { color: #fca5a5; }
+
+.border-border { border-color: var(--border-color); }
+
+.bg-primary { background-color: var(--accent-primary); }
+.bg-success { background-color: var(--accent-success); }
+.bg-warning { background-color: var(--accent-warning); }
+.bg-danger { background-color: var(--accent-danger); }
+
+/* Opacity variants */
+.bg-primary\/10 { background-color: rgba(59, 130, 246, 0.1); }
+.bg-success\/10 { background-color: rgba(16, 185, 129, 0.1); }
+.bg-warning\/10 { background-color: rgba(245, 158, 11, 0.1); }
+.bg-info\/10 { background-color: rgba(139, 92, 246, 0.1); }
+.bg-danger\/10 { background-color: rgba(239, 68, 68, 0.1); }
