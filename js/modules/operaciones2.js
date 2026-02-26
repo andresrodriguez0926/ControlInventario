@@ -275,7 +275,7 @@ window.appModuleEvents['despacho-cliente'] = () => {
 
         despFecha.min = formatDate(yesterday);
         despFecha.max = formatDate(tomorrow);
-        despFecha.value = formatDate(today);
+        despFecha.value = formatDate(tomorrow);
     }
 
     // Logica para agregar filas dinamicas
