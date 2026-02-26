@@ -12,8 +12,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Esperar a que la tienda (Firebase) envíe los datos iniciales
     // Escuchando el evento personalizado emitido por store.js
     let initialRenderDone = false;
+    let dataFixRun = false;
 
     window.addEventListener('store:updated', () => {
+        // Run one-time data fixes if needed
+        if (!dataFixRun && window.appStore.isLoaded) {
+            window.appStore.applyDataFixes();
+            dataFixRun = true;
+        }
+
         // Renderizar Dashboard si estamos en él
         if (!window.location.hash || window.location.hash === '#dashboard') {
             window.appCharts.render();
@@ -457,12 +464,22 @@ window.verDocumentoOrigen = function (idActividad) {
 
     // Tratamos de reconstruir un payload básico para documentos antiguos de "Desp. Cliente"
     if (!payload && (actividad.operacion.includes('Desp. Cliente') || actividad.operacion.includes('Despacho a Cliente'))) {
-        const match = actividad.detalle.match(/A cliente:\s*(.*?)\s*\|\s*(.*)$/);
-        if (match) {
+        // Formato 1: "A cliente: NOMBRE | PRODUCTO (CANT)"
+        const match1 = actividad.detalle.match(/A cliente:\s*(.*?)\s*\|\s*(.*)$/);
+        // Formato 2: "PRODUCTO (CANT)" (probablemente registros que perdieron el prefijo)
+        const match2 = actividad.detalle.match(/^(.*?)\s*\((.*?)\)$/);
+
+        if (match1) {
             payload = {
                 esHeredado: true,
-                clienteNombre: match[1],
-                frutasStr: match[2]
+                clienteNombre: match1[1],
+                frutasStr: match1[2]
+            };
+        } else if (match2) {
+            payload = {
+                esHeredado: true,
+                clienteNombre: 'No registrado',
+                frutasStr: actividad.detalle
             };
         }
     }
@@ -548,11 +565,33 @@ window.verDocumentoOrigen = function (idActividad) {
                 if (payload.detalles && payload.detalles.length > 0) {
                     payload.detalles.forEach((det, idx) => {
                         const pname = getProductoName(det.productoId);
-                        const aname = getAlmacenName(det.almacenId);
+                        const aname = getAlmacenName(det.almacenOrigenId);
                         addRow(`Detalle ${idx + 1}`, `${pname} (${det.cantidad} canastas) desde ${aname}`);
                     });
                 }
             }
+        } else if (actividad.operacion === 'Fruta Demás' || actividad.operacion === 'Canastas Demás') {
+            addRow('Producto', getProductoName(payload.productoId));
+            addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
+            addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
+            if (payload.fechaLlenado) addRow('Fecha Técnica', payload.fechaLlenado);
+        } else if (actividad.operacion === 'Decomiso') {
+            addRow('Producto', getProductoName(payload.productoId));
+            addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
+            addRow('Almacén Vacias', getAlmacenName(payload.almacenVaciasId));
+            addRow('Motivo', payload.motivo);
+            if (payload.descripcion) addRow('Descripción', payload.descripcion);
+            if (payload.fechaDecomiso) addRow('Fecha Técnica', payload.fechaDecomiso);
+        } else if (actividad.operacion === 'Compra' || actividad.operacion === 'Compra Canastas') {
+            addRow('Proveedor', payload.proveedorNombre);
+            addRow('Recibido por', payload.personaRecibe);
+            addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
+            if (payload.fechaCompra) addRow('Fecha Técnica', payload.fechaCompra);
+        } else if (actividad.operacion === 'Salida Canastas') {
+            addRow('Persona Baja', payload.personaBaja);
+            addRow('Almacén', getAlmacenName(payload.almacenId));
+            addRow('Motivo', payload.descripcion);
+            if (payload.fechaBaja) addRow('Fecha Técnica', payload.fechaBaja);
         } else {
             // Fallback genérico para otros payloads
             Object.entries(payload).forEach(([key, val]) => {

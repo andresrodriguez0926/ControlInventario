@@ -1,4 +1,4 @@
-// Continuación de operaciones.js - Agregando las partes faltantes
+﻿// Continuación de operaciones.js - Agregando las partes faltantes
 
 // ==========================================
 // 4. DESPACHO AL CLIENTE
@@ -97,6 +97,7 @@ window.appModules['despacho-cliente'] = () => {
                                 <tr class="bg-surface text-text-secondary text-xs uppercase tracking-wider border-b border-border">
                                     <th class="py-3 px-4 font-semibold">Doc #</th>
                                     <th class="py-3 px-4 font-semibold">Fecha</th>
+                                    <th class="py-3 px-4 font-semibold">Almacén</th>
                                     <th class="py-3 px-4 font-semibold">Detalle</th>
                                     <th class="py-3 px-4 font-semibold">Usuario</th>
                                     <th class="py-3 px-4 font-semibold">Canastas</th>
@@ -163,7 +164,8 @@ window.appModuleEvents['despacho-cliente'] = () => {
     };
 
     const currentUser = window.appStore.currentUser;
-    const isAdmin = currentUser && currentUser.rol?.toLowerCase() === 'admin';
+    const isAdmin = currentUser && (currentUser.rol?.toLowerCase() === 'admin' || currentUser.rol?.toLowerCase() === 'administrador');
+    const almacenes = window.appStore.getAlmacenes();
 
     const loadHistoryWeek = () => {
         if (!dateInput || !tbody) return;
@@ -182,21 +184,43 @@ window.appModuleEvents['despacho-cliente'] = () => {
         }
 
         if (filteredHistorial.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No hay despachos ${dateInput.value ? 'en la semana seleccionada' : 'recientes'}.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-text-secondary italic">No hay despachos ${dateInput.value ? 'en la semana seleccionada' : 'recientes'}.</td></tr>`;
         } else {
+            console.log('[Despacho] Renderizando', filteredHistorial.length, 'registros. Almacenes disponibles:', almacenes.map(a => ({ id: a.id, nombre: a.nombre })));
             tbody.innerHTML = filteredHistorial.map(a => {
-                // Admin: siempre puede intentar editar (error aparece si no hay rawPayload)
-                // Empleado: solo sus propios registros Y que tengan rawPayload
-                const puedeEditar = isAdmin
-                    ? true
-                    : (a.rawPayload && (!a.usuario || (currentUser && a.usuario === currentUser.usuario)));
-                const editBtn = puedeEditar
-                    ? `<button type="button" onclick="window.prepararEdicionDespacho('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-2 flex items-center justify-center gap-1 border-primary/30 text-primary hover:bg-primary/10" title="Editar Registro"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>`
-                    : '';
-                return `
+                try {
+                    // Admin: siempre puede intentar editar (error aparece si no hay rawPayload)
+                    // Empleado: solo sus propios registros Y que tengan rawPayload
+                    const puedeEditar = isAdmin
+                        ? true
+                        : (a.rawPayload && (!a.usuario || (currentUser && a.usuario === currentUser.usuario)));
+                    const editBtn = puedeEditar
+                        ? `<button type="button" onclick="window.prepararEdicionDespacho('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-2 flex items-center justify-center gap-1 border-primary/30 text-primary hover:bg-primary/10" title="Editar Registro"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>`
+                        : '';
+                    const getAlmacenName = id => almacenes.find(alm => alm.id === id)?.nombre || id;
+                    let almacenText = '---';
+
+                    console.log('[Despacho] Doc:', a.numeroDocumento, '| rawPayload:', a.rawPayload ? JSON.stringify(a.rawPayload).substring(0, 200) : 'NULL');
+
+                    if (a.rawPayload && a.rawPayload.detalles && a.rawPayload.detalles.length > 0) {
+                        // Formato moderno: detalles[] con almacenOrigenId por fila
+                        const uniqueAlmIds = [...new Set(a.rawPayload.detalles.map(d => d.almacenOrigenId).filter(Boolean))];
+                        if (uniqueAlmIds.length > 0) {
+                            almacenText = uniqueAlmIds.map(id => getAlmacenName(id)).join(' / ');
+                        }
+                    } else if (a.rawPayload && a.rawPayload.almacenOrigenId) {
+                        // Formato anterior: almacén único directamente en el rawPayload
+                        almacenText = getAlmacenName(a.rawPayload.almacenOrigenId);
+                    } else if (!a.rawPayload || a.rawPayload.esHeredado) {
+                        // Sin datos de almacén (legacy o reconstruido)
+                        almacenText = '<span class="text-text-muted italic">No registrado</span>';
+                    }
+
+                    return `
                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                     <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
                     <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                    <td class="py-2.5 px-4 text-white font-medium">${almacenText}</td>
                     <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                     <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                     <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
@@ -209,6 +233,10 @@ window.appModuleEvents['despacho-cliente'] = () => {
                         </div>
                     </td>
                 </tr>`;
+                } catch (err) {
+                    console.error('[Despacho] Error renderizando doc', a.numeroDocumento, err);
+                    return `<tr><td colspan="7" class="py-2 px-4 text-red-400 text-xs">Error en doc ${a.numeroDocumento || 'S/N'}: ${err.message}</td></tr>`;
+                }
             }).join('');
             if (window.lucide) window.lucide.createIcons({ root: tbody });
         }
@@ -290,12 +318,19 @@ window.appModuleEvents['despacho-cliente'] = () => {
     // Preparar Edición Global
     window.prepararEdicionDespacho = (idActividad) => {
         const currentUser = window.appStore.currentUser;
-        const isAdmin = currentUser && currentUser.rol?.toLowerCase() === 'admin';
+        const isAdmin = currentUser && (currentUser.rol?.toLowerCase() === 'admin' || currentUser.rol?.toLowerCase() === 'administrador');
 
-        // Buscar usando el API correcto (getActividad) con límite alto para no perder registros
-        const actividad = window.appStore.getActividad(10000).find(a => a.id === idActividad);
-        if (!actividad || !actividad.rawPayload) {
-            window.UI.showToast("No se puede editar este registro. Es demasiado antiguo o no tiene datos técnicos.", "error");
+        // Buscar en TODA la actividad disponible sin límites arbitrarios
+        const todaLaActividad = window.appStore.getActividad(1500); // 1500 es el límite real del store
+        const actividad = todaLaActividad.find(a => a.id === idActividad);
+
+        if (!actividad) {
+            window.UI.showToast("No se encontró el registro en el historial reciente (ID: " + idActividad + ").", "error");
+            return;
+        }
+
+        if (!actividad.rawPayload) {
+            window.UI.showToast(`Error: El documento ${actividad.numeroDocumento || idActividad} no tiene datos técnicos guardados (rawPayload). Es un registro "Legacy" o se guardó incorrectamente y no se puede revertir el inventario para editarlo.`, "error");
             return;
         }
 
@@ -371,6 +406,8 @@ window.appModuleEvents['despacho-cliente'] = () => {
                 total += cant;
             });
 
+            console.log('[DESPACHO SUBMIT] detalles enviados:', JSON.stringify(detalles));
+
             const payload = {
                 fecha: document.getElementById('desp-fecha').value,
                 clienteNombre: document.getElementById('desc-cliente').value,
@@ -413,6 +450,7 @@ window.appModules['recepcion-canastas'] = () => {
     const almacenes = window.appStore.getAlmacenes();
     const clientes = window.appStore.getClientes();
     const productores = window.appStore.getProductores();
+    const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
 
     // Opciones para Radio Button
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
@@ -560,9 +598,16 @@ window.appModules['recepcion-canastas'] = () => {
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
                                         <td class="py-2.5 px-4 text-center">
-                                            <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 mx-auto whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
-                                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
-                                            </button>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
+                                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
+                                                </button>
+                                                ${isAdmin ? `
+                                                    <button type="button" onclick="window.UI.showToast('La edición para este módulo aún no está implementada.', 'info')" class="text-primary hover:text-primary-hover tooltip-trigger" title="Modificar Registro">
+                                                        <i data-lucide="edit" class="w-4 h-4"></i>
+                                                    </button>
+                                                ` : ''}
+                                            </div>
                                         </td>
                                     </tr>
                                     `).join('')
@@ -934,6 +979,7 @@ window.appModuleEvents['decomiso'] = () => {
 window.appModules['canastas-demas'] = () => {
     const productos = window.appStore.getProductos();
     const almacenes = window.appStore.getAlmacenes();
+    const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
 
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén...');
@@ -1038,9 +1084,16 @@ window.appModules['canastas-demas'] = () => {
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
                                         <td class="py-2.5 px-4 text-center">
-                                            <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 mx-auto whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
-                                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
-                                            </button>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
+                                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
+                                                </button>
+                                                ${isAdmin ? `
+                                                    <button type="button" onclick="window.UI.showToast('La edición para este módulo aún no está implementada.', 'info')" class="text-primary hover:text-primary-hover tooltip-trigger" title="Modificar Registro">
+                                                        <i data-lucide="edit" class="w-4 h-4"></i>
+                                                    </button>
+                                                ` : ''}
+                                            </div>
                                         </td>
                                     </tr>
                                     `).join('')
@@ -1321,3 +1374,4 @@ window.appModuleEvents['salida-canastas'] = () => {
         }
     });
 };
+

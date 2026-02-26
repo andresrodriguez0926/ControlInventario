@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Módulos de Operaciones Transaccionales
  */
 
@@ -31,7 +31,7 @@ window.appModules['recepcion'] = () => {
     const minLocalISOTime = (new Date(minDateObj - offset)).toISOString().slice(0, 10);
     const minDate = minLocalISOTime;
 
-    const isAdmin = window.appStore.currentUser?.rol === 'admin';
+    const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
 
     // Obtener y filtrar historial reciente
     const historial = window.appStore.getActividad(200).filter(a => a.operacion === 'Recepción');
@@ -348,7 +348,7 @@ window.appModules['despacho-vacias'] = () => {
     const productores = window.appStore.getProductores();
     const almacenes = window.appStore.getAlmacenes();
 
-    const isAdmin = window.appStore.currentUser?.rol === 'admin';
+    const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
     const historial = window.appStore.getActividad(200).filter(a => a.operacion === 'Desp. Vacías');
 
     const today = new Date();
@@ -820,6 +820,33 @@ window.appModules['transferencia-interna'] = () => {
                         <label class="form-label mb-1">Cantidad de Canastas Llenas</label>
                         <input type="number" id="tint-cantidad" class="form-input" min="1" required placeholder="Ej: 50">
                     </div>
+
+                    <!-- TRAZABILIDAD DE VACÍAS -->
+                    <div class="form-group md:col-span-2 border-t border-border pt-5 mt-1">
+                        <div class="flex items-center gap-3 mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="tint-toggle-vacias" class="w-4 h-4 accent-warning">
+                                <span class="font-semibold text-warning flex items-center gap-2">
+                                    <i data-lucide="package" class="w-4 h-4"></i>
+                                    ¿También se trasladan canastas vacías?
+                                </span>
+                            </label>
+                        </div>
+                        <div id="tint-vacias-fields" class="hidden animate-fade-in p-4 bg-warning/5 border border-dashed border-warning/30 rounded-xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="form-group mb-0">
+                                <label class="form-label mb-1 text-warning font-semibold">Cant. Vacías a Trasladar</label>
+                                <input type="number" id="tint-vacias" class="form-input border-warning/30 focus:border-warning" min="1" placeholder="Ej: 20">
+                            </div>
+                            <div class="form-group mb-0">
+                                <label class="form-label mb-1 text-warning font-semibold">Destino de las Vacías</label>
+                                <select id="tint-destino-vacias" class="form-select border-warning/30 focus:border-warning">
+                                    <option value="">Mismo destino que la fruta</option>
+                                    ${optsAlmacen}
+                                </select>
+                                <p class="text-xs text-text-muted mt-1">* Deja en blanco si van al mismo almacén que la fruta.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="mt-8 flex justify-end">
@@ -839,7 +866,8 @@ window.appModules['transferencia-interna'] = () => {
                                     <th class="py-3 px-4 font-semibold">Fecha</th>
                                     <th class="py-3 px-4 font-semibold">Detalle</th>
                                     <th class="py-3 px-4 font-semibold">Usuario</th>
-                                    <th class="py-3 px-4 font-semibold">Canastas</th>
+                                    <th class="py-3 px-4 font-semibold">Llenas</th>
+                                    <th class="py-3 px-4 font-semibold text-warning">Vacías</th>
                                     <th class="py-3 px-4 font-semibold text-center w-24">Acciones</th>
                                 </tr>
                             </thead>
@@ -851,7 +879,8 @@ window.appModules['transferencia-interna'] = () => {
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
-                                        <td class="py-2.5 px-4 font-bold text-info">${a.cantidad}</td>
+                                        <td class="py-2.5 px-4 font-bold text-info">${a.rawPayload?.cantidad || a.cantidad}</td>
+                                        <td class="py-2.5 px-4 font-bold ${a.rawPayload?.canastasVacias > 0 ? 'text-warning' : 'text-text-muted'}">${a.rawPayload?.canastasVacias > 0 ? a.rawPayload.canastasVacias : '-'}</td>
                                         <td class="py-2.5 px-4 text-center">
                                             <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 mx-auto whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
                                                 <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
@@ -900,6 +929,21 @@ window.appModuleEvents['transferencia-interna'] = () => {
     const form = document.getElementById('form-trans-int');
     if (!form) return;
 
+    // Toggle vacías section
+    const toggleVacias = document.getElementById('tint-toggle-vacias');
+    const vaciasFields = document.getElementById('tint-vacias-fields');
+    if (toggleVacias && vaciasFields) {
+        toggleVacias.addEventListener('change', () => {
+            if (toggleVacias.checked) {
+                vaciasFields.classList.remove('hidden');
+                vaciasFields.classList.add('grid');
+            } else {
+                vaciasFields.classList.add('hidden');
+                vaciasFields.classList.remove('grid');
+            }
+        });
+    }
+
     const tintFecha = document.getElementById('tint-fecha');
     if (tintFecha) {
         const today = new Date();
@@ -925,14 +969,23 @@ window.appModuleEvents['transferencia-interna'] = () => {
         btn.disabled = true;
 
         try {
+            const toggleVaciasEl = document.getElementById('tint-toggle-vacias');
+            const canastasVacias = (toggleVaciasEl?.checked) ? parseInt(document.getElementById('tint-vacias')?.value || 0) : 0;
+            const destinoVaciasRaw = document.getElementById('tint-destino-vacias')?.value;
+            const almacenDestinoId = document.getElementById('tint-destino').value;
+            // If no specific destination for vacias is chosen, use the same as fruit destination
+            const almacenDestinoVaciasId = (destinoVaciasRaw && destinoVaciasRaw !== '') ? destinoVaciasRaw : almacenDestinoId;
+
             await window.appStore.transferenciaInterna({
                 almacenOrigenId: document.getElementById('tint-origen').value,
-                almacenDestinoId: document.getElementById('tint-destino').value,
+                almacenDestinoId,
                 productoIdActual: document.getElementById('tint-prod-actual').value,
                 productoIdNuevo: document.getElementById('tint-prod-nuevo').value,
                 personaTransfiere: document.getElementById('tint-persona').value,
                 cantidad: document.getElementById('tint-cantidad').value,
-                fechaTransferencia: document.getElementById('tint-fecha').value
+                fechaTransferencia: document.getElementById('tint-fecha').value,
+                canastasVacias,
+                almacenDestinoVaciasId
             });
 
             window.UI.showToast('Transferencia de almacén a almacén procesada.');
@@ -1056,3 +1109,4 @@ window.appModuleEvents['compra-canastas'] = () => {
         }
     });
 };
+

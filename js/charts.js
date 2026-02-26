@@ -738,15 +738,34 @@ const Charts = {
                 const start = new Date(desdeVal + 'T00:00:00');
                 const end = new Date(hastaVal + 'T23:59:59.999');
 
+                const almacenes = window.appStore.getAlmacenes();
+                const almacen = almacenes.find(x => x.id === almacenId);
+                const nombreAlm = almacen ? almacen.nombre : '';
+
+                const productos = window.appStore.getProductos();
+                const producto = productos.find(x => x.id === productoId);
+                const nombreProd = producto ? producto.nombre : '';
+
                 const filtradas = todas.filter(a => {
                     // Normalize date
                     let dt = new Date(a.date);
-                    // Support legacy format just in case
                     if (isNaN(dt.getTime()) && a.fecha) dt = new Date(a.fecha);
 
                     if (dt < start || dt > end) return false;
 
                     const payload = a.rawPayload || {};
+
+                    // Desp. Cliente: always include if it has rawPayload — the render
+                    // loop will show only items matching the selected warehouse.
+                    if ((a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') && a.rawPayload) {
+                        // Still apply the product filter if active
+                        if (productoId) {
+                            if (!payload.detalles || !Array.isArray(payload.detalles)) return true; // show without product filter
+                            return payload.detalles.some(d => d.productoId === productoId);
+                        }
+                        return true;
+                    }
+
                     let afectoAlmacen = false;
 
                     // Direct checks
@@ -754,27 +773,39 @@ const Charts = {
                         afectoAlmacen = true;
                     }
 
-                    // Deep checks in arrays
+                    // Fallback para datos antiguos (Búsqueda por texto en detalle)
+                    if (!afectoAlmacen && nombreAlm && a.detalle && a.detalle.toLowerCase().includes(nombreAlm.toLowerCase())) {
+                        afectoAlmacen = true;
+                    }
+
+                    // Deep checks in arrays (lotes - Recepción uses this)
                     if (!afectoAlmacen && payload.lotes && Array.isArray(payload.lotes)) {
                         if (payload.lotes.some(l => l.almacenId === almacenId)) afectoAlmacen = true;
                     }
-                    if (!afectoAlmacen && payload.detalles && Array.isArray(payload.detalles)) {
-                        if (payload.detalles.some(d => d.almacenOrigenId === almacenId || d.almacenId === almacenId)) afectoAlmacen = true;
-                    }
 
-                    // Fallback para transacciones sin payload (legacy), no podemos rastrear de forma segura, descartar:
-                    if (!payload && !a.rawPayload) {
-                        return false;
+                    // Deep checks in arrays (detalles - other ops)
+                    if (!afectoAlmacen && payload.detalles && Array.isArray(payload.detalles)) {
+                        if (payload.detalles.some(d =>
+                            d.almacenOrigenId === almacenId ||
+                            d.almacenId === almacenId ||
+                            d.almacenDestinoId === almacenId
+                        )) afectoAlmacen = true;
                     }
 
                     if (!afectoAlmacen) return false;
 
-                    // Filtrado por Producto opcional
+                    // Product filter (optional)
                     if (productoId) {
                         let afectoProducto = false;
                         if (payload.productoId === productoId || payload.productoIdActual === productoId || payload.productoIdNuevo === productoId) {
                             afectoProducto = true;
                         }
+
+                        // Fallback para producto en texto
+                        if (!afectoProducto && nombreProd && a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase())) {
+                            afectoProducto = true;
+                        }
+
                         if (!afectoProducto && payload.lotes && Array.isArray(payload.lotes)) {
                             if (payload.lotes.some(l => l.productoId === productoId && l.almacenId === almacenId)) afectoProducto = true;
                         }
@@ -790,10 +821,15 @@ const Charts = {
                 filtradas.sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
 
                 if (filtradas.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
                 } else {
-                    let html = '';
-                    filtradas.forEach(a => {
+                    // Procesar de más antiguo a más reciente para calcular balance inline.
+                    // Solo se acumula balance para las filas que efectivamente se muestran.
+                    const filtAscendente = [...filtradas].reverse();
+                    let balAcum = 0;
+                    const rows = []; // Filas construidas con su balance ya calculado
+
+                    filtAscendente.forEach(a => {
                         const dateObj = new Date(a.date || a.fecha);
                         const fechaStr = `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 
@@ -825,7 +861,7 @@ const Charts = {
                             }
                         };
 
-                        // Evaluar direccion (Salida "isNegative" = true)
+                        // Evaluar dirección (Salida "isNegative" = true)
                         if (a.operacion === 'Recepción') {
                             isNegative = false;
                             checkLotesOrDetalles();
@@ -915,32 +951,45 @@ const Charts = {
                         let descCantidad = a.cantidad;
                         if (foundSpecificQty && sumCant > 0) {
                             descCantidad = `${isNegative ? '-' : '+'}${sumCant}`;
-                        } else if (foundSpecificQty && sumCant === 0) {
-                            return; // Ignoramos si para el producto filtrado esto resolvió a 0 en este almacén.
+                        } else if (foundSpecificQty && sumCant === 0 && productoId) {
+                            // Con filtro de producto activo: si no hubo impacto en este almacén∕producto, ignorar fila
+                            return;
                         }
+                        // Sin filtro de producto (productoId vacío): siempre mostrar la fila (usar cantidad raw si no
+                        // se pudo calcular la específica), para no perder transacciones en el reporte.
+
+                        // Acumular balance solo para filas visibles
+                        if (sumCant > 0) balAcum += isNegative ? -sumCant : sumCant;
 
                         const cantColor = descCantidad && descCantidad.startsWith('-') ? 'text-danger' : 'text-success';
+                        const balColor = balAcum >= 0 ? 'text-success' : 'text-danger';
+                        const balHtml = `<span class="font-bold font-mono ${balColor}">${balAcum.toLocaleString()}</span>`;
 
-                        html += `
+                        rows.push(`
                         <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                             <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${fechaStr}</td>
                             <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || '-'}</td>
                             <td class="py-2.5 px-4 font-medium text-white">${a.operacion}</td>
                             <td class="py-2.5 px-4 text-text-secondary italic text-xs leading-tight" title="${a.detalle}">${a.detalle}</td>
                             <td class="py-2.5 px-4 text-right font-bold ${cantColor} whitespace-nowrap">${descCantidad}</td>
+                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balHtml}</td>
                         </tr>
-                        `;
+                        `);
                     });
 
+
+                    // Mostrar de más reciente a más antiguo (invertir el array)
+                    const html = rows.reverse().join('');
+
                     if (html === '') {
-                        tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos de ese producto en este almacén para el rango actual.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos de ese producto en este almacén para el rango actual.</td></tr>`;
                     } else {
                         tbody.innerHTML = html;
                     }
                 }
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-danger">Error al cargar datos. Reporte al soporte.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-danger">Error al cargar datos. Reporte al soporte.</td></tr>`;
                 window.UI.showToast("Ocurrió un error al generar el reporte", "error");
             } finally {
                 btn.innerHTML = oldText;
@@ -1120,6 +1169,10 @@ Charts.renderCanastasPorCobrar = function () {
     const select = document.getElementById('canastas-cobrar-productor');
     const balanceDisplay = document.getElementById('canastas-cobrar-balance');
     const tbody = document.getElementById('canastas-cobrar-tbody');
+    const btnBuscar = document.getElementById('btn-canastas-cobrar-buscar');
+    const btnLimpiar = document.getElementById('btn-canastas-cobrar-limpiar');
+    const inputDesde = document.getElementById('canastas-cobrar-desde');
+    const inputHasta = document.getElementById('canastas-cobrar-hasta');
 
     if (!select || !balanceDisplay || !tbody) return;
 
@@ -1135,13 +1188,22 @@ Charts.renderCanastasPorCobrar = function () {
         window.UI.makeSelectSearchable('canastas-cobrar-productor');
     }
 
-    // Remover listener viejo si existe (clonando el nodo o creando una propiedad flag, pero un named function funciona mejor)
-    // Para simplificar, lo registramos una vez y usamos appStore
-    select.onchange = () => {
+    // Pre-llenar fechas con el mes actual si están vacías
+    if (inputDesde && !inputDesde.value) {
+        const hoy = new Date();
+        const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
+        const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10);
+        inputDesde.value = primerDia;
+        inputHasta.value = ultimoDia;
+    }
+
+    // Función principal que llena la tabla de movimientos
+    const cargarMovimientos = (usarFiltroFecha) => {
         const prodId = select.value;
         if (!prodId) return;
 
         const productor = productores.find(p => p.id === prodId);
+        const nombreProd = productor ? productor.nombre : '';
         const deudaTotal = productor ? (productor.canastasPrestadas || 0) : 0;
 
         balanceDisplay.innerText = deudaTotal.toLocaleString();
@@ -1158,18 +1220,79 @@ Charts.renderCanastasPorCobrar = function () {
 
         let historialProd = todasActividades.filter(a => {
             const payload = a.rawPayload || {};
-            if (payload.productorId === prodId) return true;
-            if (payload.productorOrigenId === prodId) return true;
-            if (payload.productorDestinoId === prodId) return true;
+            let involucraProductor = payload.productorId === prodId ||
+                payload.productorOrigenId === prodId ||
+                payload.productorDestinoId === prodId;
 
-            // Transacciones viejas o mal estructuradas pueden no tener prodId directo si no se usaba
-            return false;
+            // Fallback para datos antiguos sin rawPayload completo
+            if (!involucraProductor && nombreProd) {
+                involucraProductor = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
+            }
+
+            if (!involucraProductor) return false;
+
+            // Aplicar filtro de fecha si fue solicitado
+            if (usarFiltroFecha && inputDesde && inputHasta && inputDesde.value && inputHasta.value) {
+                const start = new Date(inputDesde.value + 'T00:00:00');
+                const end = new Date(inputHasta.value + 'T23:59:59.999');
+                const dt = new Date(a.date || a.fecha);
+                if (dt < start || dt > end) return false;
+            }
+
+            return true;
         });
 
+        // Ordenar por fecha más reciente primero
+        historialProd.sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
+
         if (historialProd.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos.</td></tr>`;
+            const msg = usarFiltroFecha && inputDesde.value
+                ? 'No se encontraron movimientos en el rango de fechas seleccionado.'
+                : 'No se encontraron movimientos.';
+            tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-text-secondary italic">${msg}</td></tr>`;
             return;
         }
+
+        // --- NUEVA LÓGICA DE BALANCE ANCLADO (Backwards calculation) ---
+        // 1. Obtener TODO el historial sin filtros para calcular el balance real exacto
+        const historialCompletoCalculo = todasActividades.filter(a => {
+            const payload = a.rawPayload || {};
+            let involucraP = payload.productorId === prodId ||
+                payload.productorOrigenId === prodId ||
+                payload.productorDestinoId === prodId;
+
+            if (!involucraP && nombreProd) {
+                involucraP = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
+            }
+
+            return involucraP;
+        }).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha)); // Del más nuevo al más antiguo
+
+        let balanceMovil = deudaTotal;
+        const balancePorId = {};
+
+        historialCompletoCalculo.forEach(a => {
+            // Guardamos el balance QUE HABÍA después de este movimiento
+            balancePorId[a.id] = balanceMovil;
+
+            const payload = a.rawPayload || {};
+            const mCantidad = parseInt(payload.cantidad || a.cantidad) || 0;
+
+            // Como vamos hacia atrás en el tiempo, revertimos el efecto de la operación
+            if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho Canastas Vacías') {
+                balanceMovil -= mCantidad; // En el pasado había menos deuda
+            } else if (a.operacion === 'Recepción') {
+                balanceMovil += mCantidad; // En el pasado había más deuda
+            } else if (a.operacion === 'Devolución' && payload.tipoOrigen === 'productor') {
+                balanceMovil += mCantidad; // En el pasado había más deuda
+            } else if (a.operacion === 'Transf. Fincas') {
+                if (payload.productorOrigenId === prodId) {
+                    balanceMovil += mCantidad; // Era origen: soltó deuda, antes tenía más
+                } else {
+                    balanceMovil -= mCantidad; // Era destino: ganó deuda, antes tenía menos
+                }
+            }
+        });
 
         const formatter = new Intl.NumberFormat('es-DO');
         let htmlTbody = '';
@@ -1190,13 +1313,17 @@ Charts.renderCanastasPorCobrar = function () {
                 impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (- Deuda)</span>`;
             } else if (a.operacion === 'Transf. Fincas') {
                 if (payload.productorOrigenId === prodId) {
-                    impactHtml = `<span class="text-danger font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (+ Deuda)</span>`;
-                } else {
                     impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (- Deuda)</span>`;
+                } else {
+                    impactHtml = `<span class="text-danger font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (+ Deuda)</span>`;
                 }
             } else {
                 impactHtml = `<span class="text-text-muted font-mono">${formatter.format(mCantidad)} (N/A)</span>`;
             }
+
+            const balFila = balancePorId[a.id] ?? 0;
+            const balColor = balFila > 0 ? 'text-danger' : (balFila < 0 ? 'text-success' : 'text-text-muted');
+            const balanceHtml = `<span class="font-bold font-mono ${balColor}">${formatter.format(balFila)}</span>`;
 
             htmlTbody += `
                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm">
@@ -1204,6 +1331,7 @@ Charts.renderCanastasPorCobrar = function () {
                     <td class="py-2.5 px-4"><span class="bg-surface border border-border px-2 py-0.5 rounded text-xs font-semibold text-white">${a.operacion}</span></td>
                     <td class="py-2.5 px-4 text-white text-xs truncate max-w-xs" title="${a.detalle}">${a.detalle}</td>
                     <td class="py-2.5 px-4 text-right">${impactHtml}</td>
+                    <td class="py-2.5 px-4 text-right">${balanceHtml}</td>
                 </tr>
             `;
         });
@@ -1212,9 +1340,180 @@ Charts.renderCanastasPorCobrar = function () {
         if (window.lucide) window.lucide.createIcons({ root: tbody });
     };
 
+    // Cambio de productor: auto-carga con filtro de fecha activo si hay fechas
+    select.onchange = () => {
+        const tieneFecha = inputDesde && inputDesde.value && inputHasta && inputHasta.value;
+        cargarMovimientos(tieneFecha);
+    };
+
+    // Botón Consultar (con filtro de fecha)
+    if (btnBuscar) {
+        btnBuscar.onclick = () => {
+            if (!select.value) {
+                window.UI.showToast('Seleccione un productor primero.', 'warning');
+                return;
+            }
+            if (!inputDesde.value || !inputHasta.value) {
+                window.UI.showToast('Ingrese un rango de fechas válido.', 'warning');
+                return;
+            }
+            cargarMovimientos(true);
+        };
+    }
+
+    // Botón Todo (sin filtro de fecha)
+    if (btnLimpiar) {
+        btnLimpiar.onclick = () => {
+            if (!select.value) {
+                window.UI.showToast('Seleccione un productor primero.', 'warning');
+                return;
+            }
+            cargarMovimientos(false);
+        };
+    }
+
     // Si había uno seleccionado por actualización, forzar update
     if (select.value) {
-        select.onchange();
+        const tieneFecha = inputDesde && inputDesde.value && inputHasta && inputHasta.value;
+        cargarMovimientos(tieneFecha);
+    }
+};
+
+window.exportCanastasCobrarToExcel = function () {
+    try {
+        if (typeof XLSX === 'undefined') {
+            window.UI.showToast("La librería de Excel no ha cargado. Verifique su conexión.", "error");
+            return;
+        }
+
+        const tbody = document.getElementById('canastas-cobrar-tbody');
+        const select = document.getElementById('canastas-cobrar-productor');
+        const producerName = select.options[select.selectedIndex]?.text || 'Productor';
+
+        if (!tbody || tbody.rows.length === 0 || tbody.innerText.includes('Seleccione') || tbody.innerText.includes('No se encontraron')) {
+            window.UI.showToast("No hay datos para exportar.", "warning");
+            return;
+        }
+
+        const data = [];
+        // Headers
+        data.push(["Fecha", "Operación", "Detalle", "Impacto", "Balance"]);
+
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            if (row.cells.length < 5) continue;
+
+            const impactoText = row.cells[3].innerText.trim();
+            const balanceText = row.cells[4].innerText.trim();
+
+            // Robust parsing for Spanish formatting (Thousands: dot, Decimals: comma)
+            // 1. Remove dots (thousands)
+            // 2. Replace comma with dot (decimal)
+            // 3. Remove non-numeric chars except minus sign and decimal dot
+            const cleanImpacto = impactoText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+            const cleanBalance = balanceText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+
+            let impactoNum = parseFloat(cleanImpacto) || 0;
+            const balanceNum = parseFloat(cleanBalance) || 0;
+
+            // Apply negative sign for debt increases if requested
+            // if texto contains "(+ Deuda)" -> Negative
+            if (impactoText.includes('(+ Deuda)')) {
+                impactoNum = -Math.abs(impactoNum);
+            } else {
+                impactoNum = Math.abs(impactoNum);
+            }
+
+            data.push([
+                row.cells[0].innerText.trim(),
+                row.cells[1].innerText.trim(),
+                row.cells[2].innerText.trim(),
+                { v: impactoNum, t: 'n' },
+                { v: balanceNum, t: 'n' }
+            ]);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Canastas por Cobrar");
+
+        // Auto-size columns
+        ws['!cols'] = data[0].map((_, i) => ({ wch: Math.max(15, i === 2 ? 40 : 15) }));
+
+        const fileName = `Canastas_Cobrar_${producerName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        window.UI.showToast("Excel generado correctamente", "success");
+    } catch (err) {
+        console.error("Error exporting to Excel:", err);
+        window.UI.showToast("Error al exportar: " + err.message, "error");
+    }
+};
+
+window.exportReporteInventarioToExcel = function () {
+    try {
+        if (typeof XLSX === 'undefined') {
+            window.UI.showToast("La librería de Excel no ha cargado. Verifique su conexión.", "error");
+            return;
+        }
+
+        const tbody = document.getElementById('rep-inv-tbody');
+        const selAlmacen = document.getElementById('rep-inv-almacen');
+        const almacenNombre = selAlmacen.options[selAlmacen.selectedIndex]?.text || 'Almacen';
+
+        if (!tbody || tbody.rows.length === 0 || tbody.innerText.includes('Seleccione') || tbody.innerText.includes('No se encontraron')) {
+            window.UI.showToast("No hay datos para exportar.", "warning");
+            return;
+        }
+
+        const data = [];
+        // Headers
+        data.push(["Fecha y Hora", "Doc #", "Operación", "Detalle", "Cantidad", "Balance"]);
+
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            if (row.cells.length < 6) continue;
+
+            const cantText = row.cells[4].innerText.trim();
+            const balanceText = row.cells[5].innerText.trim();
+
+            // Robust parsing for Spanish formatting (Thousands: dot, Decimals: comma)
+            const cleanCant = cantText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+            const cleanBalance = balanceText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+
+            let cantNum = parseFloat(cleanCant) || 0;
+            const balanceNum = parseFloat(cleanBalance) || 0;
+
+            // "en el archivo de excel que me salga en negativo las transacciones que aumenten la deuda"
+            // Deuda aumenta si el texto dice "(+ Deuda)"
+            if (cantText.includes('(+ Deuda)')) {
+                cantNum = -Math.abs(cantNum);
+            } else if (cantText.includes('(- Deuda)')) {
+                cantNum = Math.abs(cantNum);
+            }
+
+            data.push([
+                row.cells[0].innerText.trim(),
+                row.cells[1].innerText.trim(),
+                row.cells[2].innerText.trim(),
+                row.cells[3].innerText.trim(),
+                { v: cantNum, t: 'n' },
+                { v: balanceNum, t: 'n' }
+            ]);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Movimientos Inventario");
+
+        // Auto-size columns
+        ws['!cols'] = data[0].map((_, i) => ({ wch: Math.max(15, (i === 3) ? 50 : 15) }));
+
+        const fileName = `Movimientos_${almacenNombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        window.UI.showToast("Excel generado correctamente", "success");
+    } catch (err) {
+        console.error("Error exporting to Excel:", err);
+        window.UI.showToast("Error al exportar: " + err.message, "error");
     }
 };
 

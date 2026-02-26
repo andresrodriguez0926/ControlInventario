@@ -414,7 +414,7 @@
                             </div>
                         </div>
 
-                        <div class="flex flex-col md:flex-row gap-6 mb-6 relative z-30 items-start">
+                        <div class="flex flex-col md:flex-row gap-6 mb-4 relative z-30 items-start">
                             <div class="flex-1 w-full form-group relative z-30">
                                 <label class="form-label mb-2 font-medium">Seleccionar Productor</label>
                                 <select id="canastas-cobrar-productor"
@@ -433,6 +433,42 @@
                             </div>
                         </div>
 
+                        <!-- Filtro de Rango de Fecha -->
+                        <div
+                            class="flex flex-col md:flex-row gap-3 mb-6 items-end relative z-20 bg-surface-light/40 border border-border rounded-xl p-4">
+                            <div class="flex items-center gap-2 mr-1">
+                                <i data-lucide="calendar-range" class="w-4 h-4 text-warning shrink-0"></i>
+                                <span class="text-sm font-medium text-text-secondary whitespace-nowrap">Rango de
+                                    Fechas</span>
+                            </div>
+                            <div class="form-group mb-0 flex-1">
+                                <label class="form-label mb-1 text-xs">Desde</label>
+                                <input type="date" id="canastas-cobrar-desde"
+                                    class="form-input text-sm border-warning/20 focus:border-warning">
+                            </div>
+                            <div class="form-group mb-0 flex-1">
+                                <label class="form-label mb-1 text-xs">Hasta</label>
+                                <input type="date" id="canastas-cobrar-hasta"
+                                    class="form-input text-sm border-warning/20 focus:border-warning">
+                            </div>
+                            <div class="form-group mb-0 flex gap-2">
+                                <button type="button" id="btn-canastas-cobrar-buscar"
+                                    class="btn btn-primary text-sm h-[38px] px-5 flex items-center gap-2 whitespace-nowrap">
+                                    <i data-lucide="search" class="w-4 h-4"></i> Consultar
+                                </button>
+                                <button type="button" id="btn-canastas-cobrar-limpiar"
+                                    class="btn btn-secondary text-sm h-[38px] px-3 flex items-center gap-1 whitespace-nowrap"
+                                    title="Ver todos los movimientos sin filtro de fecha">
+                                    <i data-lucide="x" class="w-4 h-4"></i> Todo
+                                </button>
+                                <button type="button" onclick="window.exportCanastasCobrarToExcel()"
+                                    class="btn bg-success/80 hover:bg-success text-white text-sm h-[38px] px-4 flex items-center gap-2 whitespace-nowrap transition-colors"
+                                    title="Descargar historial a Excel">
+                                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="overflow-x-auto border border-border rounded-lg bg-surface relative z-10">
                             <table class="w-full text-left">
                                 <thead>
@@ -441,12 +477,13 @@
                                         <th class="py-3 px-4 font-semibold w-36">Fecha</th>
                                         <th class="py-3 px-4 font-semibold w-40">Operación</th>
                                         <th class="py-3 px-4 font-semibold">Detalle</th>
-                                        <th class="py-3 px-4 font-semibold text-right w-24">Impacto</th>
+                                        <th class="py-3 px-4 font-semibold text-right w-28">Impacto</th>
+                                        <th class="py-3 px-4 font-semibold text-right w-28">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody id="canastas-cobrar-tbody">
                                     <tr>
-                                        <td colspan="4"
+                                        <td colspan="5"
                                             class="py-12 text-center text-text-secondary italic flex flex-col items-center justify-center">
                                             <i data-lucide="users" class="w-8 h-8 opacity-30 mb-2"></i>
                                             Seleccione un productor para ver sus movimientos.
@@ -496,6 +533,11 @@
                                     class="btn btn-primary text-sm h-[38px] px-6 flex items-center justify-center">
                                     <i data-lucide="search" class="w-4 h-4 mr-2"></i> Buscar Movimientos
                                 </button>
+                                <button type="button" onclick="window.exportReporteInventarioToExcel()"
+                                    class="btn bg-success/80 hover:bg-success text-white text-sm h-[38px] px-4 flex items-center gap-2 whitespace-nowrap transition-colors"
+                                    title="Descargar este reporte a Excel">
+                                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+                                </button>
                             </div>
                         </div>
 
@@ -510,11 +552,12 @@
                                         <th class="py-3 px-4 font-semibold w-40">Operación</th>
                                         <th class="py-3 px-4 font-semibold">Detalle del Movimiento</th>
                                         <th class="py-3 px-4 font-semibold text-right w-24">Cantidad</th>
+                                        <th class="py-3 px-4 font-semibold text-right w-28">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rep-inv-tbody">
                                     <tr>
-                                        <td colspan="5"
+                                        <td colspan="6"
                                             class="py-12 text-center text-text-secondary italic flex flex-col items-center justify-center">
                                             <i data-lucide="inbox" class="w-8 h-8 opacity-30 mb-2"></i>
                                             Seleccione un almacén y rango de fechas, luego presione <b>Buscar
@@ -981,16 +1024,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 
+    <!-- Excel Export Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <!-- Scripts de la App -->
-    <script src="js/store.js?v=7"></script>
-    <script src="js/ui.js?v=7"></script>
-    <script src="js/charts.js?v=7"></script>
-    <script src="js/modules/catalogos.js?v=7"></script>
-    <script src="js/modules/operaciones.js?v=7"></script>
-    <script src="js/modules/operaciones2.js?v=7"></script>
-    <script src="js/modules/usuarios.js?v=7"></script>
-    <script src="js/modules/reportes.js?v=7"></script>
-    <script src="js/app.js?v=7"></script>
+    <script src="js/store.js?v=15"></script>
+    <script src="js/ui.js?v=15"></script>
+    <script src="js/charts.js?v=15"></script>
+    <script src="js/modules/catalogos.js?v=15"></script>
+    <script src="js/modules/operaciones.js?v=15"></script>
+    <script src="js/modules/operaciones2.js?v=15"></script>
+    <script src="js/modules/usuarios.js?v=15"></script>
+    <script src="js/modules/reportes.js?v=15"></script>
+    <script src="js/app.js?v=15"></script>
 
     <!-- Register Service Worker -->
     <script>

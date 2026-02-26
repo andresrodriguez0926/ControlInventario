@@ -214,8 +214,8 @@ class Store {
         }
 
         state.actividad.push(logItem);
-        if (state.actividad.length > 200) {
-            state.actividad = state.actividad.slice(-200);
+        if (state.actividad.length > 1500) {
+            state.actividad = state.actividad.slice(-1500);
         }
     }
 
@@ -800,10 +800,11 @@ class Store {
         });
     }
 
-    async transferenciaInterna({ almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia }) {
+    async transferenciaInterna({ almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId }) {
         cantidad = parseInt(cantidad);
+        canastasVacias = parseInt(canastasVacias) || 0;
         await this.runTransaction(state => {
-            if (almacenOrigenId === almacenDestinoId && productoIdActual === productoIdNuevo) {
+            if (almacenOrigenId === almacenDestinoId && productoIdActual === productoIdNuevo && canastasVacias === 0) {
                 throw new Error("El origen/producto y destino/producto no pueden ser exactamente los mismos.");
             }
 
@@ -813,20 +814,38 @@ class Store {
                 throw new Error(`Inventario insuficiente: No hay ${cantidad} canastas llenas de ${pName} en el almacén de origen.`);
             }
 
-            // Descontar del origen
+            // Descontar llenas del origen
             invOrigen[productoIdActual] -= cantidad;
 
-            // Sumar al destino (con el producto que será ahora)
+            // Sumar llenas al destino (con el producto que será ahora)
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
             const invDestino = state.inventario.porAlmacen[almacenDestinoId];
-
             invDestino[productoIdNuevo] = (invDestino[productoIdNuevo] || 0) + cantidad;
 
             // (La cantidad GLOBAL de "canastas llenas" no cambia, solo se mueven de lugar/tipo)
 
+            // --- TRAZABILIDAD DE VACÍAS ---
+            let vaciasStr = '';
+            if (canastasVacias > 0 && almacenDestinoVaciasId) {
+                const disponiblesVacias = invOrigen.vacias || 0;
+                if (disponiblesVacias < canastasVacias) {
+                    throw new Error(`Vacías insuficientes en origen. Disponibles: ${disponiblesVacias}, solicitadas: ${canastasVacias}.`);
+                }
+                // Descontar vacías del origen
+                invOrigen.vacias -= canastasVacias;
+                state.inventario.canastasVacias -= canastasVacias;
+
+                // Sumar vacías al destino de vacías
+                if (!state.inventario.porAlmacen[almacenDestinoVaciasId]) state.inventario.porAlmacen[almacenDestinoVaciasId] = { vacias: 0 };
+                state.inventario.porAlmacen[almacenDestinoVaciasId].vacias += canastasVacias;
+                state.inventario.canastasVacias += canastasVacias;
+
+                vaciasStr = ` | Vacías: ${canastasVacias}`;
+            }
+
             const pStr = productoIdActual === productoIdNuevo ? 'Misma Fruta' : 'Cambio Fruta';
-            const rawPayload = { almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia };
-            this._registrarActividad(state, 'Transf. Interna', `Mueve: ${personaTransfiere} (${pStr})`, `${cantidad} movidas`, fechaTransferencia, rawPayload);
+            const rawPayload = { almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId };
+            this._registrarActividad(state, 'Transf. Interna', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
         });
     }
 
@@ -896,6 +915,97 @@ class Store {
                 fechaBaja,
                 { almacenId, cantidad, personaBaja, descripcion, fechaBaja }
             );
+        });
+    }
+
+    async applyDataFixes() {
+        await this.runTransaction(state => {
+            // 1. Fix date for known documents
+            const docsToFixDate = ["DOC-0137", "DOC-0139", "DOC-0140", "DOC-0143"];
+            const newDateStr = "2026-02-26T12:00:00.000Z";
+
+            let processedCount = 0;
+            if (state.actividad) {
+                // Pre-buscar IDs para reparaciones por nombre
+                const almRampa = state.almacenes.find(a => a.nombre.toUpperCase().includes('RAMPA'))?.id;
+                const almFrizzer10 = state.almacenes.find(a => a.nombre.toUpperCase().includes('FRIZZER 10') || a.nombre.toUpperCase().includes('FREEZER 10'))?.id;
+                const almMaduracion = state.almacenes.find(a => a.nombre.toUpperCase().includes('MADURACI'))?.id;
+                const prodGuineoMaduro = state.productos.find(p => p.nombre.toUpperCase().includes('GUINEO MADURO'))?.id;
+                const prodGuineoVerde = state.productos.find(p => p.nombre.toUpperCase().includes('GUINEO VERDE'))?.id;
+
+                // Mapa de almacén por documento para DOC-0177 a DOC-0180
+                const almacenPorDoc = {
+                    'DOC-0177': almRampa,
+                    'DOC-0178': almMaduracion,
+                    'DOC-0179': almRampa,
+                    'DOC-0180': almRampa,
+                };
+
+                state.actividad.forEach(act => {
+                    // Fix fechas grupo 1: documentos al 2026-02-26
+                    if (docsToFixDate.includes(act.numeroDocumento)) {
+                        act.date = newDateStr;
+                        processedCount++;
+                    }
+
+                    // Fix fechas grupo 2: documentos 177-180 al 2026-02-27
+                    if (['DOC-0177', 'DOC-0178', 'DOC-0179', 'DOC-0180'].includes(act.numeroDocumento)) {
+                        act.date = '2026-02-27T12:00:00.000Z';
+                        processedCount++;
+                    }
+
+                    // Reparación Quirúrgica DOC-0177 a DOC-0180 (Despachos sin rawPayload)
+                    if (almacenPorDoc[act.numeroDocumento] && !act.rawPayload) {
+                        const almId = almacenPorDoc[act.numeroDocumento];
+                        // Intentar extraer cantidad del campo 'cantidad' (ej: "-50 llenas")
+                        const cantMatch = String(act.cantidad || '').match(/\d+/);
+                        const cant = cantMatch ? parseInt(cantMatch[0]) : 0;
+                        act.rawPayload = {
+                            clienteNombre: act.detalle?.match(/A cliente:\s*(.*?)\s*\|/)?.[1] || 'No registrado',
+                            fecha: act.date?.slice(0, 10),
+                            total: cant,
+                            detalles: [{
+                                almacenOrigenId: almId,
+                                productoId: null,   // No se puede recuperar sin el dato original
+                                cantidad: cant
+                            }]
+                        };
+                        processedCount++;
+                    }
+
+                    // Reparación Quirúrgica DOC-0150 (Guineo Maduro - Filling)
+                    if (act.numeroDocumento === 'DOC-0150' && !act.rawPayload) {
+                        act.operacion = 'Fruta Demás';
+                        act.detalle = 'Llenadas con: GUINEO MADURO';
+                        act.cantidad = '+111 llenadas';
+                        act.rawPayload = {
+                            cantidad: 111,
+                            productoId: prodGuineoMaduro || 'guineo-maduro-id', // Fallback if find fails
+                            almacenOrigenId: almRampa || 'rampa-id',
+                            almacenDestinoId: almFrizzer10 || 'frizzer-10-id',
+                            fechaLlenado: act.date.slice(0, 10)
+                        };
+                        processedCount++;
+                    }
+
+                    // Reparación Quirúrgica DOC-0151 (Guineo Verde - Filling)
+                    // Según el historial anterior, 151 es "GUINEO VERDE (40)"
+                    if (act.numeroDocumento === 'DOC-0151' && !act.rawPayload) {
+                        act.operacion = 'Fruta Demás';
+                        act.detalle = 'Llenadas con: GUINEO VERDE';
+                        act.cantidad = '+40 llenadas';
+                        act.rawPayload = {
+                            cantidad: 40,
+                            productoId: prodGuineoVerde || 'guineo-verde-id',
+                            almacenOrigenId: almRampa || 'rampa-id', // Asumimos mismo origen si no se especificó
+                            almacenDestinoId: almFrizzer10 || 'frizzer-10-id',
+                            fechaLlenado: act.date.slice(0, 10)
+                        };
+                        processedCount++;
+                    }
+                });
+            }
+            console.log(`[DataFix] Processed ${processedCount} records.`);
         });
     }
 
