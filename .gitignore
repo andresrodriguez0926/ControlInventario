@@ -1,0 +1,11 @@
+# Variables de entorno (no subir al repositorio)
+.env
+.env.local
+.env.production
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Node modules (si algún día usas npm)
+node_modules/
