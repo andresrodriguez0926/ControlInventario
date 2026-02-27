@@ -1,4 +1,8 @@
-const CACHE_NAME = `inventariopro-v${new Date().getTime()}`;
+// VERSION: bump this number on every deploy to force cache refresh
+const CACHE_VERSION = 'v26';
+const CACHE_NAME = `inventariopro-${CACHE_VERSION}`;
+
+// Archivos que se cachean solo como fallback (Network-First)
 const urlsToCache = [
     './',
     './index.html',
@@ -17,67 +21,61 @@ const urlsToCache = [
     './js/app.js'
 ];
 
+// Instalar: pre-cachear archivos
 self.addEventListener('install', event => {
+    // Activar inmediatamente sin esperar que cierren las pestañas antiguas
+    self.skipWaiting();
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Opened cache');
-                return cache.addAll(urlsToCache);
-            })
+        caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
     );
 });
 
+// Activar: eliminar cachés viejos
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames =>
+            Promise.all(
+                cacheNames
+                    .filter(name => name !== CACHE_NAME)
+                    .map(name => caches.delete(name))
+            )
+        ).then(() => self.clients.claim()) // Toma control de todas las pestañas abiertas
+    );
+});
+
+// Fetch: Network-First para JS/HTML, Cache-First para imágenes/CSS
 self.addEventListener('fetch', event => {
-    // Solo interceptamos peticiones GET
     if (event.request.method !== 'GET') return;
 
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Cache hit - return response
-                if (response) {
+    const url = new URL(event.request.url);
+    const isAppFile = url.origin === self.location.origin;
+    const isJsOrHtml = /\.(js|html)$/.test(url.pathname) || url.pathname === '/' || url.pathname.endsWith('/');
+
+    if (isAppFile && isJsOrHtml) {
+        // Network-First: siempre intenta descargar la versión más nueva
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (response && response.status === 200) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                    }
                     return response;
-                }
-
-                return fetch(event.request).then(
-                    function (response) {
-                        // Check if we received a valid response
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        // IMPORTANTE: Clonar la respuesta. Una respuesta es un stream
-                        // y como queremos que el navegador la consuma y que la caché también
-                        // la consuma, necesitamos clonarla para que haya dos streams.
-                        var responseToCache = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(function (cache) {
-                                // No cachear peticiones a Firebase u otras APIs externas dinámicas
-                                if (event.request.url.startsWith(self.location.origin)) {
-                                    cache.put(event.request, responseToCache);
-                                }
-                            });
-
-                        return response;
-                    }
-                );
-            })
-    );
-});
-
-self.addEventListener('activate', event => {
-    const cacheWhitelist = [CACHE_NAME];
-
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        return caches.delete(cacheName);
-                    }
                 })
-            );
-        })
-    );
+                .catch(() => caches.match(event.request)) // Fallback al caché si no hay red
+        );
+    } else {
+        // Cache-First para recursos estáticos (imágenes, CSS, fuentes)
+        event.respondWith(
+            caches.match(event.request).then(cached => {
+                return cached || fetch(event.request).then(response => {
+                    if (response && response.status === 200 && isAppFile) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                    }
+                    return response;
+                });
+            })
+        );
+    }
 });
