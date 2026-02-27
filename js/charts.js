@@ -533,7 +533,8 @@ const Charts = {
         duringWeek.forEach(a => {
             if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
                 const dateObj = new Date(a.date || a.fecha);
-                const dayKey = dateObj.toISOString().split('T')[0];
+                // Use local date for dayKey to avoid UTC midnight rollover shifting e.g. Friday → Saturday
+                const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
                 if (!txDataByDay[dayKey]) {
                     txDataByDay[dayKey] = {
@@ -651,7 +652,8 @@ const Charts = {
     },
 
     shareWhatsAppDay(isoDateStr, txDataByDay, diasSemana, formatter) {
-        const dayKey = isoDateStr.split('T')[0];
+        const d = new Date(isoDateStr);
+        const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const dayData = txDataByDay[dayKey];
         if (!dayData) return;
 
