@@ -546,12 +546,36 @@ const Charts = {
 
                 if (a.rawPayload) {
                     const items = a.rawPayload.detalles || a.rawPayload.lotes || [];
+                    let addedAnyProd = false;
                     items.forEach(lote => {
+                        if (!lote.productoId) return; // skip nulls — will try detalle fallback below
                         const cant = parseInt(lote.cantidad) || 0;
                         txDataByDay[dayKey].prods[lote.productoId] = (txDataByDay[dayKey].prods[lote.productoId] || 0) + cant;
                         txDataByDay[dayKey].total += cant;
                         totalTx += cant;
+                        addedAnyProd = true;
                     });
+
+                    // Si ningún item tenía productoId (rawPayload reparado sin info de producto),
+                    // intentar extraer nombres de frutas del campo detalle
+                    if (!addedAnyProd && a.detalle && a.detalle.includes('|')) {
+                        const parts = a.detalle.split('|');
+                        if (parts.length > 1) {
+                            parts[1].trim().split(',').forEach(item => {
+                                const match = item.match(/(.+?)\s*\((\d+)\)/);
+                                if (match) {
+                                    const prodName = match[1].trim();
+                                    const qty = parseInt(match[2], 10);
+                                    const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                                    if (foundProd) {
+                                        txDataByDay[dayKey].prods[foundProd.id] = (txDataByDay[dayKey].prods[foundProd.id] || 0) + qty;
+                                        txDataByDay[dayKey].total += qty;
+                                        totalTx += qty;
+                                    }
+                                }
+                            });
+                        }
+                    }
                 } else if (a.detalle && a.detalle.includes('|')) {
                     // Fallback to parsing history strings e.g., "A cliente: Juan | Aguacate (10), Mango (5)"
                     const parts = a.detalle.split('|');
