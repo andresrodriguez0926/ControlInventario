@@ -33,6 +33,11 @@ window.appModules['usuarios'] = () => {
                     <h2 class="text-2xl font-bold text-white mb-2">Gestión de Usuarios</h2>
                     <p class="text-text-secondary">Administra los accesos y contraseñas de los empleados del sistema.</p>
                 </div>
+                <div>
+                    <button type="button" id="btn-migrate-db" class="btn border border-warning text-warning hover:bg-warning/10 text-sm py-2 px-4 whitespace-nowrap flex items-center gap-2">
+                        <i data-lucide="database" class="w-4 h-4"></i> Migrar Historial a Nueva BD
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -145,6 +150,23 @@ window.appModuleEvents['usuarios'] = () => {
     const rolSelect = document.getElementById('user-rol');
     const permsBlock = document.getElementById('permissions-block');
     const btnCancel = document.getElementById('btn-cancel-user');
+    const btnMigrate = document.getElementById('btn-migrate-db');
+
+    if (btnMigrate) {
+        btnMigrate.addEventListener('click', async () => {
+            if (confirm("¿Estás seguro de migrar el historial a la nueva estructura? Esto tomará unos segundos y es irreversible...")) {
+                const prevHtml = btnMigrate.innerHTML;
+                btnMigrate.innerHTML = '<i class="lucide-loader animate-spin w-4 h-4"></i> Migrando...';
+                btnMigrate.disabled = true;
+
+                await window.appStore.migrateActividadToCollection();
+
+                btnMigrate.innerHTML = prevHtml;
+                btnMigrate.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        });
+    }
 
     if (!form) return;
 

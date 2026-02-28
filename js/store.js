@@ -33,7 +33,6 @@ const defaultData = {
         despachadasCliente: 0,
         porAlmacen: {}
     },
-    actividad: [],
     usuarios: [],
     nextProductorId: 1,
     nextClienteId: 1,
@@ -44,12 +43,15 @@ class Store {
     constructor() {
         this.data = structuredClone(defaultData);
         this.dbRef = db.collection('appData').doc('mainState');
+        this.actividadRef = db.collection('actividad'); // Referencia a la nueva colección
+        this.actividadCache = []; // Caché local para la actividad
+        this.actividadLoaded = false;
         this.isLoaded = false;
 
         this.listenToCloud();
+        this.listenToActividad();
     }
 
-    // Escucha todos los cambios desde la Nube en Tiempo Real
     listenToCloud() {
         this.unsubscribe = this.dbRef.onSnapshot((doc) => {
             if (doc.exists) {
@@ -84,10 +86,28 @@ class Store {
             }
 
             this.isLoaded = true;
-            window.dispatchEvent(new Event('store:updated'));
+            if (this.actividadLoaded) {
+                window.dispatchEvent(new Event('store:updated'));
+            }
         }, (error) => {
-            console.error("Error escuchando Firebase:", error);
+            console.error("Error escuchando Firebase mainState:", error);
             window.UI.showToast("Error de conexión a la Nube", "error");
+        });
+    }
+
+    // Escucha la colección de Actividad
+    listenToActividad() {
+        // Ordenamos por fecha descendente y limitamos a las últimas 1500 en memoria caché del cliente
+        // en Firestore no hay límite, pero no queremos saturar el navegador con 2 millones de registros en la UI
+        this.actividadRef.orderBy('date', 'desc').limit(1500).onSnapshot((snapshot) => {
+            this.actividadCache = snapshot.docs.map(doc => doc.data());
+
+            this.actividadLoaded = true;
+            if (this.isLoaded) {
+                window.dispatchEvent(new Event('store:updated'));
+            }
+        }, (error) => {
+            console.error("Error escuchando Firebase actividad:", error);
         });
     }
 
@@ -101,8 +121,8 @@ class Store {
                 const doc = await transaction.get(this.dbRef);
                 let serverData = doc.exists ? doc.data() : structuredClone(defaultData);
 
-                // Ejecutamos la logica sobre serverData
-                operationFn(serverData);
+                // Ejecutamos la logica sobre serverData, pasamos transaction para que pueda guardar docs extra
+                await operationFn(serverData, transaction);
 
                 transaction.set(this.dbRef, serverData);
             });
@@ -125,9 +145,7 @@ class Store {
     getUsuarios() { return this.data.usuarios || []; }
 
     getActividad(limit = 10) {
-        return [...(this.data.actividad || [])]
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, limit);
+        return this.actividadCache.slice(0, limit);
     }
 
     getStats() {
@@ -185,9 +203,7 @@ class Store {
     }
 
     // Helper interno para actividad
-    _registrarActividad(state, operacion, detalle, cantidad, customDate = null, rawPayload = null) {
-        if (!state.actividad) state.actividad = [];
-
+    _registrarActividad(state, transaction, operacion, detalle, cantidad, customDate = null, rawPayload = null) {
         // Autoincrementar Secuencia de Documento
         state.secuenciaDocumento = (state.secuenciaDocumento || 0) + 1;
         const numDocFormateado = "DOC-" + String(state.secuenciaDocumento).padStart(4, '0');
@@ -199,8 +215,9 @@ class Store {
             actDate.setFullYear(year, month - 1, day);
         }
 
+        const logId = this.generateId();
         const logItem = {
-            id: this.generateId(),
+            id: logId,
             numeroDocumento: numDocFormateado,
             date: actDate.toISOString(),
             operacion,
@@ -213,9 +230,13 @@ class Store {
             logItem.rawPayload = rawPayload;
         }
 
-        state.actividad.push(logItem);
-        if (state.actividad.length > 1500) {
-            state.actividad = state.actividad.slice(-1500);
+        // Guardamos en la nueva colección independiente
+        const docRef = db.collection('actividad').doc(logId);
+        if (transaction) {
+            transaction.set(docRef, logItem);
+        } else {
+            // Fallback por si acaso no hay transacción 
+            docRef.set(logItem);
         }
     }
 
@@ -430,17 +451,18 @@ class Store {
             rawPayload.cantidad = totalCantidad;
             rawPayload.almacenDestinoId = lotes[0].almacenId;
 
-            this._registrarActividad(state, 'Recepción', detalleStr, `+${totalCantidad} llenas`, fechaRecepcion, rawPayload);
+            this._registrarActividad(state, transaction, 'Recepción', detalleStr, `+${totalCantidad} llenas`, fechaRecepcion, rawPayload);
         });
     }
 
     async editarRecepcion(idActividad, nuevoPayload) {
         const nuevaCantidadTotal = parseInt(nuevoPayload.cantidad);
-        await this.runTransaction(state => {
-            const actIndex = state.actividad.findIndex(a => a.id === idActividad);
-            if (actIndex === -1) throw new Error("No se encontró el registro de actividad para modificar.");
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para modificar.");
 
-            const actividadObj = state.actividad[actIndex];
+            const actividadObj = docSnap.data();
             if (!actividadObj.rawPayload) {
                 throw new Error("No se puede editar: Este registro es demasiado antiguo y no contiene los datos técnicos necesarios para revertir el inventario seguramente.");
             }
@@ -525,6 +547,8 @@ class Store {
                 actDate.setFullYear(year, month - 1, day);
                 actividadObj.date = actDate.toISOString();
             }
+
+            transaction.update(docRef, actividadObj);
         });
     }
 
@@ -546,17 +570,18 @@ class Store {
             const productorName = productor?.nombre || 'Desconocido';
 
             const rawPayload = { personaRetira, cantidad, productorId, almacenOrigenId, fechaDespacho };
-            this._registrarActividad(state, 'Desp. Vacías', `A productor: ${productorName}, Retira: ${personaRetira}`, `-${cantidad} vacías`, fechaDespacho, rawPayload);
+            this._registrarActividad(state, transaction, 'Desp. Vacías', `A productor: ${productorName}, Retira: ${personaRetira}`, `-${cantidad} vacías`, fechaDespacho, rawPayload);
         });
     }
 
     async editarDespachoVacias(idActividad, nuevoPayload) {
         const nuevaCantidad = parseInt(nuevoPayload.cantidad);
-        await this.runTransaction(state => {
-            const actIndex = state.actividad.findIndex(a => a.id === idActividad);
-            if (actIndex === -1) throw new Error("No se encontró el registro de actividad para modificar.");
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para modificar.");
 
-            const actividadObj = state.actividad[actIndex];
+            const actividadObj = docSnap.data();
             if (!actividadObj.rawPayload) {
                 throw new Error("No se puede editar: Este registro es antiguo y no contiene los datos técnicos necesarios para revertirlo.");
             }
@@ -605,6 +630,8 @@ class Store {
                 actDate.setFullYear(year, month - 1, day);
                 actividadObj.date = actDate.toISOString();
             }
+
+            transaction.update(docRef, actividadObj);
         });
     }
 
@@ -628,7 +655,7 @@ class Store {
             const pDestino = pDestinoObj?.nombre || 'Desconocido';
 
             const rawPayload = { personaTransfiere, productorOrigenId, productorDestinoId, cantidad, fechaTransferencia };
-            this._registrarActividad(state, 'Transf. Fincas', `De: ${pOrigen} a ${pDestino} por ${personaTransfiere}`, `${cantidad} canastas`, fechaTransferencia, rawPayload);
+            this._registrarActividad(state, transaction, 'Transf. Fincas', `De: ${pOrigen} a ${pDestino} por ${personaTransfiere}`, `${cantidad} canastas`, fechaTransferencia, rawPayload);
         });
     }
 
@@ -660,17 +687,18 @@ class Store {
             const detallesStr = Object.entries(frutasDespachadas).map(([f, c]) => `${f} (${c})`).join(', ');
 
             const rawPayload = { clienteNombre, detalles, total, fecha };
-            this._registrarActividad(state, 'Desp. Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
+            this._registrarActividad(state, transaction, 'Desp. Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
         });
     }
 
     async editarDespachoCliente(idActividad, nuevoPayload) {
         const nuevaCantidadTotal = parseInt(nuevoPayload.total);
-        await this.runTransaction(state => {
-            const actIndex = state.actividad.findIndex(a => a.id === idActividad);
-            if (actIndex === -1) throw new Error("No se encontró el registro de actividad para modificar.");
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para modificar.");
 
-            const actividadObj = state.actividad[actIndex];
+            const actividadObj = docSnap.data();
             if (!actividadObj.rawPayload) {
                 throw new Error("No se puede editar: Este registro es demasiado antiguo y no contiene los datos técnicos necesarios.");
             }
@@ -731,6 +759,8 @@ class Store {
                 actDate.setFullYear(year, month - 1, day);
                 actividadObj.date = actDate.toISOString();
             }
+
+            transaction.update(docRef, actividadObj);
         });
     }
 
@@ -767,14 +797,14 @@ class Store {
 
                 const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
-                this._registrarActividad(state, 'Devolución', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
+                this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias += cantidad;
                 state.inventario.canastasVacias += cantidad;
 
                 const rawPayload = { tipoOrigen, clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${entidadName} (Vacías)`;
-                this._registrarActividad(state, 'Devolución', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
+                this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
 
             if (tipoOrigen === 'productor') {
@@ -796,7 +826,7 @@ class Store {
             invAlmacen.vacias += cantidad;
             state.inventario.canastasVacias += cantidad;
 
-            this._registrarActividad(state, 'Compra', `De: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, { proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra });
+            this._registrarActividad(state, transaction, 'Compra', `De: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, { proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra });
         });
     }
 
@@ -845,7 +875,7 @@ class Store {
 
             const pStr = productoIdActual === productoIdNuevo ? 'Misma Fruta' : 'Cambio Fruta';
             const rawPayload = { almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId };
-            this._registrarActividad(state, 'Transf. Interna', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
+            this._registrarActividad(state, transaction, 'Transf. Interna', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
         });
     }
 
@@ -866,7 +896,7 @@ class Store {
 
             const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
             const descStr = descripcion ? ` - ${descripcion}` : '';
-            this._registrarActividad(state, 'Decomiso', `Producto: ${pName} | Motivo: ${motivo}${descStr}`, `${cantidad} vaciadas`, fechaDecomiso, { cantidad, productoId, almacenOrigenId, almacenVaciasId, motivo, descripcion, fechaDecomiso });
+            this._registrarActividad(state, transaction, 'Decomiso', `Producto: ${pName} | Motivo: ${motivo}${descStr}`, `${cantidad} vaciadas`, fechaDecomiso, { cantidad, productoId, almacenOrigenId, almacenVaciasId, motivo, descripcion, fechaDecomiso });
         });
     }
 
@@ -890,7 +920,7 @@ class Store {
             state.inventario.canastasLlenas += cantidad;
 
             const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
-            this._registrarActividad(state, 'Fruta Demás', `Llenadas con: ${pName}`, `+${cantidad} llenadas`, fechaLlenado, { cantidad, productoId, almacenOrigenId, almacenDestinoId, fechaLlenado });
+            this._registrarActividad(state, transaction, 'Fruta Demás', `Llenadas con: ${pName}`, `+${cantidad} llenadas`, fechaLlenado, { cantidad, productoId, almacenOrigenId, almacenDestinoId, fechaLlenado });
         });
     }
 
@@ -909,6 +939,7 @@ class Store {
 
             this._registrarActividad(
                 state,
+                transaction,
                 'Salida Canastas',
                 `Baja autorizada por: ${personaBaja} - ${descripcion}`,
                 `-${cantidad} vacías`,
@@ -1007,6 +1038,52 @@ class Store {
             }
             console.log(`[DataFix] Processed ${processedCount} records.`);
         });
+    }
+
+    // ===============================================
+    // MIGRATION SCRIPT (One-time run)
+    // ===============================================
+    async migrateActividadToCollection() {
+        if (!this.data.actividad || this.data.actividad.length === 0) {
+            console.log("No hay actividad en el array local para migrar.");
+            window.UI.showToast("No hay datos antiguos para migrar.", "info");
+            return;
+        }
+
+        console.log(`Iniciando migración de ${this.data.actividad.length} registros...`);
+        try {
+            // Firestore batches allow max 500 writes. We have up to 1500, so we need chunks
+            const chunks = [];
+            let i = 0;
+            const chunkSize = 400;
+
+            while (i < this.data.actividad.length) {
+                chunks.push(this.data.actividad.slice(i, i + chunkSize));
+                i += chunkSize;
+            }
+
+            for (const chunk of chunks) {
+                const batch = db.batch();
+                for (const item of chunk) {
+                    const docRef = db.collection('actividad').doc(item.id || this.generateId());
+                    batch.set(docRef, item);
+                }
+                await batch.commit();
+                console.log(`Lote de ${chunk.length} documentos migrado.`);
+            }
+
+            // Una vez migrados todos, eliminamos el array de mainState
+            await this.runTransaction(state => {
+                delete state.actividad;
+            });
+
+            console.log("Migración completada exitosamente. Se eliminó el array de mainState.");
+            window.UI.showToast("Migración de base de datos exitosa.", "success");
+
+        } catch (error) {
+            console.error("Error durante la migración:", error);
+            window.UI.showToast("Error en migración: " + error.message, "error");
+        }
     }
 
     async reset() {

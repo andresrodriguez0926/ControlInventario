@@ -18,7 +18,7 @@ window.appModules['reportes'] = () => {
             
             <!-- Barra de Herramientas Principal -->
             <div class="surface-card p-4 md:p-6 mb-6">
-                <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex flex-col md:flex-row gap-4 items-end">
                     <div class="form-group flex-1">
                         <label class="form-label mb-1">Tipo de Reporte a Consultar</label>
                         <select id="rep-tipo" class="form-select border-primary/50 text-white">
@@ -26,6 +26,11 @@ window.appModules['reportes'] = () => {
                             <option value="decomisos">Fruta Decomisada</option>
                             <option value="despachos">Fruta Despachada a Clientes</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                         <button type="button" id="rep-btn-export-csv" class="btn btn-primary text-sm py-2 px-4 whitespace-nowrap flex items-center gap-2">
+                             <i data-lucide="download" class="w-4 h-4"></i> Exportar Historial Completo (CSV)
+                         </button>
                     </div>
                 </div>
             </div>
@@ -170,6 +175,67 @@ window.appModuleEvents['reportes'] = () => {
         document.getElementById('rep-producto').value = '';
         form.dispatchEvent(new Event('submit'));
     });
+
+    // Funcionalidad de Exportar a CSV
+    const btnExport = document.getElementById('rep-btn-export-csv');
+    if (btnExport) {
+        btnExport.addEventListener('click', async () => {
+            try {
+                const prevHtml = btnExport.innerHTML;
+                btnExport.innerHTML = '<i class="lucide-loader animate-spin w-4 h-4"></i> Generando CSV...';
+                btnExport.disabled = true;
+
+                // Extraemos TODO el historial de la colección directamente (puede ser pesado, pero es lo pedido)
+                const snapshot = await db.collection('actividad').orderBy('date', 'desc').get();
+
+                if (snapshot.empty) {
+                    window.UI.showToast("No hay registros en el historial.", "warning");
+                    btnExport.innerHTML = prevHtml;
+                    btnExport.disabled = false;
+                    return;
+                }
+
+                const docs = snapshot.docs.map(doc => doc.data());
+
+                // Construir CSV
+                let csvContent = "data:text/csv;charset=utf-8,";
+                // Cabeceras
+                csvContent += "ID,Documento,Fecha,Operacion,Detalle,Cantidad,Usuario\n";
+
+                docs.forEach(a => {
+                    const row = [
+                        a.id || '',
+                        a.numeroDocumento || 'S/N',
+                        new Date(a.date).toLocaleString().replace(',', ''),
+                        `"${(a.operacion || '').replace(/"/g, '""')}"`,
+                        `"${(a.detalle || '').replace(/"/g, '""')}"`,
+                        `"${(a.cantidad || '').replace(/"/g, '""')}"`,
+                        a.usuario || ''
+                    ].join(",");
+                    csvContent += row + "\n";
+                });
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `Historial_Completo_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                window.UI.showToast("Archivo CSV descargado con éxito.", "success");
+                btnExport.innerHTML = prevHtml;
+                btnExport.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            } catch (err) {
+                console.error("Error exportando CSV:", err);
+                window.UI.showToast("Error al exportar: " + err.message, "error");
+                btnExport.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Exportar Historial Completo (CSV)';
+                btnExport.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        });
+    }
 
     // Formulario de filtrado real
     form.addEventListener('submit', (e) => {
