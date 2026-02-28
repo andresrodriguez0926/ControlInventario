@@ -757,6 +757,102 @@ const Charts = {
         btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline-block mr-1"></i>Buscando...';
         btn.disabled = true;
 
+        // Helper interno para calcular el impacto (delta) de una actividad en el balance del almacén/producto
+        const calcularImpactoActividad = (a, targetAlmacenId, targetProductoId) => {
+            const payload = a.rawPayload || {};
+            let sumCant = 0;
+            let isNegative = false;
+            let matched = false;
+
+            const checkLotesOrDetalles = () => {
+                if (payload.lotes) {
+                    payload.lotes.forEach(l => {
+                        if (l.almacenId === targetAlmacenId) {
+                            if (!targetProductoId || l.productoId === targetProductoId) {
+                                sumCant += parseInt(l.cantidad) || 0;
+                            }
+                        }
+                    });
+                }
+                if (payload.detalles) {
+                    payload.detalles.forEach(d => {
+                        if (d.almacenOrigenId === targetAlmacenId || d.almacenId === targetAlmacenId) {
+                            if (!targetProductoId || d.productoId === targetProductoId) {
+                                sumCant += parseInt(d.cantidad) || 0;
+                            }
+                        }
+                    });
+                }
+            };
+
+            if (a.operacion === 'Recepción') {
+                isNegative = false;
+                checkLotesOrDetalles();
+                matched = true;
+            } else if (a.operacion === 'Desp. Vacías') {
+                isNegative = true;
+                if (payload.almacenOrigenId === targetAlmacenId) {
+                    if (!targetProductoId || targetProductoId === 'vacias') {
+                        sumCant = parseInt(payload.cantidad) || 0;
+                    }
+                }
+                matched = true;
+            } else if (a.operacion === 'Devolución') {
+                isNegative = false;
+                if (payload.almacenDestinoId === targetAlmacenId) {
+                    if (a.detalle && a.detalle.toLowerCase().includes('vacías')) {
+                        if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                    } else {
+                        if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                    }
+                }
+                matched = true;
+            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
+                isNegative = false;
+                if (payload.almacenDestinoId === targetAlmacenId) {
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                }
+                matched = true;
+            } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
+                isNegative = true;
+                checkLotesOrDetalles();
+                matched = true;
+            } else if (a.operacion === 'Decomiso') {
+                if (payload.almacenOrigenId === targetAlmacenId) {
+                    isNegative = true;
+                    if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                } else if (payload.almacenVaciasId === targetAlmacenId) {
+                    isNegative = false;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                }
+                matched = true;
+            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
+                if (payload.almacenOrigenId === targetAlmacenId) {
+                    isNegative = true;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                } else if (payload.almacenDestinoId === targetAlmacenId) {
+                    isNegative = false;
+                    if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                }
+                matched = true;
+            } else if (a.operacion === 'Salida Canastas') {
+                isNegative = true;
+                if (payload.almacenId === targetAlmacenId) sumCant = parseInt(payload.cantidad) || 0;
+                matched = true;
+            } else if (a.operacion === 'Transf. Interna') {
+                if (payload.almacenOrigenId === targetAlmacenId) {
+                    isNegative = true;
+                    if (!targetProductoId || payload.productoIdActual === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                } else if (payload.almacenDestinoId === targetAlmacenId) {
+                    isNegative = false;
+                    if (!targetProductoId || payload.productoIdNuevo === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                }
+                matched = true;
+            }
+
+            return matched ? (isNegative ? -sumCant : sumCant) : 0;
+        };
+
         setTimeout(() => {
             try {
                 // Fetch virtually all transaction history safely (cap at 20,000 to be safe on memory)
@@ -849,145 +945,57 @@ const Charts = {
                 if (filtradas.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
                 } else {
+                    // --- CÁLCULO DEL BALANCE INICIAL (STARTING BALANCE) ---
+                    // Estrategia: Balance Inicial = Balance Actual - Suma de Deltas(Desde START hasta HOY)
+
+                    const invPorAlm = window.appStore.getInventarioPorAlmacen();
+                    let balanceActualStock = 0;
+                    if (invPorAlm[almacenId]) {
+                        if (productoId) {
+                            balanceActualStock = invPorAlm[almacenId][productoId] || 0;
+                        } else {
+                            // Si no hay producto específico, el balance actual es la suma de todas las frutas + vacías?
+                            // Para reportes generales sin producto, sumamos todo lo que tenga el almacén
+                            balanceActualStock = Object.values(invPorAlm[almacenId]).reduce((acc, val) => acc + (parseInt(val) || 0), 0);
+                        }
+                    }
+
+                    // Calcular suma de movimientos desde la fecha de inicio del reporte hasta hoy
+                    const actividadesDesdeStart = todas.filter(a => {
+                        let dt = new Date(a.date);
+                        if (isNaN(dt.getTime()) && a.fecha) dt = new Date(a.fecha);
+                        return dt >= start;
+                    });
+
+                    let deltaTotalDesdeStart = 0;
+                    actividadesDesdeStart.forEach(a => {
+                        deltaTotalDesdeStart += calcularImpactoActividad(a, almacenId, productoId);
+                    });
+
+                    // El balance con el que inicia el primer registro del reporte
+                    let balAcum = balanceActualStock - deltaTotalDesdeStart;
+
                     // Procesar de más antiguo a más reciente para calcular balance inline.
-                    // Solo se acumula balance para las filas que efectivamente se muestran.
                     const filtAscendente = [...filtradas].reverse();
-                    let balAcum = 0;
-                    const rows = []; // Filas construidas con su balance ya calculado
+                    const rows = [];
 
                     filtAscendente.forEach(a => {
                         const dateObj = new Date(a.date || a.fecha);
                         const fechaStr = `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 
-                        // Determinar la cantidad específica que impactó a ESTE almacén y ESTE producto (si aplica)
-                        let isNegative = false;
-                        let sumCant = 0;
-                        let foundSpecificQty = false;
-                        const payload = a.rawPayload || {};
+                        const delta = calcularImpactoActividad(a, almacenId, productoId);
 
-                        // Helper para mapear lotes/detalles
-                        const checkLotesOrDetalles = () => {
-                            if (payload.lotes) {
-                                payload.lotes.forEach(l => {
-                                    if (l.almacenId === almacenId) {
-                                        if (!productoId || l.productoId === productoId) {
-                                            sumCant += parseInt(l.cantidad) || 0;
-                                        }
-                                    }
-                                });
-                            }
-                            if (payload.detalles) {
-                                payload.detalles.forEach(d => {
-                                    if (d.almacenOrigenId === almacenId || d.almacenId === almacenId) {
-                                        if (!productoId || d.productoId === productoId) {
-                                            sumCant += parseInt(d.cantidad) || 0;
-                                        }
-                                    }
-                                });
-                            }
-                        };
-
-                        // Evaluar dirección (Salida "isNegative" = true)
-                        if (a.operacion === 'Recepción') {
-                            isNegative = false;
-                            checkLotesOrDetalles();
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Desp. Vacías') {
-                            isNegative = true;
-                            if (payload.almacenOrigenId === almacenId) {
-                                if (!productoId || productoId === 'vacias') {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Devolución') {
-                            if (a.detalle && a.detalle.toLowerCase().includes('vacías')) {
-                                isNegative = false;
-                                if (payload.almacenDestinoId === almacenId) {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            } else {
-                                isNegative = false;
-                                if (payload.almacenDestinoId === almacenId) {
-                                    if (!productoId || payload.productoId === productoId) {
-                                        sumCant = parseInt(payload.cantidad);
-                                    }
-                                }
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
-                            isNegative = false;
-                            if (payload.almacenDestinoId === almacenId) {
-                                if (!productoId || productoId === 'vacias') {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                            isNegative = true;
-                            checkLotesOrDetalles();
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Decomiso') {
-                            if (payload.almacenOrigenId === almacenId) {
-                                isNegative = true; // Salió fruta
-                                if (!productoId || payload.productoId === productoId) {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            } else if (payload.almacenVaciasId === almacenId) {
-                                isNegative = false; // Entró vacías
-                                if (!productoId || productoId === 'vacias') {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
-                            if (payload.almacenOrigenId === almacenId) {
-                                isNegative = true; // Salieron vacías
-                                if (!productoId || productoId === 'vacias') {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            } else if (payload.almacenDestinoId === almacenId) {
-                                isNegative = false; // Entraron llenas
-                                if (!productoId || payload.productoId === productoId) {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Salida Canastas') {
-                            isNegative = true;
-                            if (payload.almacenId === almacenId) {
-                                sumCant = parseInt(payload.cantidad);
-                            }
-                            foundSpecificQty = true;
-                        } else if (a.operacion === 'Transf. Interna') {
-                            if (payload.almacenOrigenId === almacenId) {
-                                isNegative = true; // Salió la fruta especificada
-                                if (!productoId || payload.productoIdActual === productoId) {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            } else if (payload.almacenDestinoId === almacenId) {
-                                isNegative = false; // Entró la fruta
-                                if (!productoId || payload.productoIdNuevo === productoId) {
-                                    sumCant = parseInt(payload.cantidad);
-                                }
-                            }
-                            foundSpecificQty = true;
-                        }
-
-                        let descCantidad = a.cantidad;
-                        if (foundSpecificQty && sumCant > 0) {
-                            descCantidad = `${isNegative ? '-' : '+'}${sumCant}`;
-                        } else if (foundSpecificQty && sumCant === 0 && productoId) {
-                            // Con filtro de producto activo: si no hubo impacto en este almacén∕producto, ignorar fila
+                        // Si hay filtro de producto y el delta es 0, verificar si realmente la actividad tiene que ver
+                        if (productoId && delta === 0) {
+                            // Podría ser una actividad del almacén pero de otro producto. 
+                            // En el reporte filtrado la ignoramos para no ensuciar.
                             return;
                         }
-                        // Sin filtro de producto (productoId vacío): siempre mostrar la fila (usar cantidad raw si no
-                        // se pudo calcular la específica), para no perder transacciones en el reporte.
 
-                        // Acumular balance solo para filas visibles
-                        if (sumCant > 0) balAcum += isNegative ? -sumCant : sumCant;
+                        balAcum += delta;
 
-                        const cantColor = descCantidad && descCantidad.startsWith('-') ? 'text-danger' : 'text-success';
+                        const descCantidad = delta > 0 ? `+${delta}` : `${delta}`;
+                        const cantColor = delta < 0 ? 'text-danger' : 'text-success';
                         const balColor = balAcum >= 0 ? 'text-success' : 'text-danger';
                         const balHtml = `<span class="font-bold font-mono ${balColor}">${balAcum.toLocaleString()}</span>`;
 
