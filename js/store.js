@@ -285,7 +285,7 @@ class Store {
     // --- Mantenimientos ---
 
     async addProductor(productor) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             productor.id = this.generateId();
             productor.numeroId = state.nextProductorId || 1;
             state.nextProductorId = (state.nextProductorId || 1) + 1;
@@ -296,7 +296,7 @@ class Store {
     }
 
     async updateProductor(id, data) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (!state.productores) state.productores = [];
             const index = state.productores.findIndex(p => p.id === id);
             if (index === -1) throw new Error("Productor no encontrado en la Nube.");
@@ -305,7 +305,7 @@ class Store {
     }
 
     async deleteProductor(id) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (!state.productores) return;
             const b = state.productores.find(p => p.id === id);
             if (!b) return;
@@ -319,7 +319,7 @@ class Store {
     }
 
     async addCliente(cliente) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             cliente.id = this.generateId();
             cliente.numeroId = state.nextClienteId || 1;
             state.nextClienteId = (state.nextClienteId || 1) + 1;
@@ -330,7 +330,7 @@ class Store {
     }
 
     async updateCliente(id, data) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (!state.clientes) state.clientes = [];
             const index = state.clientes.findIndex(c => c.id === id);
             if (index === -1) throw new Error("Cliente no encontrado en la Nube.");
@@ -339,7 +339,7 @@ class Store {
     }
 
     async deleteCliente(id) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (!state.clientes) return;
             const b = state.clientes.find(c => c.id === id);
             if (!b) return;
@@ -353,7 +353,7 @@ class Store {
     }
 
     async addAlmacen(almacen) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             almacen.id = this.generateId();
             almacen.createdAt = new Date().toISOString();
             if (!state.almacenes) state.almacenes = [];
@@ -366,7 +366,7 @@ class Store {
     }
 
     async updateAlmacen(id, data) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const index = state.almacenes.findIndex(a => a.id === id);
             if (index === -1) throw new Error("Almacén no encontrado en la Nube.");
             state.almacenes[index] = { ...state.almacenes[index], ...data };
@@ -374,7 +374,7 @@ class Store {
     }
 
     async deleteAlmacen(id) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const inv = state.inventario.porAlmacen[id];
 
             // Verificación estricta de historial o inventario
@@ -396,7 +396,7 @@ class Store {
     }
 
     async addProducto(producto) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             producto.id = this.generateId();
             producto.createdAt = new Date().toISOString();
             if (!state.productos) state.productos = [];
@@ -407,7 +407,7 @@ class Store {
     // --- Core Operacional ---
 
     async recepcionMercancia({ productorId, lotes, personaEntrega, personaRecibe, fechaRecepcion, numeroConduce }) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const productor = state.productores.find(p => p.id === productorId);
             const prestadas = productor ? (productor.canastasPrestadas || 0) : 0;
             const productorName = productor?.nombre || 'Desconocido';
@@ -554,7 +554,7 @@ class Store {
 
     async despachoVacias({ personaRetira, cantidad, productorId, almacenOrigenId, fechaDespacho }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const invAlmacen = state.inventario.porAlmacen[almacenOrigenId];
             if (!invAlmacen || invAlmacen.vacias < cantidad) {
                 throw new Error(`En la Nube: No hay vacías suficientes. Disponibles: ${invAlmacen?.vacias || 0}`);
@@ -638,7 +638,7 @@ class Store {
     async transferenciaFincas({ personaTransfiere, productorOrigenId, productorDestinoId, cantidad, fechaTransferencia }) {
         cantidad = parseInt(cantidad);
         // productorOrigenId y productorDestinoId son strings (base36 generados), NO usar parseInt()
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const pOrigenObj = state.productores.find(p => p.id === productorOrigenId);
             const prestadasOrigen = pOrigenObj ? (pOrigenObj.canastasPrestadas || 0) : 0;
 
@@ -660,7 +660,7 @@ class Store {
     }
 
     async despachoCliente({ fecha, clienteNombre, detalles }) {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             let total = 0;
             const frutasDespachadas = {};
 
@@ -766,7 +766,7 @@ class Store {
 
     async recepcionCanastas({ tipoOrigen = 'cliente', clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             let entidadName = 'Desconocido';
             let deudaActual = 0;
             let cliente = null;
@@ -819,7 +819,7 @@ class Store {
 
     async compraCanastas({ proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
 
             const invAlmacen = state.inventario.porAlmacen[almacenDestinoId];
@@ -833,7 +833,7 @@ class Store {
     async transferenciaInterna({ almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId }) {
         cantidad = parseInt(cantidad);
         canastasVacias = parseInt(canastasVacias) || 0;
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             if (almacenOrigenId === almacenDestinoId && productoIdActual === productoIdNuevo && canastasVacias === 0) {
                 throw new Error("El origen/producto y destino/producto no pueden ser exactamente los mismos.");
             }
@@ -881,7 +881,7 @@ class Store {
 
     async decomiso({ cantidad, productoId, almacenOrigenId, almacenVaciasId, motivo, descripcion, fechaDecomiso }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const invOrigen = state.inventario.porAlmacen[almacenOrigenId];
             if (!invOrigen || !invOrigen[productoId] || invOrigen[productoId] < cantidad) {
                 throw new Error(`Cloud Alert: Fruta insuficiente para decomisar.`);
@@ -902,7 +902,7 @@ class Store {
 
     async canastasDemas({ cantidad, productoId, almacenOrigenId, almacenDestinoId, fechaLlenado }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const invOrigen = state.inventario.porAlmacen[almacenOrigenId];
 
             if (!invOrigen || invOrigen.vacias < cantidad) {
@@ -926,7 +926,7 @@ class Store {
 
     async bajaCanastasVacias({ almacenId, cantidad, personaBaja, descripcion, fechaBaja }) {
         cantidad = parseInt(cantidad);
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             const invOrigen = state.inventario.porAlmacen[almacenId];
 
             if (!invOrigen || invOrigen.vacias < cantidad) {
@@ -950,7 +950,7 @@ class Store {
     }
 
     async applyDataFixes() {
-        await this.runTransaction(state => {
+        await this.runTransaction((state, transaction) => {
             // 1. Fix date for known documents
             const docsToFixDate = ["DOC-0137", "DOC-0139", "DOC-0140", "DOC-0143"];
             const newDateStr = "2026-02-26T12:00:00.000Z";
@@ -1073,7 +1073,7 @@ class Store {
             }
 
             // Una vez migrados todos, eliminamos el array de mainState
-            await this.runTransaction(state => {
+            await this.runTransaction((state, transaction) => {
                 delete state.actividad;
             });
 
