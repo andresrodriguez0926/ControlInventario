@@ -428,9 +428,19 @@ window.appModules['almacenes'] = () => {
                                 <label class="form-label mb-1 block">Nombre del Almacén</label>
                                 <input type="text" id="alm-nombre" class="form-input" required placeholder="Ej: Galpón Principal Sect. A">
                             </div>
-                            <div class="form-group mb-6">
+                            <div class="form-group mb-4">
                                 <label class="form-label mb-1 block">Dirección / Ubicación Física</label>
-                                <textarea id="alm-dir" class="form-input custom-scrollbar h-24" required placeholder="Nave C, Planta Baja..."></textarea>
+                                <textarea id="alm-dir" class="form-input custom-scrollbar h-20" required placeholder="Nave C, Planta Baja..."></textarea>
+                            </div>
+                            <div class="form-group mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                                <label class="form-label flex items-center gap-2 cursor-pointer mb-0">
+                                    <input type="checkbox" id="alm-es-frizzer" class="form-checkbox text-primary rounded border-border bg-surface w-4 h-4 cursor-pointer" onchange="document.getElementById('div-dias-maduracion').classList.toggle('hidden', !this.checked)">
+                                    <span class="text-sm font-medium text-white">Es Cuarto de Maduración (Frizzer)</span>
+                                </label>
+                            </div>
+                            <div class="form-group mb-6 hidden" id="div-dias-maduracion">
+                                <label class="form-label mb-1 block">Días de Maduración</label>
+                                <input type="number" id="alm-dias-maduracion" class="form-input" min="1" value="4" placeholder="Ej: 4">
                             </div>
                             <button type="submit" id="alm-submit-btn" class="btn btn-primary w-full" style="background-color: var(--accent-info); border-color: var(--accent-info)">
                                 Registrar Almacén
@@ -464,7 +474,10 @@ window.appModules['almacenes'] = () => {
                                     <div class="flex justify-between items-start mb-4 pr-16">
                                         <div class="flex items-center gap-3">
                                             <div class="p-2 bg-info/10 rounded-lg"><i data-lucide="warehouse" class="w-5 h-5 text-info"></i></div>
-                                            <h4 class="text-lg font-semibold text-white">${a.nombre}</h4>
+                                            <h4 class="text-lg font-semibold text-white flex items-center flex-wrap gap-2">
+                                                ${a.nombre}
+                                                ${a.esFrizzer ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30 uppercase tracking-widest" title="Madura en ${a.diasMaduracion || 4} días"><i data-lucide="thermometer" class="w-3 h-3 inline mr-1"></i>Frizzer</span>` : ''}
+                                            </h4>
                                         </div>
                                     </div>
                                     <p class="text-sm text-text-secondary mb-4 line-clamp-2 h-10">${a.direccion}</p>
@@ -507,6 +520,15 @@ window.appModuleEvents['almacenes'] = () => {
             document.getElementById('alm-nombre').value = almacen.nombre || '';
             document.getElementById('alm-dir').value = almacen.direccion || '';
 
+            // Frizzer Logic
+            const chkFrizzer = document.getElementById('alm-es-frizzer');
+            const inputDias = document.getElementById('alm-dias-maduracion');
+            const divDias = document.getElementById('div-dias-maduracion');
+
+            chkFrizzer.checked = !!almacen.esFrizzer;
+            inputDias.value = almacen.diasMaduracion || 4;
+            divDias.classList.toggle('hidden', !almacen.esFrizzer);
+
             document.getElementById('alm-submit-btn').innerHTML = 'Actualizar Almacén';
             document.getElementById('alm-cancel-btn').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -519,6 +541,7 @@ window.appModuleEvents['almacenes'] = () => {
         cancelBtn.addEventListener('click', () => {
             form.reset();
             document.getElementById('alm-id').value = '';
+            document.getElementById('div-dias-maduracion').classList.add('hidden');
             document.getElementById('alm-submit-btn').innerHTML = 'Registrar Almacén';
             cancelBtn.classList.add('hidden');
         });
@@ -555,12 +578,14 @@ window.appModuleEvents['almacenes'] = () => {
             const id = document.getElementById('alm-id').value;
             const nombre = document.getElementById('alm-nombre').value;
             const direccion = document.getElementById('alm-dir').value;
+            const esFrizzer = document.getElementById('alm-es-frizzer').checked;
+            const diasMaduracion = parseInt(document.getElementById('alm-dias-maduracion').value) || 4;
 
             if (id) {
-                await window.appStore.updateAlmacen(id, { nombre, direccion });
+                await window.appStore.updateAlmacen(id, { nombre, direccion, esFrizzer, diasMaduracion });
                 window.UI.showToast(`Almacén "${nombre}" actualizado.`);
             } else {
-                await window.appStore.addAlmacen({ nombre, direccion });
+                await window.appStore.addAlmacen({ nombre, direccion, esFrizzer, diasMaduracion });
                 window.UI.showToast(`Almacén "${nombre}" creado.`);
             }
             window.UI.renderModuleContainer('almacenes');
