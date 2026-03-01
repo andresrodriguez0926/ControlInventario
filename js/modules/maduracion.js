@@ -102,57 +102,90 @@ function calcularEdadFIFO() {
             const stockActual = inv[prod.id];
             if (!stockActual || stockActual <= 0) return; // No hay stock de este producto aquí
 
-            let canastasRestantesParaEncontrar = stockActual;
-            const lotesReconstruidos = [];
+            // 2. Caminar el historial hacia atrás buscando el origen real de esta fruta
+            function traceBackward(origenAlmacenId, productoId, qtyNeeded, startIndex) {
+                let origins = [];
+                let missing = qtyNeeded;
 
-            // 2. Caminar el historial hacia atrás buscando ENTRADAS a este cuarto de este producto
-            for (let i = 0; i < actividad.length && canastasRestantesParaEncontrar > 0; i++) {
-                const act = actividad[i];
-                if (!act.rawPayload) continue;
+                for (let i = startIndex; i < actividad.length && missing > 0; i++) {
+                    const act = actividad[i];
+                    if (!act.rawPayload) continue;
 
-                let sumadasEnEstePase = 0;
-                let fechaIngreso = act.date;
+                    let sumadas = 0;
+                    let fechaIngreso = act.date;
 
-                // Recepciones
-                if (act.operacion === 'Recepción') {
-                    const lotes = act.rawPayload.lotes || [{ productoId: act.rawPayload.productoId, almacenId: act.rawPayload.almacenDestinoId, cantidad: act.rawPayload.cantidad }];
-                    for (const l of lotes) {
-                        if (l.almacenId === frizzer.id && l.productoId === prod.id) {
-                            sumadasEnEstePase += parseInt(l.cantidad);
+                    // Recepciones
+                    if (act.operacion === 'Recepción') {
+                        const lotes = act.rawPayload.lotes || [{ productoId: act.rawPayload.productoId, almacenId: act.rawPayload.almacenDestinoId, cantidad: act.rawPayload.cantidad }];
+                        for (const l of lotes) {
+                            if (l.almacenId === origenAlmacenId && l.productoId === productoId) {
+                                sumadas += parseInt(l.cantidad);
+                            }
+                        }
+                        if (act.rawPayload.fechaRecepcion) {
+                            fechaIngreso = act.rawPayload.fechaRecepcion + "T12:00:00.000Z";
                         }
                     }
-                    if (act.rawPayload.fechaRecepcion) {
-                        // Respetar fecha manual técnica si existe
-                        fechaIngreso = act.rawPayload.fechaRecepcion + "T12:00:00.000Z";
-                    }
-                }
+                    // Transferencias Internas (Destino = Este Almacen)
+                    else if (act.operacion === 'Transf. Interna') {
+                        if (act.rawPayload.almacenDestinoId === origenAlmacenId && act.rawPayload.productoIdNuevo === productoId) {
+                            sumadas += parseInt(act.rawPayload.cantidad);
+                            if (act.rawPayload.fechaTransferencia) {
+                                fechaIngreso = act.rawPayload.fechaTransferencia + "T12:00:00.000Z";
+                            }
 
-                // Transferencias Internas (Destino = Este Frizzer)
-                else if (act.operacion === 'Transf. Interna') {
-                    if (act.rawPayload.almacenDestinoId === frizzer.id && act.rawPayload.productoIdNuevo === prod.id) {
-                        sumadasEnEstePase += parseInt(act.rawPayload.cantidad);
-                        if (act.rawPayload.fechaTransferencia) {
-                            fechaIngreso = act.rawPayload.fechaTransferencia + "T12:00:00.000Z";
+                            if (sumadas > 0) {
+                                const origenDelTransfer = act.rawPayload.almacenOrigenId;
+                                const qtyFromTransfer = Math.min(sumadas, missing);
+
+                                // REGLA ORO: Si vino de OTRO Frizzer, trazamos el origen recursivamente desde ese momento hacia atrás!
+                                const vinoDeFrizzer = frizzers.some(f => f.id === origenDelTransfer);
+                                if (vinoDeFrizzer) {
+                                    const subOrigins = traceBackward(origenDelTransfer, act.rawPayload.productoIdActual, qtyFromTransfer, i + 1);
+
+                                    let subTotal = 0;
+                                    subOrigins.forEach(subReq => {
+                                        origins.push(subReq);
+                                        subTotal += subReq.cantidad;
+                                    });
+
+                                    // Si por pérdida de historia subOrigins trajo menos cantidad que qtyFromTransfer, rellenamos
+                                    if (subTotal < qtyFromTransfer) {
+                                        origins.push({ cantidad: qtyFromTransfer - subTotal, fecha: fechaIngreso });
+                                    }
+
+                                    missing -= qtyFromTransfer;
+                                    sumadas = 0; // El lote fue rastreado en profundidad, no lo agregamos genéricamente.
+                                }
+                            }
                         }
                     }
+
+                    if (sumadas > 0) {
+                        const aTomar = Math.min(sumadas, missing);
+                        origins.push({ cantidad: aTomar, fecha: fechaIngreso });
+                        missing -= aTomar;
+                    }
                 }
 
-                if (sumadasEnEstePase > 0) {
-                    // Solo tomamos lo que nos falte para completar el stock actual (FIFO)
-                    const aTomar = Math.min(sumadasEnEstePase, canastasRestantesParaEncontrar);
-                    const age = calcularDias(fechaIngreso);
-
-                    lotesReconstruidos.push({
-                        cantidad: aTomar,
-                        fechaAsignada: fechaIngreso,
-                        edadDias: age
-                    });
-
-                    canastasRestantesParaEncontrar -= aTomar;
-                }
+                return origins;
             }
 
-            // Si aún faltan canastas por encontrar en el historial (inventario inicial, historial trunco)
+            const origenes = traceBackward(frizzer.id, prod.id, stockActual, 0);
+
+            const lotesReconstruidos = [];
+            let canastasRestantesParaEncontrar = stockActual;
+
+            origenes.forEach(ori => {
+                lotesReconstruidos.push({
+                    cantidad: ori.cantidad,
+                    fechaAsignada: ori.fecha,
+                    edadDias: calcularDias(ori.fecha)
+                });
+                canastasRestantesParaEncontrar -= ori.cantidad;
+            });
+
+            // Si aún faltan canastas por encontrar en el historial (inventario inicial antiguo o datos faltantes)
             if (canastasRestantesParaEncontrar > 0) {
                 lotesReconstruidos.push({
                     cantidad: canastasRestantesParaEncontrar,
