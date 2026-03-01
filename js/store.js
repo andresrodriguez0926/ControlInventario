@@ -36,7 +36,8 @@ const defaultData = {
     usuarios: [],
     nextProductorId: 1,
     nextClienteId: 1,
-    secuenciaDocumento: 0
+    secuenciaDocumento: 0,
+    configVersion: 1 // Versión de la configuración del sistema
 };
 
 class Store {
@@ -113,13 +114,19 @@ class Store {
 
     // Método Core Transaccional
     // Asegura que las operaciones se apliquen sobre el estado más reciente del servidor
-    async runTransaction(operationFn) {
+    async runTransaction(operationFn, isConfigChange = false) {
         if (!this.isLoaded) throw new Error("Cargando datos de la nube... Intente de nuevo.");
 
         try {
             await db.runTransaction(async (transaction) => {
                 const doc = await transaction.get(this.dbRef);
                 let serverData = doc.exists ? doc.data() : structuredClone(defaultData);
+
+                // Verificación de Sincronización de Configuración
+                // Si la operación no es un cambio de configuración, verificamos que la config local sea igual a la del servidor
+                if (!isConfigChange && this.data.configVersion && serverData.configVersion && this.data.configVersion < serverData.configVersion) {
+                    throw new Error("CONFIG_MISMATCH: La configuración del sistema ha cambiado en otro dispositivo. La aplicación se recargará para obtener los cambios.");
+                }
 
                 // Ejecutamos la logica sobre serverData, pasamos transaction para que pueda guardar docs extra
                 await operationFn(serverData, transaction);
@@ -200,6 +207,11 @@ class Store {
 
     getInventarioPorAlmacen() {
         return (this.data.inventario && this.data.inventario.porAlmacen) ? this.data.inventario.porAlmacen : {};
+    }
+
+    // Helper para marcar cambios en la configuración (Catálogos)
+    _incrementConfigVersion(state) {
+        state.configVersion = (state.configVersion || 1) + 1;
     }
 
     // Helper interno para actividad
@@ -292,7 +304,8 @@ class Store {
             productor.createdAt = new Date().toISOString();
             if (!state.productores) state.productores = [];
             state.productores.push(productor);
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async updateProductor(id, data) {
@@ -301,7 +314,8 @@ class Store {
             const index = state.productores.findIndex(p => p.id === id);
             if (index === -1) throw new Error("Productor no encontrado en la Nube.");
             state.productores[index] = { ...state.productores[index], ...data };
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async deleteProductor(id) {
@@ -315,7 +329,8 @@ class Store {
                 throw new Error("No se puede eliminar: El Productor tiene historial de transacciones y está bloqueado por seguridad contable.");
             }
             state.productores = state.productores.filter(p => p.id !== id);
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async addCliente(cliente) {
@@ -326,7 +341,8 @@ class Store {
             cliente.createdAt = new Date().toISOString();
             if (!state.clientes) state.clientes = [];
             state.clientes.push(cliente);
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async updateCliente(id, data) {
@@ -335,7 +351,8 @@ class Store {
             const index = state.clientes.findIndex(c => c.id === id);
             if (index === -1) throw new Error("Cliente no encontrado en la Nube.");
             state.clientes[index] = { ...state.clientes[index], ...data };
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async deleteCliente(id) {
@@ -349,7 +366,8 @@ class Store {
                 throw new Error("No se puede eliminar: El Cliente tiene historial de transacciones y está bloqueado por seguridad contable.");
             }
             state.clientes = state.clientes.filter(c => c.id !== id);
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async addAlmacen(almacen) {
@@ -362,7 +380,8 @@ class Store {
             if (!state.inventario) state.inventario = { canastasLlenas: 0, canastasVacias: 0, porAlmacen: {} };
             if (!state.inventario.porAlmacen) state.inventario.porAlmacen = {};
             state.inventario.porAlmacen[almacen.id] = { vacias: 0 };
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async updateAlmacen(id, data) {
@@ -370,7 +389,8 @@ class Store {
             const index = state.almacenes.findIndex(a => a.id === id);
             if (index === -1) throw new Error("Almacén no encontrado en la Nube.");
             state.almacenes[index] = { ...state.almacenes[index], ...data };
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async deleteAlmacen(id) {
@@ -392,7 +412,8 @@ class Store {
             if (state.inventario.porAlmacen[id]) {
                 delete state.inventario.porAlmacen[id];
             }
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     async addProducto(producto) {
@@ -401,7 +422,8 @@ class Store {
             producto.createdAt = new Date().toISOString();
             if (!state.productos) state.productos = [];
             state.productos.push(producto);
-        });
+            this._incrementConfigVersion(state);
+        }, true);
     }
 
     // --- Core Operacional ---
@@ -799,13 +821,16 @@ class Store {
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
                 this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
-                invAlmacen.vacias += cantidad;
+                invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
-                const rawPayload = { tipoOrigen, clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion };
-                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${entidadName} (Vacías)`;
+                const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion };
+                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
                 this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
+
+            if (productor) productor.canastasPrestadas = Math.max(0, deudaActual - cantidad);
+            if (cliente) cliente.canastasPrestadas = Math.max(0, deudaActual - cantidad);
 
             if (tipoOrigen === 'productor') {
                 state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - cantidad);
@@ -821,12 +846,11 @@ class Store {
         cantidad = parseInt(cantidad);
         await this.runTransaction((state, transaction) => {
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
-
-            const invAlmacen = state.inventario.porAlmacen[almacenDestinoId];
-            invAlmacen.vacias += cantidad;
+            state.inventario.porAlmacen[almacenDestinoId].vacias += cantidad;
             state.inventario.canastasVacias += cantidad;
 
-            this._registrarActividad(state, transaction, 'Compra', `De: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, { proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra });
+            const rawPayload = { proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra };
+            this._registrarActividad(state, transaction, 'Compra', `De proveedor: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, rawPayload);
         });
     }
 
@@ -950,6 +974,10 @@ class Store {
     }
 
     async applyDataFixes() {
+        const docsFeb27 = ["DOC-0189", "DOC-0190", "DOC-0191", "DOC-0192", "DOC-0194"];
+        const feb27Date = "2026-02-27";
+        const feb27DateTime = "2026-02-27T12:00:00.000Z";
+
         await this.runTransaction((state, transaction) => {
             // 1. Fix date for known documents
             const docsToFixDate = ["DOC-0137", "DOC-0139", "DOC-0140", "DOC-0143"];
@@ -982,6 +1010,19 @@ class Store {
                     // Fix fechas grupo 2: documentos 177-180 al 2026-02-27
                     if (['DOC-0177', 'DOC-0178', 'DOC-0179', 'DOC-0180'].includes(act.numeroDocumento)) {
                         act.date = '2026-02-27T12:00:00.000Z';
+                        processedCount++;
+                    }
+
+                    // NUEVO: Fix fechas documentos 189, 190, 191, 192, 194 al 2026-02-27
+                    if (docsFeb27.includes(act.numeroDocumento)) {
+                        act.date = feb27DateTime;
+                        if (act.rawPayload) {
+                            if (act.rawPayload.fechaRecepcion) act.rawPayload.fechaRecepcion = feb27Date;
+                            if (act.rawPayload.fechaDespacho) act.rawPayload.fechaDespacho = feb27Date;
+                            if (act.rawPayload.fechaTransferencia) act.rawPayload.fechaTransferencia = feb27Date;
+                            if (act.rawPayload.fechaCompra) act.rawPayload.fechaCompra = feb27Date;
+                            if (act.rawPayload.fecha) act.rawPayload.fecha = feb27Date;
+                        }
                         processedCount++;
                     }
 
@@ -1036,8 +1077,43 @@ class Store {
                     }
                 });
             }
-            console.log(`[DataFix] Processed ${processedCount} records.`);
+            console.log(`[DataFix] Processed ${processedCount} records in mainState.`);
         });
+
+        // 2. Fix in separate activity collection
+        try {
+            const querySnapshot = await db.collection('actividad')
+                .where('numeroDocumento', 'in', docsFeb27)
+                .get();
+
+            if (!querySnapshot.empty) {
+                const batch = db.batch();
+                let collectionCount = 0;
+                querySnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.date !== feb27DateTime) {
+                        const update = { date: feb27DateTime };
+                        if (data.rawPayload) {
+                            const newPayload = { ...data.rawPayload };
+                            if (newPayload.fechaRecepcion) newPayload.fechaRecepcion = feb27Date;
+                            if (newPayload.fechaDespacho) newPayload.fechaDespacho = feb27Date;
+                            if (newPayload.fechaTransferencia) newPayload.fechaTransferencia = feb27Date;
+                            if (newPayload.fechaCompra) newPayload.fechaCompra = feb27Date;
+                            if (newPayload.fecha) newPayload.fecha = feb27Date;
+                            update.rawPayload = newPayload;
+                        }
+                        batch.update(docSnap.ref, update);
+                        collectionCount++;
+                    }
+                });
+                if (collectionCount > 0) {
+                    await batch.commit();
+                    console.log(`[DataFix] Updated ${collectionCount} documents in 'actividad' collection.`);
+                }
+            }
+        } catch (e) {
+            console.error("Error updating activity collection dates:", e);
+        }
     }
 
     // ===============================================

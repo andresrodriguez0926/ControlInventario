@@ -371,8 +371,14 @@ const UI = {
         // Remove after 3s
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+            setTimeout(() => {
+                toast.remove();
+                // Si es un error de desincronización, recargar la página después de que el toast desaparezca
+                if (message.includes("CONFIG_MISMATCH")) {
+                    window.location.reload();
+                }
+            }, 300);
+        }, message.includes("CONFIG_MISMATCH") ? 5000 : 3000);
     },
 
     // --- Dashboard Updaters ---
