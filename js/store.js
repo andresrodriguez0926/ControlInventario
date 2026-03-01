@@ -98,9 +98,9 @@ class Store {
 
     // Escucha la colección de Actividad
     listenToActividad() {
-        // Ordenamos por fecha descendente y limitamos a las últimas 1500 en memoria caché del cliente
+        // Ordenamos por fecha descendente y limitamos a las últimas 5000 en memoria caché del cliente
         // en Firestore no hay límite, pero no queremos saturar el navegador con 2 millones de registros en la UI
-        this.actividadRef.orderBy('date', 'desc').limit(1500).onSnapshot((snapshot) => {
+        this.actividadRef.orderBy('date', 'desc').limit(5000).onSnapshot((snapshot) => {
             this.actividadCache = snapshot.docs.map(doc => doc.data());
 
             this.actividadLoaded = true;
