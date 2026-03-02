@@ -1,5 +1,5 @@
 // VERSION: bump this number on every deploy to force cache refresh
-const CACHE_VERSION = 'v28';
+const CACHE_VERSION = 'v30';
 const CACHE_NAME = `inventariopro-${CACHE_VERSION}`;
 
 // Archivos que se cachean solo como fallback (Network-First)
@@ -18,6 +18,7 @@ const urlsToCache = [
     './js/modules/operaciones2.js',
     './js/modules/usuarios.js',
     './js/modules/reportes.js',
+    './js/modules/inventario-fecha.js',
     './js/app.js'
 ];
 
