@@ -335,24 +335,32 @@ window.appModuleEvents['inventario-fecha'] = () => {
             } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 currentVacias -= a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso') {
+            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
                 currentLlenas += a_cantidad;
                 currentVacias -= a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenVaciasId, -a_cantidad);
                 revertLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
+            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás') {
                 currentLlenas -= a_cantidad;
                 currentVacias += a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, a_cantidad);
                 revertLlenasBreakdown(payload, a_cantidad, false);
-            } else if (a.operacion === 'Salida Canastas') {
+            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Salida de Canastas' || a.operacion === 'Baja de Canastas') {
                 currentVacias += a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenId, a_cantidad);
-            } else if (a.operacion === 'Transf. Interna') {
+            } else if (a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes') {
                 const pOrig = payload.productoIdActual;
                 const pDest = payload.productoIdNuevo || payload.productoIdActual;
                 applyLlenasAlmacenDelta(payload.almacenOrigenId, pOrig, a_cantidad);
                 applyLlenasAlmacenDelta(payload.almacenDestinoId, pDest, -a_cantidad);
+
+                // Reverse Vacias movement if transferred purely as empty or mixed empty baskets
+                if (payload.almacenDestinoVaciasId) {
+                    const cantV = parseInt(payload.canastasVacias) || 0;
+                    currentVacias -= cantV;
+                    applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoVaciasId, -cantV);
+                    applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, cantV);
+                }
             }
         });
 

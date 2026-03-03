@@ -1023,7 +1023,7 @@ const Charts = {
                     }
                 }
                 matched = true;
-            } else if (a.operacion === 'Devolución') {
+            } else if (a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') {
                 isNegative = false;
                 if (payload.almacenDestinoId === targetAlmacenId) {
                     if (a.detalle && a.detalle.toLowerCase().includes('vacías')) {
@@ -1044,7 +1044,7 @@ const Charts = {
                 isNegative = true;
                 checkLotesOrDetalles();
                 matched = true;
-            } else if (a.operacion === 'Decomiso') {
+            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
                     if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
@@ -1054,7 +1054,7 @@ const Charts = {
                     if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                 }
                 matched = true;
-            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
+            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
                     impactaVaciasDirecto = true;
@@ -1064,12 +1064,12 @@ const Charts = {
                     if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
                 }
                 matched = true;
-            } else if (a.operacion === 'Salida Canastas') {
+            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Salida de Canastas' || a.operacion === 'Baja de Canastas') {
                 isNegative = true;
                 impactaVaciasDirecto = true;
                 if (payload.almacenId === targetAlmacenId) sumCantVacias += parseInt(payload.cantidad) || 0;
                 matched = true;
-            } else if (a.operacion === 'Transf. Interna') {
+            } else if (a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
                     if (!targetProductoId || payload.productoIdActual === targetProductoId) {
@@ -1081,6 +1081,21 @@ const Charts = {
                     if (!targetProductoId || payload.productoIdNuevo === targetProductoId) {
                         if (payload.productoIdNuevo === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                         else sumCantLlenas += parseInt(payload.cantidad) || 0;
+                    }
+                }
+                // Handle vacias destination in Transferencia entre Almacenes
+                if (payload.almacenDestinoVaciasId === targetAlmacenId) {
+                    isNegative = false;
+                    impactaVaciasDirecto = true; // We are receiving vacias here
+                    if (!targetProductoId || targetProductoId === 'vacias') {
+                        sumCantVacias += parseInt(payload.canastasVacias) || 0; // Transf uses canastasVacias field
+                    }
+                }
+                // If it was origen and there were canastasVacias explicitly moved, handled?
+                // In store.js, Transferencia entre Almacenes moves 'cantidad' of product AND 'canastasVacias' empty baskets from origen.
+                if (payload.almacenOrigenId === targetAlmacenId && payload.canastasVacias > 0) {
+                    if (!targetProductoId || targetProductoId === 'vacias') {
+                        sumCantVacias += parseInt(payload.canastasVacias) || 0;
                     }
                 }
                 matched = true;
