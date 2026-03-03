@@ -967,9 +967,11 @@ const Charts = {
         // Helper interno para calcular el impacto (delta) de una actividad en el balance del almacén/producto
         const calcularImpactoActividad = (a, targetAlmacenId, targetProductoId) => {
             const payload = a.rawPayload || {};
-            let sumCant = 0;
+            let sumCantLlenas = 0;
+            let sumCantVacias = 0;
             let isNegative = false;
             let matched = false;
+            let impactaVaciasDirecto = false; // Flag to force counting as Vacias
 
             const checkLotesOrDetalles = () => {
                 let foundMatch = false;
@@ -977,7 +979,8 @@ const Charts = {
                     payload.lotes.forEach(l => {
                         if (l.almacenId === targetAlmacenId || l.almacenDestinoId === targetAlmacenId) {
                             if (!targetProductoId || l.productoId === targetProductoId) {
-                                sumCant += parseInt(l.cantidad) || 0;
+                                if (l.productoId === 'vacias') sumCantVacias += parseInt(l.cantidad) || 0;
+                                else sumCantLlenas += parseInt(l.cantidad) || 0;
                                 foundMatch = true;
                             }
                         }
@@ -987,7 +990,8 @@ const Charts = {
                     payload.detalles.forEach(d => {
                         if (d.almacenOrigenId === targetAlmacenId || d.almacenId === targetAlmacenId || d.almacenDestinoId === targetAlmacenId) {
                             if (!targetProductoId || d.productoId === targetProductoId) {
-                                sumCant += parseInt(d.cantidad) || 0;
+                                if (d.productoId === 'vacias') sumCantVacias += parseInt(d.cantidad) || 0;
+                                else sumCantLlenas += parseInt(d.cantidad) || 0;
                                 foundMatch = true;
                             }
                         }
@@ -998,7 +1002,9 @@ const Charts = {
                 if (!foundMatch) {
                     if (payload.almacenDestinoId === targetAlmacenId || payload.almacenId === targetAlmacenId || payload.almacenOrigenId === targetAlmacenId) {
                         if (!targetProductoId || payload.productoId === targetProductoId || payload.productoIdActual === targetProductoId || payload.productoIdNuevo === targetProductoId) {
-                            sumCant += parseInt(payload.cantidad || a.cantidad) || 0;
+                            const pId = payload.productoId || payload.productoIdActual || payload.productoIdNuevo;
+                            if (pId === 'vacias' || impactaVaciasDirecto) sumCantVacias += parseInt(payload.cantidad || a.cantidad) || 0;
+                            else sumCantLlenas += parseInt(payload.cantidad || a.cantidad) || 0;
                         }
                     }
                 }
@@ -1010,9 +1016,10 @@ const Charts = {
                 matched = true;
             } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
                 isNegative = true;
+                impactaVaciasDirecto = true;
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     if (!targetProductoId || targetProductoId === 'vacias') {
-                        sumCant = parseInt(payload.cantidad) || 0;
+                        sumCantVacias += parseInt(payload.cantidad) || 0;
                     }
                 }
                 matched = true;
@@ -1020,16 +1027,17 @@ const Charts = {
                 isNegative = false;
                 if (payload.almacenDestinoId === targetAlmacenId) {
                     if (a.detalle && a.detalle.toLowerCase().includes('vacías')) {
-                        if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                        if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                     } else {
-                        if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                        if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
                     }
                 }
                 matched = true;
             } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 isNegative = false;
+                impactaVaciasDirecto = true;
                 if (payload.almacenDestinoId === targetAlmacenId) {
-                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                 }
                 matched = true;
             } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
@@ -1039,37 +1047,49 @@ const Charts = {
             } else if (a.operacion === 'Decomiso') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
-                    if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                    if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
                 } else if (payload.almacenVaciasId === targetAlmacenId) {
                     isNegative = false;
-                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                    impactaVaciasDirecto = true;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                 }
                 matched = true;
             } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
-                    if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
+                    impactaVaciasDirecto = true;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                 } else if (payload.almacenDestinoId === targetAlmacenId) {
                     isNegative = false;
-                    if (!targetProductoId || payload.productoId === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                    if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
                 }
                 matched = true;
             } else if (a.operacion === 'Salida Canastas') {
                 isNegative = true;
-                if (payload.almacenId === targetAlmacenId) sumCant = parseInt(payload.cantidad) || 0;
+                impactaVaciasDirecto = true;
+                if (payload.almacenId === targetAlmacenId) sumCantVacias += parseInt(payload.cantidad) || 0;
                 matched = true;
             } else if (a.operacion === 'Transf. Interna') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     isNegative = true;
-                    if (!targetProductoId || payload.productoIdActual === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                    if (!targetProductoId || payload.productoIdActual === targetProductoId) {
+                        if (payload.productoIdActual === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
+                        else sumCantLlenas += parseInt(payload.cantidad) || 0;
+                    }
                 } else if (payload.almacenDestinoId === targetAlmacenId) {
                     isNegative = false;
-                    if (!targetProductoId || payload.productoIdNuevo === targetProductoId) sumCant = parseInt(payload.cantidad) || 0;
+                    if (!targetProductoId || payload.productoIdNuevo === targetProductoId) {
+                        if (payload.productoIdNuevo === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
+                        else sumCantLlenas += parseInt(payload.cantidad) || 0;
+                    }
                 }
                 matched = true;
             }
 
-            return matched ? (isNegative ? -sumCant : sumCant) : 0;
+            return matched ? {
+                llenas: (isNegative ? -sumCantLlenas : sumCantLlenas),
+                vacias: (isNegative ? -sumCantVacias : sumCantVacias)
+            } : { llenas: 0, vacias: 0 };
         };
 
         setTimeout(() => {
@@ -1168,14 +1188,22 @@ const Charts = {
                     // Estrategia: Balance Inicial = Balance Actual - Suma de Deltas(Desde START hasta HOY)
 
                     const invPorAlm = window.appStore.getInventarioPorAlmacen();
-                    let balanceActualStock = 0;
+                    let balanceActualLlenas = 0;
+                    let balanceActualVacias = 0;
+
                     if (invPorAlm[almacenId]) {
                         if (productoId) {
-                            balanceActualStock = invPorAlm[almacenId][productoId] || 0;
+                            if (productoId === 'vacias') {
+                                balanceActualVacias = invPorAlm[almacenId]['vacias'] || 0;
+                            } else {
+                                balanceActualLlenas = invPorAlm[almacenId][productoId] || 0;
+                            }
                         } else {
-                            // Si no hay producto específico, el balance actual es la suma de todas las frutas + vacías?
-                            // Para reportes generales sin producto, sumamos todo lo que tenga el almacén
-                            balanceActualStock = Object.values(invPorAlm[almacenId]).reduce((acc, val) => acc + (parseInt(val) || 0), 0);
+                            // Sumar todas
+                            Object.entries(invPorAlm[almacenId]).forEach(([pid, val]) => {
+                                if (pid === 'vacias') balanceActualVacias += (parseInt(val) || 0);
+                                else balanceActualLlenas += (parseInt(val) || 0);
+                            });
                         }
                     }
 
@@ -1186,13 +1214,18 @@ const Charts = {
                         return dt >= start;
                     });
 
-                    let deltaTotalDesdeStart = 0;
+                    let deltaTotalDesdeStartLlenas = 0;
+                    let deltaTotalDesdeStartVacias = 0;
+
                     actividadesDesdeStart.forEach(a => {
-                        deltaTotalDesdeStart += calcularImpactoActividad(a, almacenId, productoId);
+                        const imp = calcularImpactoActividad(a, almacenId, productoId);
+                        deltaTotalDesdeStartLlenas += imp.llenas;
+                        deltaTotalDesdeStartVacias += imp.vacias;
                     });
 
                     // El balance con el que inicia el primer registro del reporte
-                    let balAcum = balanceActualStock - deltaTotalDesdeStart;
+                    let balAcumLlenas = balanceActualLlenas - deltaTotalDesdeStartLlenas;
+                    let balAcumVacias = balanceActualVacias - deltaTotalDesdeStartVacias;
 
                     // Procesar de más antiguo a más reciente para calcular balance inline.
                     const filtAscendente = [...filtradas].reverse();
@@ -1202,21 +1235,35 @@ const Charts = {
                         const dateObj = new Date(a.date || a.fecha);
                         const fechaStr = `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 
-                        const delta = calcularImpactoActividad(a, almacenId, productoId);
+                        const imp = calcularImpactoActividad(a, almacenId, productoId);
 
                         // Si hay filtro de producto y el delta es 0, verificar si realmente la actividad tiene que ver
-                        if (productoId && delta === 0) {
+                        if (productoId && imp.llenas === 0 && imp.vacias === 0) {
                             // Podría ser una actividad del almacén pero de otro producto. 
-                            // En el reporte filtrado la ignoramos para no ensuciar.
                             return;
                         }
 
-                        balAcum += delta;
+                        balAcumLlenas += imp.llenas;
+                        balAcumVacias += imp.vacias;
 
-                        const descCantidad = delta > 0 ? `+${delta}` : `${delta}`;
-                        const cantColor = delta < 0 ? 'text-danger' : 'text-success';
-                        const balColor = balAcum >= 0 ? 'text-success' : 'text-danger';
-                        const balHtml = `<span class="font-bold font-mono ${balColor}">${balAcum.toLocaleString()}</span>`;
+                        let descCantidad = [];
+                        if (imp.llenas !== 0) {
+                            const lColor = imp.llenas < 0 ? 'text-danger' : 'text-success';
+                            descCantidad.push(`<span class="${lColor}">${imp.llenas > 0 ? '+' : ''}${imp.llenas} ll</span>`);
+                        }
+                        if (imp.vacias !== 0) {
+                            const vColor = imp.vacias < 0 ? 'text-danger' : 'text-success';
+                            descCantidad.push(`<span class="${vColor}">${imp.vacias > 0 ? '+' : ''}${imp.vacias} vc</span>`);
+                        }
+                        if (descCantidad.length === 0) descCantidad.push('0');
+
+                        const cantHtml = descCantidad.join(' | ');
+
+                        const balLColor = balAcumLlenas >= 0 ? 'text-success' : 'text-danger';
+                        const balLHtml = `<span class="font-bold font-mono ${balLColor}">${balAcumLlenas.toLocaleString()}</span>`;
+
+                        const balVColor = balAcumVacias >= 0 ? 'text-success' : 'text-danger';
+                        const balVHtml = `<span class="font-bold font-mono ${balVColor}">${balAcumVacias.toLocaleString()}</span>`;
 
                         rows.push(`
                         <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
@@ -1224,8 +1271,9 @@ const Charts = {
                             <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || '-'}</td>
                             <td class="py-2.5 px-4 font-medium text-white">${a.operacion}</td>
                             <td class="py-2.5 px-4 text-text-secondary italic text-xs leading-tight" title="${a.detalle}">${a.detalle}</td>
-                            <td class="py-2.5 px-4 text-right font-bold ${cantColor} whitespace-nowrap">${descCantidad}</td>
-                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balHtml}</td>
+                            <td class="py-2.5 px-4 text-right font-bold whitespace-nowrap text-xs">${cantHtml}</td>
+                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balLHtml}</td>
+                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balVHtml}</td>
                         </tr>
                         `);
                     });
