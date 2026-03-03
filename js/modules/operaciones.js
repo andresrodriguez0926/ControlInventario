@@ -1005,64 +1005,138 @@ window.appModuleEvents['transferencia-interna'] = () => {
 // ==========================================
 window.appModules['compra-canastas'] = () => {
     const almacenes = window.appStore.getAlmacenes();
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas');
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
             <h2 class="text-2xl font-bold text-white mb-2">Compra de Canastas</h2>
             <p class="text-text-secondary mb-8">Ingreso de canastas nuevas al inventario desde un proveedor.</p>
             
-            <form id="form-compra" class="surface-card p-6 md:p-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    
-                    <div class="form-group md:col-span-2 border-b border-border pb-4 mb-2 flex justify-between items-center">
-                        <h4 class="text-primary font-semibold mb-2">Datos de la Compra</h4>
-                        <div class="w-48">
-                            <label class="form-label mb-1 text-xs text-text-muted">Fecha (Máx. 3 días)</label>
-                            <input type="date" id="comp-fecha" class="form-input text-sm py-1" required>
+            <!-- Tabs Navigation -->
+            <div class="flex flex-wrap gap-4 border-b border-border mb-6">
+                <button id="tab-btn-nueva-compra" class="pb-3 px-2 font-semibold text-primary border-b-2 border-primary transition-colors">Nueva Compra</button>
+                <button id="tab-btn-historial-compra" class="pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors">Consultar Registros Anteriores</button>
+            </div>
+
+            <!-- TAB 1: NUEVA OPERACIÓN -->
+            <div id="tab-content-nueva-compra" class="block">
+                <form id="form-compra" class="surface-card p-6 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        
+                        <div class="form-group md:col-span-2 border-b border-border pb-4 mb-2 flex justify-between items-center">
+                            <h4 class="text-primary font-semibold mb-2">Datos de la Compra</h4>
+                            <div class="w-48">
+                                <label class="form-label mb-1 text-xs text-text-muted">Fecha (Máx. 3 días)</label>
+                                <input type="date" id="comp-fecha" class="form-input text-sm py-1" required>
+                            </div>
                         </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label mb-1">A quién se le compró (Proveedor)</label>
+                            <input type="text" id="comp-proveedor" class="form-input" required placeholder="Ej. Plastinova S.A.">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label mb-1">Cantidad de Canastas Compradas</label>
+                            <input type="number" id="comp-cantidad" class="form-input" min="1" required placeholder="Ej. 500">
+                        </div>
+
+                        <div class="form-group md:col-span-2 border-b border-border pb-4 mt-4 mb-2">
+                            <h4 class="text-primary font-semibold mb-2">Recepción Interna</h4>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label mb-1">Almacén de Destino</label>
+                            <select id="comp-almacen" class="form-select" required>
+                                ${generateSelectOptions(almacenes, 'Seleccione almacén que recibe...')}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label mb-1">Persona que Recibe</label>
+                            <input type="text" id="comp-recibe" class="form-input" required placeholder="Nombre de quien recibe">
+                        </div>
+                        
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label mb-1">A quién se le compró (Proveedor)</label>
-                        <input type="text" id="comp-proveedor" class="form-input" required placeholder="Ej. Plastinova S.A.">
+                    <div class="mt-8 flex justify-end gap-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                        <div class="flex-1 flex items-center gap-3">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-primary"></i>
+                            <p class="text-sm text-text-secondary">Esta operación sumará inventario general de canastas.</p>
+                        </div>
+                        <button type="submit" class="btn btn-primary min-w-[200px]">Guardar Compra</button>
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label mb-1">Cantidad de Canastas Compradas</label>
-                        <input type="number" id="comp-cantidad" class="form-input" min="1" required placeholder="Ej. 500">
-                    </div>
+                </form>
+            </div>
 
-                    <div class="form-group md:col-span-2 border-b border-border pb-4 mt-4 mb-2">
-                        <h4 class="text-primary font-semibold mb-2">Recepción Interna</h4>
+            <!-- TAB 2: HISTORIAL -->
+            <div id="tab-content-historial-compra" class="hidden">
+                <div class="surface-card overflow-hidden">
+                    <div class="overflow-x-auto p-0 border border-border/30 rounded-xl">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-surface text-text-secondary text-xs uppercase tracking-wider border-b border-border">
+                                    <th class="py-3 px-4 font-semibold">Doc #</th>
+                                    <th class="py-3 px-4 font-semibold">Fecha</th>
+                                    <th class="py-3 px-4 font-semibold">Detalle</th>
+                                    <th class="py-3 px-4 font-semibold">Usuario</th>
+                                    <th class="py-3 px-4 font-semibold">Cantidad</th>
+                                    <th class="py-3 px-4 font-semibold text-center w-24">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${historial.length === 0 ? `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No hay registros de compras recientes.</td></tr>` :
+            historial.map(a => `
+                                <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
+                                    <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
+                                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                    <td class="py-2.5 px-4 text-white">${a.detalle}</td>
+                                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
+                                    <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
+                                    <td class="py-2.5 px-4 text-center">
+                                        <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 mx-auto whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
+                                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
+                                        </button>
+                                    </td>
+                                </tr>
+                                `).join('')
+        }
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div class="form-group">
-                        <label class="form-label mb-1">Almacén de Destino</label>
-                        <select id="comp-almacen" class="form-select" required>
-                            ${generateSelectOptions(almacenes, 'Seleccione almacén que recibe...')}
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label mb-1">Persona que Recibe</label>
-                        <input type="text" id="comp-recibe" class="form-input" required placeholder="Nombre de quien recibe">
-                    </div>
-                    
                 </div>
-                
-                <div class="mt-8 flex justify-end gap-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
-                    <div class="flex-1 flex items-center gap-3">
-                        <i data-lucide="plus-circle" class="w-5 h-5 text-primary"></i>
-                        <p class="text-sm text-text-secondary">Esta operación sumará inventario general de canastas.</p>
-                    </div>
-                    <button type="submit" class="btn btn-primary min-w-[200px]">Guardar Compra</button>
-                </div>
-            </form>
+            </div>
         </div>
     `;
 };
 
 window.appModuleEvents['compra-canastas'] = () => {
+    // Tab Logic
+    const btnNueva = document.getElementById('tab-btn-nueva-compra');
+    const btnHistorial = document.getElementById('tab-btn-historial-compra');
+    const contentNueva = document.getElementById('tab-content-nueva-compra');
+    const contentHistorial = document.getElementById('tab-content-historial-compra');
+
+    if (btnNueva && btnHistorial) {
+        btnNueva.addEventListener('click', () => {
+            btnNueva.className = 'pb-3 px-2 font-semibold text-primary border-b-2 border-primary transition-colors';
+            btnHistorial.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            contentNueva.classList.remove('hidden');
+            contentNueva.classList.add('block');
+            contentHistorial.classList.add('hidden');
+            contentHistorial.classList.remove('block');
+        });
+
+        btnHistorial.addEventListener('click', () => {
+            btnHistorial.className = 'pb-3 px-2 font-semibold text-primary border-b-2 border-primary transition-colors';
+            btnNueva.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            contentHistorial.classList.remove('hidden');
+            contentHistorial.classList.add('block');
+            contentNueva.classList.add('hidden');
+            contentNueva.classList.remove('block');
+        });
+    }
+
     const form = document.getElementById('form-compra');
     if (!form) return;
 
