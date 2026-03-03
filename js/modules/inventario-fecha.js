@@ -332,7 +332,7 @@ window.appModuleEvents['inventario-fecha'] = () => {
             } else if (a.operacion === 'Transf. Fincas') {
                 applyObjDelta(deudaProductor, payload.productorOrigenId, a_cantidad);
                 applyObjDelta(deudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
+            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 currentVacias -= a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, -a_cantidad);
             } else if (a.operacion === 'Decomiso') {

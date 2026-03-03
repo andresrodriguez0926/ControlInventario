@@ -243,6 +243,11 @@ window.appModuleEvents['despacho-cliente'] = () => {
                                 <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
                             </button>
                             ${editBtn}
+                            ${isAdmin ? `
+                                <button type="button" onclick="window.confirmarEliminarDespachoCliente('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-1" title="Eliminar Registro">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
                         </div>
                     </td>
                 </tr>`;
@@ -395,6 +400,18 @@ window.appModuleEvents['despacho-cliente'] = () => {
         // Scroll to form
         form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         window.UI.showToast("Cargado para edición", "info");
+    };
+
+    window.confirmarEliminarDespachoCliente = async (idActividad) => {
+        if (!confirm('¿Está seguro de que desea eliminar este despacho por completo? Se devolverá el inventario al almacén y se revertirá la deuda al cliente.')) return;
+
+        try {
+            await window.appStore.eliminarDespachoCliente(idActividad);
+            window.UI.showToast('Despacho eliminado correctamente.');
+            window.UI.renderModuleContainer('despacho-cliente');
+        } catch (error) {
+            window.UI.showToast(error.message, 'error');
+        }
     };
 
     form.addEventListener('submit', async (e) => {
@@ -615,6 +632,11 @@ window.appModules['recepcion-canastas'] = () => {
                                                 <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
                                                     <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
                                                 </button>
+                                                ${(window.appStore.currentUser?.rol?.toLowerCase() === 'admin' || window.appStore.currentUser?.rol?.toLowerCase() === 'administrador') ? `
+                                                    <button type="button" onclick="window.confirmarEliminarRecepcionCanastas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Eliminar Registro">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
+                                                ` : ''}
                                             </div>
                                         </td>
                                     </tr>
@@ -633,6 +655,18 @@ window.appModules['recepcion-canastas'] = () => {
 window.appModuleEvents['recepcion-canastas'] = () => {
     window.UI.makeSelectSearchable('dev-cliente');
     window.UI.makeSelectSearchable('dev-productor');
+
+    window.confirmarEliminarRecepcionCanastas = async (idActividad) => {
+        if (!confirm('¿Está seguro de que desea eliminar esta devolución? Esta acción revertirá el inventario devuelto y las deudas asociadas.')) return;
+
+        try {
+            await window.appStore.eliminarRecepcionCanastas(idActividad);
+            window.UI.showToast('Devolución eliminada con éxito y saldos revertidos.');
+            window.UI.renderModuleContainer('recepcion-canastas');
+        } catch (error) {
+            window.UI.showToast(error.message, 'error');
+        }
+    };
 
     const btnNueva = document.getElementById('tab-btn-nueva-dev');
     const btnHistorial = document.getElementById('tab-btn-historial-dev');

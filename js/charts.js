@@ -404,7 +404,7 @@ const Charts = {
             } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
                 applyDebtDelta(currentDeudaProductor, payload.productorOrigenId, a_cantidad);
                 applyDebtDelta(currentDeudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
+            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 currentVacias -= a_cantidad;
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
             } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
@@ -506,7 +506,7 @@ const Charts = {
             } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
                 applyDebtDelta(initialDeudaProductor, payload.productorOrigenId, a_cantidad);
                 applyDebtDelta(initialDeudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
+            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 initialVacias -= a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
             } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
@@ -1014,7 +1014,7 @@ const Charts = {
                     }
                 }
                 matched = true;
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
+            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
                 isNegative = false;
                 if (payload.almacenDestinoId === targetAlmacenId) {
                     if (!targetProductoId || targetProductoId === 'vacias') sumCant = parseInt(payload.cantidad) || 0;
