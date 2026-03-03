@@ -155,6 +155,143 @@ class Store {
         return this.actividadCache.slice(0, limit);
     }
 
+    /**
+     * Auditoría Profunda de un Producto
+     * Recalcula el balance sumando TODAS las transacciones registradas.
+     */
+    auditProductInventory(productoId) {
+        if (!productoId) return null;
+
+        const summary = {
+            productoId,
+            totalEntradas: 0,
+            totalSalidas: 0,
+            porAlmacen: {},
+            transacciones: []
+        };
+
+        // Inicializar por almacén
+        this.getAlmacenes().forEach(alm => {
+            summary.porAlmacen[alm.id] = 0;
+        });
+
+        // Analizar TODO el historial disponible en el caché (limitado a 5000 por performance)
+        this.actividadCache.forEach(act => {
+            const raw = act.rawPayload;
+            if (!raw) return;
+
+            // 1. Recepción (Entrada)
+            if (act.operacion.includes('Recepción')) {
+                const lotes = raw.lotes || [{ productoId: raw.productoId, cantidad: raw.cantidad, almacenId: raw.almacenDestinoId }];
+                lotes.forEach(lote => {
+                    if (lote.productoId === productoId) {
+                        const cant = parseInt(lote.cantidad);
+                        summary.totalEntradas += cant;
+                        summary.porAlmacen[lote.almacenId] = (summary.porAlmacen[lote.almacenId] || 0) + cant;
+                        summary.transacciones.push({ ...act, impact: cant, type: 'ENTRADA' });
+                    }
+                });
+            }
+            // 2. Despacho Cliente (Salida)
+            else if (act.operacion.includes('Despacho a Cliente') || act.operacion.includes('Desp. Cliente')) {
+                if (raw.detalles) {
+                    raw.detalles.forEach(det => {
+                        if (det.productoId === productoId) {
+                            const cant = parseInt(det.cantidad);
+                            summary.totalSalidas += cant;
+                            summary.porAlmacen[det.almacenOrigenId] = (summary.porAlmacen[det.almacenOrigenId] || 0) - cant;
+                            summary.transacciones.push({ ...act, impact: -cant, type: 'SALIDA' });
+                        }
+                    });
+                }
+            }
+            // 3. Decomiso (Salida)
+            else if (act.operacion.includes('Decomiso')) {
+                if (raw.productoId === productoId) {
+                    const cant = parseInt(raw.cantidad);
+                    summary.totalSalidas += cant;
+                    summary.porAlmacen[raw.almacenOrigenId] = (summary.porAlmacen[raw.almacenOrigenId] || 0) - cant;
+                    summary.transacciones.push({ ...act, impact: -cant, type: 'SALIDA_DECOMISO' });
+                }
+            }
+            // 4. Transferencia Interna (Movimiento)
+            else if (act.operacion.includes('Transferencia entre Almacenes')) {
+                // Puede ser salida del origen
+                if (raw.productoIdActual === productoId) {
+                    const cant = parseInt(raw.cantidad);
+                    summary.porAlmacen[raw.almacenOrigenId] = (summary.porAlmacen[raw.almacenOrigenId] || 0) - cant;
+                    summary.transacciones.push({ ...act, impact: -cant, type: 'MOV_ORIGEN' });
+                }
+                // Y entrada al destino
+                if (raw.productoIdNuevo === productoId) {
+                    const cant = parseInt(raw.cantidad);
+                    summary.porAlmacen[raw.almacenDestinoId] = (summary.porAlmacen[raw.almacenDestinoId] || 0) + cant;
+                    summary.transacciones.push({ ...act, impact: cant, type: 'MOV_DESTINO' });
+                }
+            }
+            // 5. Fruta Demás / Llenado (Entrada)
+            else if (act.operacion.includes('Ingreso Fruta Demás') || act.operacion.includes('Fruta Demás')) {
+                if (raw.productoId === productoId) {
+                    const cant = parseInt(raw.cantidad);
+                    summary.totalEntradas += cant;
+                    summary.porAlmacen[raw.almacenDestinoId] = (summary.porAlmacen[raw.almacenDestinoId] || 0) + cant;
+                    summary.transacciones.push({ ...act, impact: cant, type: 'ENTRADA_AJUSTE' });
+                }
+            }
+        });
+
+        summary.teoricoTotal = summary.totalEntradas - summary.totalSalidas;
+
+        // Balance actual en el sistema para comparar
+        summary.actualTotal = 0;
+        summary.actualPorAlmacen = {};
+        const inv = this.data.inventario || {};
+
+        this.getAlmacenes().forEach(alm => {
+            const cantActual = (inv.porAlmacen?.[alm.id]?.[productoId]) || 0;
+            summary.actualPorAlmacen[alm.id] = cantActual;
+            summary.actualTotal += cantActual;
+        });
+
+        summary.diferencia = summary.teoricoTotal - summary.actualTotal;
+
+        return summary;
+    }
+
+    /**
+     * Sincroniza el inventario actual con el balance auditado
+     */
+    async repararInventarioProducto(productoId, balanceAuditado) {
+        await this.runTransaction((state, transaction) => {
+            if (!state.inventario) return;
+
+            const p = state.productos.find(x => x.id === productoId);
+            const pNombre = p ? p.nombre : productoId;
+
+            let diffTotal = 0;
+            const balanceAnterior = {};
+
+            Object.entries(balanceAuditado).forEach(([almId, cantNueva]) => {
+                if (!state.inventario.porAlmacen[almId]) {
+                    state.inventario.porAlmacen[almId] = { vacias: 0 };
+                }
+
+                const invAlm = state.inventario.porAlmacen[almId];
+                const cantAnterior = invAlm[productoId] || 0;
+                balanceAnterior[almId] = cantAnterior;
+
+                // Actualizar valor
+                invAlm[productoId] = cantNueva;
+                diffTotal += (cantNueva - cantAnterior);
+            });
+
+            // Ajustar total global
+            state.inventario.canastasLlenas = (state.inventario.canastasLlenas || 0) + diffTotal;
+
+            this._registrarActividad(state, transaction, 'Reparación Sistema', `Sincronización manual de inventario para: ${pNombre}`, `Ajuste: ${diffTotal > 0 ? '+' : ''}${diffTotal} llenas`, null, { productoId, balanceAnterior, balanceNuevo: balanceAuditado });
+        });
+    }
+
     getStats() {
         const inv = this.data.inventario || { canastasLlenas: 0, canastasVacias: 0 };
 
