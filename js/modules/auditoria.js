@@ -240,13 +240,14 @@ window.appModuleEvents['auditoria'] = () => {
         // Transacciones
         countTrans.textContent = `${summary.transacciones.length} registros`;
         bodyTrans.innerHTML = summary.transacciones.map(t => {
-            const dateStr = new Date(t.date).toLocaleDateString();
+            const dateStr = new Date(t.date || t.fecha).toLocaleDateString();
             const colorClass = t.impact > 0 ? 'text-success' : 'text-danger';
+            const legacyBadge = t.isLegacy ? `<span class="ml-1 px-1.5 py-0.5 rounded-full bg-warning/20 text-warning text-[9px] font-bold border border-warning/20 cursor-help" title="Registro antiguo sin ID de producto. Asociado automáticamente por ser el único en el despacho.">LEGACY</span>` : '';
             return `
                 <tr class="border-b border-border/30 hover:bg-surface-light/20 transition-colors">
                     <td class="py-2 px-4 whitespace-nowrap text-text-muted">${dateStr}</td>
-                    <td class="py-2 px-4 font-mono text-text-secondary">${t.numeroDocumento}</td>
-                    <td class="py-2 px-4">${t.operacion}</td>
+                    <td class="py-2 px-4 font-mono text-text-secondary">${t.numeroDocumento || 'S/N'}</td>
+                    <td class="py-2 px-4">${t.operacion}${legacyBadge}</td>
                     <td class="py-2 px-4 text-right font-bold ${colorClass}">${t.impact > 0 ? '+' : ''}${t.impact}</td>
                 </tr>
             `;

@@ -184,6 +184,8 @@ class Store {
             if (act.operacion.includes('Recepción')) {
                 const lotes = raw.lotes || [{ productoId: raw.productoId, cantidad: raw.cantidad, almacenId: raw.almacenDestinoId }];
                 lotes.forEach(lote => {
+                    // Si el productoId es nulo en el registro, pero el usuario lo está auditando, 
+                    // podríamos asumirlo bajo ciertas condiciones, pero por ahora solo si coinciden.
                     if (lote.productoId === productoId) {
                         const cant = parseInt(lote.cantidad);
                         summary.totalEntradas += cant;
@@ -196,11 +198,16 @@ class Store {
             else if (act.operacion.includes('Despacho a Cliente') || act.operacion.includes('Desp. Cliente')) {
                 if (raw.detalles) {
                     raw.detalles.forEach(det => {
-                        if (det.productoId === productoId) {
+                        // RECURSO DE EMERGENCIA: Si det.productoId es nulo (registro legacy), 
+                        // y el despacho es solo de 1 fila, permitimos que cuente para el producto que el usuario está auditando
+                        // Esto permite "rehabilitar" visualmente los registros sin productoId.
+                        const matchesProducto = det.productoId === productoId || (!det.productoId && raw.detalles.length === 1);
+
+                        if (matchesProducto) {
                             const cant = parseInt(det.cantidad);
                             summary.totalSalidas += cant;
                             summary.porAlmacen[det.almacenOrigenId] = (summary.porAlmacen[det.almacenOrigenId] || 0) - cant;
-                            summary.transacciones.push({ ...act, impact: -cant, type: 'SALIDA' });
+                            summary.transacciones.push({ ...act, impact: -cant, type: 'SALIDA', isLegacy: !det.productoId });
                         }
                     });
                 }
@@ -866,7 +873,7 @@ class Store {
 
             const detallesStr = Object.entries(frutasDespachadas).map(([f, c]) => `${f} (${c})`).join(', ');
 
-            const rawPayload = { clienteNombre, detalles, total, fecha };
+            const rawPayload = { clienteNombre, clienteId: cliente?.id || null, detalles, total, fecha };
             this._registrarActividad(state, transaction, 'Despacho a Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
         });
     }
@@ -890,7 +897,7 @@ class Store {
             // Devolver mercancía a almacenes
             old.detalles.forEach(det => {
                 const invAlmacenOld = state.inventario.porAlmacen[det.almacenOrigenId];
-                if (invAlmacenOld) {
+                if (invAlmacenOld && det.productoId) {
                     invAlmacenOld[det.productoId] = (invAlmacenOld[det.productoId] || 0) + parseInt(det.cantidad);
                 }
             });
@@ -976,14 +983,14 @@ class Store {
                 state.inventario.canastasLlenas += cantidad;
                 const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
 
-                const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion };
+                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
-                const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion };
+                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }

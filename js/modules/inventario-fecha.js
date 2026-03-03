@@ -307,17 +307,18 @@ window.appModuleEvents['inventario-fecha'] = () => {
                 currentDespProd -= a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, a_cantidad);
                 applyObjDelta(deudaProductor, payload.productorId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Vacías')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
                 currentVacias -= a_cantidad;
                 if (payload.tipoOrigen === 'productor') {
                     currentDespProd += a_cantidad;
                     applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
                 } else {
                     currentDespCli += a_cantidad;
-                    applyObjDelta(deudaCliente, payload.clienteId, a_cantidad);
+                    const cId = payload.clienteId || (payload.clienteNombre ? clientes.find(c => c.nombre === payload.clienteNombre)?.id : null);
+                    applyObjDelta(deudaCliente, cId, a_cantidad);
                 }
                 applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Llenas')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
                 currentLlenas -= a_cantidad;
                 revertLlenasBreakdown(payload, a_cantidad, false);
                 if (payload.tipoOrigen === 'productor') {
@@ -325,7 +326,8 @@ window.appModuleEvents['inventario-fecha'] = () => {
                     applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
                 } else {
                     currentDespCli += a_cantidad;
-                    applyObjDelta(deudaCliente, payload.clienteId, a_cantidad);
+                    const cId = payload.clienteId || (payload.clienteNombre ? clientes.find(c => c.nombre === payload.clienteNombre)?.id : null);
+                    applyObjDelta(deudaCliente, cId, a_cantidad);
                 }
             } else if (a.operacion === 'Transf. Fincas') {
                 applyObjDelta(deudaProductor, payload.productorOrigenId, a_cantidad);

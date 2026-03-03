@@ -338,7 +338,7 @@ window.appModuleEvents['reportes'] = () => {
                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
                         <td class="py-2.5 px-4 text-text-secondary">${new Date(a.date).toLocaleDateString()}</td>
                         <td class="py-2.5 px-4 font-medium text-white">${entidad}</td>
-                        <td class="py-2.5 px-4 text-text-secondary">${prod}</td>
+                        <td class="py-2.5 px-4 text-text-secondary">${producto}</td>
                         <td class="py-2.5 px-4 text-text-secondary italic text-xs max-w-xs truncate" title="${a.detalle}">${a.operacion}</td>
                         <td class="py-2.5 px-4 text-right font-bold ${a.cantidad.includes('-') ? 'text-danger' : 'text-success'}">${a.cantidad}</td>
                         <td class="py-2.5 px-4 text-center">
