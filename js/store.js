@@ -1046,14 +1046,14 @@ class Store {
                 state.inventario.canastasLlenas += cantidad;
                 const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
 
-                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion, cantidad };
+                const rawPayload = { tipoOrigen, clienteNombre: clienteNombre || null, clienteId: cliente?.id || null, productorId: productorId || null, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion, cantidad };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
-                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion, cantidad };
+                const rawPayload = { tipoOrigen, clienteNombre: clienteNombre || null, clienteId: cliente?.id || null, productorId: productorId || null, esLlena, productoId: productoId || null, almacenDestinoId, fechaRecepcion, cantidad };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
