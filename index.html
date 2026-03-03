@@ -637,11 +637,19 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                         <h2 class="text-2xl font-bold text-white">Resumen General</h2>
 
-                        <!-- Botón de Backup (Oculto por defecto, se muestra solo a Admins vía JS si es necesario, o visible para todos según la lógica en ui.js) -->
-                        <button id="btn-backup-global"
-                            class="btn btn-secondary text-sm h-[38px] px-4 flex items-center gap-2 mt-4 md:mt-0 bg-surface border border-primary/30 hover:bg-primary/20 transition-colors hidden text-primary">
-                            <i data-lucide="archive" class="w-4 h-4"></i> Descargar Backup (JSON)
-                        </button>
+                        <div class="flex items-center gap-3 mt-4 md:mt-0">
+                            <!-- Botón de Backup -->
+                            <button id="btn-backup-global"
+                                class="btn btn-secondary text-sm h-[38px] px-4 flex items-center gap-2 bg-surface border border-primary/30 hover:bg-primary/20 transition-colors hidden text-primary">
+                                <i data-lucide="archive" class="w-4 h-4"></i> Descargar Backup (JSON)
+                            </button>
+
+                            <!-- Botón Reset Inventario -->
+                            <button id="btn-reset-inventario"
+                                class="btn btn-danger text-sm h-[38px] px-4 flex items-center gap-2 bg-surface border border-danger/50 hover:bg-danger/20 transition-colors hidden text-danger">
+                                <i data-lucide="alert-triangle" class="w-4 h-4"></i> Vaciar Inventario
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Stats Cards -->

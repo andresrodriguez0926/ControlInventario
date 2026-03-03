@@ -146,6 +146,37 @@ const UI = {
                 }
             });
         }
+
+        // Reset solo inventario
+        const btnResetInv = document.getElementById('btn-reset-inventario');
+        if (btnResetInv) {
+            btnResetInv.addEventListener('click', async () => {
+                if (confirm('⚠️ ATENCIÓN: Esta acción eliminará TODO el historial de operaciones, pondrá a 0 todas las canastas en almacén y borrará todas las deudas de los productores y clientes. \n\nNo se borrarán los catálogos ni configuraciones.\n\n¿Estás completamente seguro de continuar? Esta acción es irreversible.')) {
+
+                    if (confirm('¿RECONFIRMAS QUE DESEAS VACIAR EL INVENTARIO? (Paso 2 de 2)')) {
+                        try {
+                            const originalHTML = btnResetInv.innerHTML;
+                            btnResetInv.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Borrando...`;
+                            btnResetInv.disabled = true;
+                            this.initLucideIcons();
+
+                            await window.appStore.resetInventarioYTransacciones();
+
+                            this.showToast('Inventario y transacciones eliminados con éxito.', 'success');
+
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        } catch (error) {
+                            this.showToast('Error al resetear: ' + error.message, 'error');
+                            btnResetInv.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4"></i> Resetear Inventario`;
+                            btnResetInv.disabled = false;
+                            this.initLucideIcons();
+                        }
+                    }
+                }
+            });
+        }
     },
 
     toggleSidebar(show) {
@@ -283,6 +314,8 @@ const UI = {
         if (!user || user.rol?.toLowerCase() === 'admin' || user.rol?.toLowerCase() === 'administrador') {
             // Admin sees everything
             if (this.btnBackupGlobal) this.btnBackupGlobal.classList.remove('hidden');
+            const btnResetInv = document.getElementById('btn-reset-inventario');
+            if (btnResetInv) btnResetInv.classList.remove('hidden');
             return;
         }
 

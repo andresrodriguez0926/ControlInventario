@@ -1489,6 +1489,71 @@ class Store {
     async reset() {
         await this.dbRef.set(structuredClone(defaultData));
     }
+
+    // ===============================================
+    // RESET ESPECIAL: SOLO INVENTARIO Y TRANSACCIONES
+    // ===============================================
+    async resetInventarioYTransacciones() {
+        try {
+            // 1. Borrar toda la colección de 'actividad'
+            const snapshot = await db.collection('actividad').get();
+            if (!snapshot.empty) {
+                // Limitaciones de batch en firestore es de 500, pero vamos iterando
+                const batchArray = [];
+                batchArray.push(db.batch());
+                let operationCounter = 0;
+                let batchIndex = 0;
+
+                snapshot.docs.forEach((doc) => {
+                    batchArray[batchIndex].delete(doc.ref);
+                    operationCounter++;
+                    if (operationCounter === 490) {
+                        batchArray.push(db.batch());
+                        batchIndex++;
+                        operationCounter = 0;
+                    }
+                });
+
+                for (const batch of batchArray) {
+                    await batch.commit();
+                }
+            }
+
+            // 2. Modificar el state (mainState) para poner en 0 el inventario y las deudas de productores/clientes
+            await this.runTransaction((state, transaction) => {
+                // Deuda Productores a 0
+                if (state.productores && state.productores.length > 0) {
+                    state.productores.forEach(p => p.canastasPrestadas = 0);
+                }
+
+                // Deuda Clientes a 0
+                if (state.clientes && state.clientes.length > 0) {
+                    state.clientes.forEach(c => c.canastasPrestadas = 0);
+                }
+
+                // Inventario General a 0
+                state.inventario = {
+                    porAlmacen: {},
+                    canastasLlenas: 0,
+                    canastasVacias: 0,
+                    despachadasProductor: 0,
+                    despachadasCliente: 0
+                };
+
+                // Recrear porAlmacen base si existen almacenes
+                if (state.almacenes && state.almacenes.length > 0) {
+                    state.almacenes.forEach(alm => {
+                        state.inventario.porAlmacen[alm.id] = { vacias: 0 };
+                    });
+                }
+            });
+
+            return true;
+        } catch (error) {
+            console.error("Error al resetear el inventario y transacciones:", error);
+            throw error;
+        }
+    }
 }
 
 window.appStore = new Store();
