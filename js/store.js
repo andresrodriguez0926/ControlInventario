@@ -847,6 +847,51 @@ class Store {
         });
     }
 
+    async eliminarDespachoVacias(idActividad) {
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para anular.");
+
+            const actividadObj = docSnap.data();
+            if (!actividadObj.rawPayload) {
+                throw new Error("No se puede anular: Este registro es antiguo y no contiene los datos técnicos necesarios para revertirlo.");
+            }
+
+            if (actividadObj.anulado) {
+                throw new Error("Este registro ya se encuentra anulado.");
+            }
+
+            const old = actividadObj.rawPayload;
+            const cantAntigua = parseInt(old.cantidad);
+
+            // 1. REVERTIR IMPACTO ANTIGUO
+            const invAlmacenOld = state.inventario.porAlmacen[old.almacenOrigenId];
+            if (invAlmacenOld) {
+                invAlmacenOld.vacias = (invAlmacenOld.vacias || 0) + cantAntigua;
+            }
+            state.inventario.canastasVacias = (state.inventario.canastasVacias || 0) + cantAntigua;
+            state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - cantAntigua);
+
+            const oldProductor = state.productores.find(p => p.id === old.productorId);
+            if (oldProductor) {
+                if ((oldProductor.canastasPrestadas || 0) < cantAntigua) {
+                    throw new Error(`Error al revertir: La deuda del productor ${oldProductor.nombre} quedaría negativa.`);
+                }
+                oldProductor.canastasPrestadas -= cantAntigua;
+            }
+
+            // 2. ANULAR EL DOCUMENTO
+            actividadObj.anulado = true;
+            actividadObj.detalle = actividadObj.detalle + ' (ANULADO)';
+            actividadObj.cantidad = '0 (ANULADO)';
+
+            if (old.cantidad) old.cantidad = 0;
+
+            transaction.update(docRef, actividadObj);
+        });
+    }
+
     async transferenciaFincas({ personaTransfiere, productorOrigenId, productorDestinoId, cantidad, fechaTransferencia }) {
         cantidad = parseInt(cantidad);
         // productorOrigenId y productorDestinoId son strings (base36 generados), NO usar parseInt()
@@ -1010,8 +1055,18 @@ class Store {
                 oldCliente.canastasPrestadas = Math.max(0, (oldCliente.canastasPrestadas || 0) - cantAntigua);
             }
 
-            // 3. BORRAR EL DOCUMENTO
-            transaction.delete(docRef);
+            // 3. ANULAR EL DOCUMENTO EN LUGAR DE BORRARLO
+            actividadObj.anulado = true;
+            actividadObj.detalle = actividadObj.detalle + ' (ANULADO)';
+            actividadObj.cantidad = '0 (ANULADO)';
+
+            if (payload.detalles) {
+                payload.detalles.forEach(d => d.cantidad = 0);
+            }
+            if (payload.total) payload.total = 0;
+            if (payload.cantidad) payload.cantidad = 0;
+
+            transaction.update(docRef, actividadObj);
         });
     }
 
@@ -1111,8 +1166,15 @@ class Store {
                 if (cli) cli.canastasPrestadas = (cli.canastasPrestadas || 0) + cantAntigua;
             }
 
-            // 3. BORRAR EL DOCUMENTO
-            transaction.delete(docRef);
+            // 3. ANULAR EL DOCUMENTO EN LUGAR DE BORRARLO
+            actividadObj.anulado = true;
+            actividadObj.detalle = actividadObj.detalle + ' (ANULADO)';
+            actividadObj.cantidad = '0 (ANULADO)';
+
+            if (payload.cantidad) payload.cantidad = 0;
+            if (payload.vacias) payload.vacias = 0;
+
+            transaction.update(docRef, actividadObj);
         });
     }
 

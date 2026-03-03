@@ -244,7 +244,7 @@ window.appModuleEvents['despacho-cliente'] = () => {
                             </button>
                             ${editBtn}
                             ${isAdmin ? `
-                                <button type="button" onclick="window.confirmarEliminarDespachoCliente('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-1" title="Eliminar Registro">
+                                <button type="button" onclick="window.confirmarEliminarDespachoCliente('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-1" title="Anular Registro">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             ` : ''}
@@ -403,11 +403,11 @@ window.appModuleEvents['despacho-cliente'] = () => {
     };
 
     window.confirmarEliminarDespachoCliente = async (idActividad) => {
-        if (!confirm('¿Está seguro de que desea eliminar este despacho por completo? Se devolverá el inventario al almacén y se revertirá la deuda al cliente.')) return;
+        if (!confirm('¿Está seguro de que desea anular este despacho por completo? Se devolverá el inventario al almacén y se revertirá la deuda al cliente.')) return;
 
         try {
             await window.appStore.eliminarDespachoCliente(idActividad);
-            window.UI.showToast('Despacho eliminado correctamente.');
+            window.UI.showToast('Despacho anulado correctamente.');
             window.UI.renderModuleContainer('despacho-cliente');
         } catch (error) {
             window.UI.showToast(error.message, 'error');
@@ -633,7 +633,7 @@ window.appModules['recepcion-canastas'] = () => {
                                                     <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
                                                 </button>
                                                 ${(window.appStore.currentUser?.rol?.toLowerCase() === 'admin' || window.appStore.currentUser?.rol?.toLowerCase() === 'administrador') ? `
-                                                    <button type="button" onclick="window.confirmarEliminarRecepcionCanastas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Eliminar Registro">
+                                                    <button type="button" onclick="window.confirmarEliminarRecepcionCanastas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Anular Registro">
                                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                                     </button>
                                                 ` : ''}
@@ -657,14 +657,27 @@ window.appModuleEvents['recepcion-canastas'] = () => {
     window.UI.makeSelectSearchable('dev-productor');
 
     window.confirmarEliminarRecepcionCanastas = async (idActividad) => {
-        if (!confirm('¿Está seguro de que desea eliminar esta devolución? Esta acción revertirá el inventario devuelto y las deudas asociadas.')) return;
+        if (!confirm('¿Está seguro de que desea anular esta devolución? Se revertirán los saldos en almacén y las deudas del cliente/productor.')) return;
 
         try {
+            const btn = document.activeElement;
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>';
+                btn.disabled = true;
+            }
+
             await window.appStore.eliminarRecepcionCanastas(idActividad);
-            window.UI.showToast('Devolución eliminada con éxito y saldos revertidos.');
+            window.UI.showToast('Devolución anulada con éxito y saldos revertidos.');
             window.UI.renderModuleContainer('recepcion-canastas');
         } catch (error) {
             window.UI.showToast(error.message, 'error');
+        } finally {
+            const btn = document.activeElement;
+            if (btn && btn.tagName === 'BUTTON' && originalHtml) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
         }
     };
 

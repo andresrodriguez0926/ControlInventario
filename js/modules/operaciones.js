@@ -457,6 +457,9 @@ window.appModules['despacho-vacias'] = () => {
                                                     <button type="button" onclick="window.modificarDespachoVacias('${a.id}')" class="text-warning hover:text-warning tooltip-trigger" title="Modificar Registro">
                                                         <i data-lucide="edit" class="w-4 h-4"></i>
                                                     </button>
+                                                    <button type="button" onclick="window.confirmarEliminarDespachoVacias('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Anular Registro">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
                                                 ` : ''}
                                             </div>
                                         </td>
@@ -476,6 +479,17 @@ window.appModules['despacho-vacias'] = () => {
 window.appModuleEvents['despacho-vacias'] = () => {
     // Activar dropdown buscable para productor
     window.UI.makeSelectSearchable('vac-productor');
+
+    window.confirmarEliminarDespachoVacias = async (idActividad) => {
+        if (!confirm('¿Está seguro de que desea anular este despacho de vacías? Esta acción revertirá el inventario prestado y el saldo del almacén.')) return;
+        try {
+            await window.appStore.eliminarDespachoVacias(idActividad);
+            window.UI.showToast('Despacho anulado con éxito.');
+            window.UI.renderModuleContainer('despacho-vacias');
+        } catch (error) {
+            window.UI.showToast(error.message, 'error');
+        }
+    };
 
     // Tab Logic
     const btnNueva = document.getElementById('tab-btn-nueva-vac');
