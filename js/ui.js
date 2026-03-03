@@ -57,6 +57,9 @@ const UI = {
         // Auth DOM
         this.loginForm = document.getElementById('login-form');
         this.btnLogout = document.getElementById('btn-logout');
+
+        // Utils DOM
+        this.btnBackupGlobal = document.getElementById('btn-backup-global');
     },
 
     bindEvents() {
@@ -116,6 +119,31 @@ const UI = {
         if (this.btnLogout) {
             this.btnLogout.addEventListener('click', () => {
                 window.appStore.logout();
+            });
+        }
+
+        // Backup Global
+        if (this.btnBackupGlobal) {
+            this.btnBackupGlobal.addEventListener('click', async () => {
+                try {
+                    const originalHTML = this.btnBackupGlobal.innerHTML;
+                    this.btnBackupGlobal.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Generando...`;
+                    this.btnBackupGlobal.disabled = true;
+                    this.initLucideIcons();
+
+                    await window.appStore.generarBackupJSON();
+
+                    this.showToast('Backup descargado correctamente', 'success');
+
+                    this.btnBackupGlobal.innerHTML = originalHTML;
+                    this.btnBackupGlobal.disabled = false;
+                    this.initLucideIcons();
+                } catch (error) {
+                    this.showToast('Error al generar backup: ' + error.message, 'error');
+                    this.btnBackupGlobal.innerHTML = `<i data-lucide="archive" class="w-4 h-4"></i> Descargar Backup (JSON)`;
+                    this.btnBackupGlobal.disabled = false;
+                    this.initLucideIcons();
+                }
             });
         }
     },
@@ -252,7 +280,11 @@ const UI = {
     // --- Navigation System ---
 
     applyPermissions(user) {
-        if (!user || user.rol === 'admin') return; // Admin sees everything
+        if (!user || user.rol?.toLowerCase() === 'admin' || user.rol?.toLowerCase() === 'administrador') {
+            // Admin sees everything
+            if (this.btnBackupGlobal) this.btnBackupGlobal.classList.remove('hidden');
+            return;
+        }
 
         // Hide links that are in modulosBloqueados
         const blocked = user.modulosBloqueados || [];
@@ -266,6 +298,7 @@ const UI = {
         // Hide sensible areas for non-admins (like data reset)
         if (this.btnReset) this.btnReset.classList.add('hidden');
         if (this.btnRecalculate) this.btnRecalculate.classList.add('hidden');
+        if (this.btnBackupGlobal) this.btnBackupGlobal.classList.add('hidden');
     },
 
     navigate(hash) {

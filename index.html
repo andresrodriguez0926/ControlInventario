@@ -634,7 +634,15 @@
 
                 <!-- Dashboard Page -->
                 <div id="page-dashboard" class="page-view active animate-fade-in">
-                    <h2 class="text-2xl font-bold mb-6 text-white">Resumen General</h2>
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                        <h2 class="text-2xl font-bold text-white">Resumen General</h2>
+
+                        <!-- Botón de Backup (Oculto por defecto, se muestra solo a Admins vía JS si es necesario, o visible para todos según la lógica en ui.js) -->
+                        <button id="btn-backup-global"
+                            class="btn btn-secondary text-sm h-[38px] px-4 flex items-center gap-2 mt-4 md:mt-0 bg-surface border border-primary/30 hover:bg-primary/20 transition-colors hidden text-primary">
+                            <i data-lucide="archive" class="w-4 h-4"></i> Descargar Backup (JSON)
+                        </button>
+                    </div>
 
                     <!-- Stats Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 mb-8">
