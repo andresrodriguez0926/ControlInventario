@@ -826,8 +826,9 @@ class Store {
             }
 
             if (deudaActual < cantidad) {
-                const tipoStr = tipoOrigen === 'productor' ? 'El productor' : 'El cliente';
-                throw new Error(`${tipoStr} solo debe ${deudaActual} canastas. No puede devolver ${cantidad}.`);
+                // Se permite la devolucion, pero la deuda individual se limita a 0 más abajo.
+                // Se podra notificar pero el backend debe aceptar para cuadrar fsicamente.
+                console.warn(`Aviso: recibiendo ${cantidad} canastas de ${entidadName} pero solo debía ${deudaActual}. Cuadrando la diferencia a favor de la empresa.`);
             }
 
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
