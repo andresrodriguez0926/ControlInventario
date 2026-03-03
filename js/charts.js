@@ -972,23 +972,35 @@ const Charts = {
             let matched = false;
 
             const checkLotesOrDetalles = () => {
+                let foundMatch = false;
                 if (payload.lotes) {
                     payload.lotes.forEach(l => {
-                        if (l.almacenId === targetAlmacenId) {
+                        if (l.almacenId === targetAlmacenId || l.almacenDestinoId === targetAlmacenId) {
                             if (!targetProductoId || l.productoId === targetProductoId) {
                                 sumCant += parseInt(l.cantidad) || 0;
+                                foundMatch = true;
                             }
                         }
                     });
                 }
                 if (payload.detalles) {
                     payload.detalles.forEach(d => {
-                        if (d.almacenOrigenId === targetAlmacenId || d.almacenId === targetAlmacenId) {
+                        if (d.almacenOrigenId === targetAlmacenId || d.almacenId === targetAlmacenId || d.almacenDestinoId === targetAlmacenId) {
                             if (!targetProductoId || d.productoId === targetProductoId) {
                                 sumCant += parseInt(d.cantidad) || 0;
+                                foundMatch = true;
                             }
                         }
                     });
+                }
+
+                // Fallback for flat payloads
+                if (!foundMatch) {
+                    if (payload.almacenDestinoId === targetAlmacenId || payload.almacenId === targetAlmacenId || payload.almacenOrigenId === targetAlmacenId) {
+                        if (!targetProductoId || payload.productoId === targetProductoId || payload.productoIdActual === targetProductoId || payload.productoIdNuevo === targetProductoId) {
+                            sumCant += parseInt(payload.cantidad || a.cantidad) || 0;
+                        }
+                    }
                 }
             };
 
