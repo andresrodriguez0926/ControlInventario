@@ -979,6 +979,43 @@ class Store {
         });
     }
 
+    async eliminarDespachoCliente(idActividad) {
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para eliminar.");
+
+            const actividadObj = docSnap.data();
+            if (!actividadObj.rawPayload) {
+                throw new Error("No se puede eliminar: Este registro es antiguo y no contiene los datos técnicos (rawPayload) necesarios para revertir el inventario.");
+            }
+
+            const payload = actividadObj.rawPayload;
+            const cantAntigua = parseInt(payload.total);
+
+            // 1. REVERTIR IMPACTO EN INVENTARIO ALMACENES
+            payload.detalles.forEach(det => {
+                const invAlmacenOld = state.inventario.porAlmacen[det.almacenOrigenId];
+                if (invAlmacenOld && det.productoId) {
+                    invAlmacenOld[det.productoId] = (invAlmacenOld[det.productoId] || 0) + parseInt(det.cantidad);
+                }
+            });
+
+            // 2. REVERTIR IMPACTO GLOBAL Y DEUDAS
+            state.inventario.canastasLlenas += cantAntigua;
+            state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - cantAntigua);
+
+            const oldCliente = state.clientes.find(c => c.nombre === payload.clienteNombre);
+            if (oldCliente) {
+                oldCliente.canastasPrestadas = Math.max(0, (oldCliente.canastasPrestadas || 0) - cantAntigua);
+            }
+
+            // 3. BORRAR EL DOCUMENTO
+            transaction.delete(docRef);
+        });
+    }
+
+    // --- Módulo Devoluciones / Recepción de Canastas ---
     async recepcionCanastas({ tipoOrigen = 'cliente', clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion }) {
         cantidad = parseInt(cantidad);
         await this.runTransaction((state, transaction) => {
@@ -996,6 +1033,13 @@ class Store {
 
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
             const invAlmacen = state.inventario.porAlmacen[almacenDestinoId];
+
+            if (productor && productor.canastasPrestadas < cantidad) {
+                throw new Error(`El productor ${entidadName} solo debe ${productor.canastasPrestadas || 0} canastas. No puede devolver ${cantidad}.`);
+            }
+            if (cliente && cliente.canastasPrestadas < cantidad) {
+                throw new Error(`El cliente ${entidadName} solo debe ${cliente.canastasPrestadas || 0} canastas. No puede devolver ${cantidad}.`);
+            }
 
             if (esLlena && productoId) {
                 invAlmacen[productoId] = (invAlmacen[productoId] || 0) + cantidad;
@@ -1021,6 +1065,58 @@ class Store {
             state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - (tipoOrigen === 'cliente' ? cantidad : 0));
         });
     }
+
+    async eliminarRecepcionCanastas(idActividad) {
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para eliminar.");
+
+            const actividadObj = docSnap.data();
+            if (!actividadObj.rawPayload) {
+                throw new Error("No se puede eliminar: Este registro es antiguo y no contiene datos técnicos para revertir el inventario.");
+            }
+
+            const payload = actividadObj.rawPayload;
+            const cantAntigua = parseInt(payload.cantidad);
+            const invAlmacenOld = state.inventario.porAlmacen[payload.almacenDestinoId];
+
+            if (!invAlmacenOld) throw new Error("No se puede revertir: El almacén destino ya no existe.");
+
+            // 1. REVERTIR INVETARIO DEL ALMACÉN
+            if (payload.esLlena && payload.productoId) {
+                if ((invAlmacenOld[payload.productoId] || 0) < cantAntigua) {
+                    throw new Error("Error: No hay suficientes canastas llenas en el almacén para revertir esta operación.");
+                }
+                invAlmacenOld[payload.productoId] -= cantAntigua;
+                state.inventario.canastasLlenas -= cantAntigua;
+            } else {
+                if ((invAlmacenOld.vacias || 0) < cantAntigua) {
+                    throw new Error("Error: No hay suficientes canastas vacías en el almacén para revertir esta operación.");
+                }
+                invAlmacenOld.vacias -= cantAntigua;
+                state.inventario.canastasVacias -= cantAntigua;
+            }
+
+            // 2. REVERTIR DEUDAS GLOBALES Y ENTIDAD
+            const esProductor = payload.tipoOrigen === 'productor';
+
+            if (esProductor) {
+                state.inventario.despachadasProductor = (state.inventario.despachadasProductor || 0) + cantAntigua;
+                const prod = state.productores.find(p => p.id === payload.productorId);
+                if (prod) prod.canastasPrestadas = (prod.canastasPrestadas || 0) + cantAntigua;
+            } else {
+                state.inventario.despachadasCliente = (state.inventario.despachadasCliente || 0) + cantAntigua;
+                const cli = state.clientes.find(c => c.id === payload.clienteId || c.nombre === payload.clienteNombre);
+                if (cli) cli.canastasPrestadas = (cli.canastasPrestadas || 0) + cantAntigua;
+            }
+
+            // 3. BORRAR EL DOCUMENTO
+            transaction.delete(docRef);
+        });
+    }
+
+
 
     async compraCanastas({ proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra }) {
         cantidad = parseInt(cantidad);
@@ -1293,6 +1389,54 @@ class Store {
             }
         } catch (e) {
             console.error("Error updating activity collection dates:", e);
+        }
+    }
+
+    // ===============================================
+    // BACKUP DEL SISTEMA
+    // ===============================================
+    async generarBackupJSON() {
+        try {
+            const estadoActual = this.getState();
+            let backupData = {
+                metadata: {
+                    fechaGeneracion: new Date().toISOString(),
+                    versionApp: "1.0",
+                    generadoPor: this.currentUser?.usuario || 'Sistema'
+                },
+                datosPrincipales: {
+                    inventario: estadoActual.inventario,
+                    almacenes: estadoActual.almacenes,
+                    productos: estadoActual.productos,
+                    clientes: estadoActual.clientes,
+                    productores: estadoActual.productores,
+                    config: estadoActual.config
+                },
+                historialCompleto: []
+            };
+
+            // Extraer historial completo de Firestore
+            const snapshot = await db.collection('actividad').orderBy('date', 'asc').get();
+            if (!snapshot.empty) {
+                backupData.historialCompleto = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+            }
+
+            // Crear y descargar archivo
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `Backup_Pedropi_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+
+            return true;
+        } catch (error) {
+            console.error("Error al generar el backup JSON:", error);
+            throw error;
         }
     }
 
