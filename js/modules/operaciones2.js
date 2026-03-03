@@ -119,6 +119,19 @@ window.appModules['despacho-cliente'] = () => {
 window.appModuleEvents['despacho-cliente'] = () => {
     window.UI.makeSelectSearchable('desc-cliente');
 
+    // Configurar límites de fecha: Máximo hoy, mínimo hace 10 días
+    const despachoDateInput = document.getElementById('desp-fecha');
+    if (despachoDateInput) {
+        const hoy = new Date();
+        const haceDiezDias = new Date();
+        haceDiezDias.setDate(hoy.getDate() - 10);
+
+        // Formato YYYY-MM-DD
+        despachoDateInput.max = hoy.toISOString().split('T')[0];
+        despachoDateInput.min = haceDiezDias.toISOString().split('T')[0];
+        despachoDateInput.value = hoy.toISOString().split('T')[0]; // Por defecto hoy
+    }
+
     // Tab Logic
     const btnNueva = document.getElementById('tab-btn-nueva-desp');
     const btnHistorial = document.getElementById('tab-btn-historial-desp');
@@ -602,11 +615,6 @@ window.appModules['recepcion-canastas'] = () => {
                                                 <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
                                                     <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
                                                 </button>
-                                                ${isAdmin ? `
-                                                    <button type="button" onclick="window.UI.showToast('La edición para este módulo aún no está implementada.', 'info')" class="text-primary hover:text-primary-hover tooltip-trigger" title="Modificar Registro">
-                                                        <i data-lucide="edit" class="w-4 h-4"></i>
-                                                    </button>
-                                                ` : ''}
                                             </div>
                                         </td>
                                     </tr>
@@ -626,7 +634,6 @@ window.appModuleEvents['recepcion-canastas'] = () => {
     window.UI.makeSelectSearchable('dev-cliente');
     window.UI.makeSelectSearchable('dev-productor');
 
-    // Tab Logic
     const btnNueva = document.getElementById('tab-btn-nueva-dev');
     const btnHistorial = document.getElementById('tab-btn-historial-dev');
     const contentNueva = document.getElementById('tab-content-nueva-dev');

@@ -175,9 +175,22 @@ class Store {
             summary.porAlmacen[alm.id] = 0;
         });
 
-        // Analizar TODO el historial disponible en el caché (limitado a 5000 por performance)
+        // Analizar TODO el historial disponible
         this.actividadCache.forEach(act => {
-            const raw = act.rawPayload;
+            let raw = act.rawPayload;
+            if (!raw) {
+                // Soporte para registros antiguos sin rawPayload
+                const prodMap = {};
+                this.getProductores().forEach(p => prodMap[(p.nombre || '').toLowerCase().trim()] = p.id);
+                const cliMap = {};
+                this.getClientes().forEach(c => cliMap[(c.nombre || '').toLowerCase().trim()] = c.id);
+                const almMap = {};
+                this.getAlmacenes().forEach(a => almMap[(a.nombre || '').toLowerCase().trim()] = a.id);
+                const prodFruitMap = {};
+                this.getProductos().forEach(p => prodFruitMap[(p.nombre || '').toLowerCase().trim()] = p.id);
+
+                raw = this._intentarReconstruirPayload(act, prodMap, cliMap, almMap, prodFruitMap);
+            }
             if (!raw) return;
 
             // 1. Recepción (Entrada)
@@ -619,7 +632,7 @@ class Store {
             state.inventario.canastasLlenas += totalCantidad;
             state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - totalCantidad);
 
-            if (productor) productor.canastasPrestadas = Math.max(0, prestadas - totalCantidad);
+            if (productor) productor.canastasPrestadas -= totalCantidad;
 
             // Resumen for history display
             let detalleStr = `De: ${productorName}, Recibe: ${personaRecibe}`;
@@ -671,15 +684,24 @@ class Store {
                 oldProductor.canastasPrestadas = (oldProductor.canastasPrestadas || 0) + cantAntigua;
             }
 
-            lotesOld.forEach(lote => {
+            for (const lote of lotesOld) {
                 const almId = lote.almacenId || old.almacenDestinoId;
                 const invAlmacenOld = state.inventario.porAlmacen[almId];
-                if (invAlmacenOld && invAlmacenOld[lote.productoId]) {
-                    invAlmacenOld[lote.productoId] = Math.max(0, invAlmacenOld[lote.productoId] - parseInt(lote.cantidad));
-                }
-            });
+                const productoId = lote.productoId;
+                const cantLote = parseInt(lote.cantidad);
 
-            state.inventario.canastasLlenas = Math.max(0, state.inventario.canastasLlenas - cantAntigua);
+                if (!invAlmacenOld || (invAlmacenOld[productoId] || 0) < cantLote) {
+                    const pName = state.productos.find(p => p.id === productoId)?.nombre || productoId;
+                    const almName = state.almacenes.find(a => a.id === almId)?.nombre || almId;
+                    throw new Error(`Error al revertir: No hay suficientes existencias de ${pName} en ${almName} para anular el registro anterior.`);
+                }
+                invAlmacenOld[productoId] -= cantLote;
+            }
+
+            if ((state.inventario.canastasLlenas || 0) < cantAntigua) {
+                throw new Error("Error al revertir: El inventario global de canastas llenas quedaría negativo.");
+            }
+            state.inventario.canastasLlenas -= cantAntigua;
             state.inventario.despachadasProductor = (state.inventario.despachadasProductor || 0) + cantAntigua;
 
             // 2. APLICAR NUEVO IMPACTO
@@ -785,7 +807,10 @@ class Store {
 
             const oldProductor = state.productores.find(p => p.id === old.productorId);
             if (oldProductor) {
-                oldProductor.canastasPrestadas = Math.max(0, (oldProductor.canastasPrestadas || 0) - cantAntigua);
+                if ((oldProductor.canastasPrestadas || 0) < cantAntigua) {
+                    throw new Error(`Error al revertir: La deuda del productor ${oldProductor.nombre} quedaría negativa.`);
+                }
+                oldProductor.canastasPrestadas -= cantAntigua;
             }
 
             // 2. APLICAR NUEVO IMPACTO
@@ -835,7 +860,7 @@ class Store {
 
             const pDestinoObj = state.productores.find(p => p.id === productorDestinoId);
 
-            if (pOrigenObj) pOrigenObj.canastasPrestadas = Math.max(0, prestadasOrigen - cantidad);
+            if (pOrigenObj) pOrigenObj.canastasPrestadas -= cantidad;
             if (pDestinoObj) pDestinoObj.canastasPrestadas = (pDestinoObj.canastasPrestadas || 0) + cantidad;
 
             const pOrigen = pOrigenObj?.nombre || 'Desconocido';
@@ -907,7 +932,10 @@ class Store {
 
             const oldCliente = state.clientes.find(c => c.nombre === old.clienteNombre);
             if (oldCliente) {
-                oldCliente.canastasPrestadas = Math.max(0, (oldCliente.canastasPrestadas || 0) - cantAntigua);
+                if ((oldCliente.canastasPrestadas || 0) < cantAntigua) {
+                    throw new Error(`Error al revertir: La deuda del cliente ${oldCliente.nombre} quedaría negativa.`);
+                }
+                oldCliente.canastasPrestadas -= cantAntigua;
             }
 
             // 2. APLICAR NUEVO IMPACTO
@@ -955,24 +983,15 @@ class Store {
         cantidad = parseInt(cantidad);
         await this.runTransaction((state, transaction) => {
             let entidadName = 'Desconocido';
-            let deudaActual = 0;
             let cliente = null;
             let productor = null;
 
             if (tipoOrigen === 'productor') {
                 productor = state.productores.find(p => p.id === productorId);
-                deudaActual = productor ? (productor.canastasPrestadas || 0) : 0;
                 entidadName = productor?.nombre || 'Productor';
             } else {
                 cliente = state.clientes.find(c => c.nombre === clienteNombre);
-                deudaActual = cliente ? (cliente.canastasPrestadas || 0) : 0;
                 entidadName = clienteNombre;
-            }
-
-            if (deudaActual < cantidad) {
-                // Se permite la devolucion, pero la deuda individual se limita a 0 más abajo.
-                // Se podra notificar pero el backend debe aceptar para cuadrar fsicamente.
-                console.warn(`Aviso: recibiendo ${cantidad} canastas de ${entidadName} pero solo debía ${deudaActual}. Cuadrando la diferencia a favor de la empresa.`);
             }
 
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
@@ -983,28 +1002,23 @@ class Store {
                 state.inventario.canastasLlenas += cantidad;
                 const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
 
-                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion };
+                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion, cantidad };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
-                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion };
+                const rawPayload = { tipoOrigen, clienteNombre, clienteId: cliente?.id, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion, cantidad };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
 
-            if (productor) productor.canastasPrestadas = Math.max(0, deudaActual - cantidad);
-            if (cliente) cliente.canastasPrestadas = Math.max(0, deudaActual - cantidad);
+            if (productor) productor.canastasPrestadas = Math.max(0, (productor.canastasPrestadas || 0) - cantidad);
+            if (cliente) cliente.canastasPrestadas = Math.max(0, (cliente.canastasPrestadas || 0) - cantidad);
 
-            if (tipoOrigen === 'productor') {
-                state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - cantidad);
-                if (productor) productor.canastasPrestadas = Math.max(0, (productor.canastasPrestadas || 0) - cantidad);
-            } else {
-                state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - cantidad);
-                if (cliente) cliente.canastasPrestadas = Math.max(0, (cliente.canastasPrestadas || 0) - cantidad);
-            }
+            state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - (tipoOrigen === 'productor' ? cantidad : 0));
+            state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - (tipoOrigen === 'cliente' ? cantidad : 0));
         });
     }
 

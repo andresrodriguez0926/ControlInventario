@@ -88,6 +88,7 @@ const UI = {
             }
         });
 
+
         // Login Submit
         if (this.loginForm) {
             this.loginForm.addEventListener('submit', async (e) => {
@@ -264,6 +265,7 @@ const UI = {
 
         // Hide sensible areas for non-admins (like data reset)
         if (this.btnReset) this.btnReset.classList.add('hidden');
+        if (this.btnRecalculate) this.btnRecalculate.classList.add('hidden');
     },
 
     navigate(hash) {
