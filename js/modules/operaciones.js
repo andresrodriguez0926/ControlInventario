@@ -34,7 +34,7 @@ window.appModules['recepcion'] = () => {
     const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
 
     // Obtener y filtrar historial reciente
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta');
 
     return `
         <div class="animate-fade-in max-w-5xl mx-auto">
@@ -349,7 +349,7 @@ window.appModules['despacho-vacias'] = () => {
     const almacenes = window.appStore.getAlmacenes();
 
     const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Desp. Vacías');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías');
 
     const today = new Date();
     const offset = today.getTimezoneOffset() * 60000;
@@ -541,7 +541,7 @@ window.appModuleEvents['despacho-vacias'] = () => {
 window.appModules['transferencia'] = () => {
     const productores = window.appStore.getProductores();
     const opts = generateSelectOptions(productores, 'Seleccione un productor...');
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia Fincas' || a.operacion === 'Transferencia' || a.operacion === 'Transferencia Entre Fincas');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia Fincas' || a.operacion === 'Transferencia' || a.operacion === 'Transferencia Entre Fincas' || a.operacion === 'Transferencia entre Fincas');
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
             <h2 class="text-2xl font-bold text-white mb-2">Transferencia Entre Fincas</h2>
@@ -742,7 +742,7 @@ window.appModuleEvents['transferencia'] = () => {
 window.appModules['transferencia-interna'] = () => {
     const almacenes = window.appStore.getAlmacenes();
     const productos = window.appStore.getProductos();
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Interna');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes');
 
     const optsAlmacen = generateSelectOptions(almacenes, 'Seleccione almacén...');
     const optsProductos = generateSelectOptions(productos, 'Seleccione fruta...');

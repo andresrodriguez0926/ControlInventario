@@ -105,6 +105,27 @@ window.appModules['inventario-fecha'] = () => {
 
                 </div>
             </div>
+
+            <!-- Grand Total Summary (Sticky at bottom if results visible) -->
+            <div id="if-resumen-final" class="mt-8 hidden animate-fade-in">
+                <div class="bg-gradient-to-r from-primary/20 to-secondary/20 rounded-xl border border-primary/30 p-6 shadow-lg backdrop-blur-sm">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center border border-primary/40 shadow-inner">
+                                <i data-lucide="calculator" class="w-8 h-8 text-primary animate-pulse"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Total General de Canastas</h3>
+                                <p class="text-text-secondary text-sm">Suma de llenas, vacías y deudas (prod/cli)</p>
+                            </div>
+                        </div>
+                        <div class="text-center md:text-right">
+                            <span class="text-5xl font-black text-white tracking-tighter" id="if-grand-total">0</span>
+                            <div class="text-primary font-bold text-sm mt-1 uppercase tracking-widest">Canastas en Sistema</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 };
@@ -180,6 +201,10 @@ window.appModuleEvents['inventario-fecha'] = () => {
             const uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || `Inactivo`);
             message += `  • ${uName}: ${qty.toLocaleString()}\n`;
         });
+        message += `\n`;
+
+        const grandTotal = data.totalLlenas + data.totalVacias + data.totalDespProd + data.totalDespCli;
+        message += `📊 *TOTAL GENERAL: ${grandTotal.toLocaleString()}*\n`;
 
         const encoded = encodeURIComponent(message);
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
@@ -277,7 +302,7 @@ window.appModuleEvents['inventario-fecha'] = () => {
                 currentDespCli -= a_cantidad;
                 revertLlenasBreakdown(payload, a_cantidad, true);
                 applyObjDelta(deudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías') {
+            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
                 currentVacias += a_cantidad;
                 currentDespProd -= a_cantidad;
                 applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, a_cantidad);
@@ -347,6 +372,11 @@ window.appModuleEvents['inventario-fecha'] = () => {
         document.getElementById('if-total-vacias').textContent = data.totalVacias.toLocaleString();
         document.getElementById('if-total-dprod').textContent = data.totalDespProd.toLocaleString();
         document.getElementById('if-total-dcli').textContent = data.totalDespCli.toLocaleString();
+
+        // Calcular y mostrar Gran Total
+        const grandTotal = data.totalLlenas + data.totalVacias + data.totalDespProd + data.totalDespCli;
+        document.getElementById('if-grand-total').textContent = grandTotal.toLocaleString();
+        document.getElementById('if-resumen-final').classList.remove('hidden');
 
         const productos = window.appStore.getProductos();
         const almacenes = window.appStore.getAlmacenes();

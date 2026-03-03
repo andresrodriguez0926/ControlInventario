@@ -151,7 +151,7 @@ class Store {
     getClientes() { return this.data.clientes || []; }
     getUsuarios() { return this.data.usuarios || []; }
 
-    getActividad(limit = 10) {
+    getActividad(limit = 25) {
         return this.actividadCache.slice(0, limit);
     }
 
@@ -305,6 +305,7 @@ class Store {
             if (!state.productores) state.productores = [];
             state.productores.push(productor);
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Nuevo Productor: ${productor.nombre}`, 'Registro');
         }, true);
     }
 
@@ -313,8 +314,10 @@ class Store {
             if (!state.productores) state.productores = [];
             const index = state.productores.findIndex(p => p.id === id);
             if (index === -1) throw new Error("Productor no encontrado en la Nube.");
+            const oldName = state.productores[index].nombre;
             state.productores[index] = { ...state.productores[index], ...data };
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Actualización Productor: ${oldName}`, 'Cambio');
         }, true);
     }
 
@@ -324,12 +327,14 @@ class Store {
             const b = state.productores.find(p => p.id === id);
             if (!b) return;
 
-            // Verificación de historial
-            if (state.actividad && state.actividad.some(a => a.detalle.includes(b.nombre))) {
+            // Verificación de historial usando el caché local de actividad
+            const tieneHistorial = this.actividadCache.some(a => a.detalle && a.detalle.includes(b.nombre));
+            if (tieneHistorial) {
                 throw new Error("No se puede eliminar: El Productor tiene historial de transacciones y está bloqueado por seguridad contable.");
             }
             state.productores = state.productores.filter(p => p.id !== id);
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Eliminación Productor: ${b.nombre}`, 'Baja');
         }, true);
     }
 
@@ -342,6 +347,7 @@ class Store {
             if (!state.clientes) state.clientes = [];
             state.clientes.push(cliente);
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Nuevo Cliente: ${cliente.nombre}`, 'Registro');
         }, true);
     }
 
@@ -350,8 +356,10 @@ class Store {
             if (!state.clientes) state.clientes = [];
             const index = state.clientes.findIndex(c => c.id === id);
             if (index === -1) throw new Error("Cliente no encontrado en la Nube.");
+            const oldName = state.clientes[index].nombre;
             state.clientes[index] = { ...state.clientes[index], ...data };
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Actualización Cliente: ${oldName}`, 'Cambio');
         }, true);
     }
 
@@ -361,12 +369,14 @@ class Store {
             const b = state.clientes.find(c => c.id === id);
             if (!b) return;
 
-            // Verificación de historial
-            if (state.actividad && state.actividad.some(a => a.detalle.includes(b.nombre))) {
+            // Verificación de historial usando el caché local
+            const tieneHistorial = this.actividadCache.some(a => a.detalle && a.detalle.includes(b.nombre));
+            if (tieneHistorial) {
                 throw new Error("No se puede eliminar: El Cliente tiene historial de transacciones y está bloqueado por seguridad contable.");
             }
             state.clientes = state.clientes.filter(c => c.id !== id);
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Eliminación Cliente: ${b.nombre}`, 'Baja');
         }, true);
     }
 
@@ -381,6 +391,7 @@ class Store {
             if (!state.inventario.porAlmacen) state.inventario.porAlmacen = {};
             state.inventario.porAlmacen[almacen.id] = { vacias: 0 };
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Nuevo Almacén: ${almacen.nombre}`, 'Registro');
         }, true);
     }
 
@@ -388,13 +399,19 @@ class Store {
         await this.runTransaction((state, transaction) => {
             const index = state.almacenes.findIndex(a => a.id === id);
             if (index === -1) throw new Error("Almacén no encontrado en la Nube.");
+            const oldName = state.almacenes[index].nombre;
             state.almacenes[index] = { ...state.almacenes[index], ...data };
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Actualización Almacén: ${oldName}`, 'Cambio');
         }, true);
     }
 
     async deleteAlmacen(id) {
         await this.runTransaction((state, transaction) => {
+            const index = state.almacenes.findIndex(a => a.id === id);
+            if (index === -1) return;
+            const b = state.almacenes[index];
+
             const inv = state.inventario.porAlmacen[id];
 
             // Verificación estricta de historial o inventario
@@ -413,6 +430,7 @@ class Store {
                 delete state.inventario.porAlmacen[id];
             }
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Eliminación Almacén: ${b.nombre}`, 'Baja');
         }, true);
     }
 
@@ -423,6 +441,7 @@ class Store {
             if (!state.productos) state.productos = [];
             state.productos.push(producto);
             this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Nuevo Producto: ${producto.nombre}`, 'Registro');
         }, true);
     }
 
@@ -473,7 +492,7 @@ class Store {
             rawPayload.cantidad = totalCantidad;
             rawPayload.almacenDestinoId = lotes[0].almacenId;
 
-            this._registrarActividad(state, transaction, 'Recepción', detalleStr, `+${totalCantidad} llenas`, fechaRecepcion, rawPayload);
+            this._registrarActividad(state, transaction, 'Recepción de Fruta', detalleStr, `+${totalCantidad} llenas`, fechaRecepcion, rawPayload);
         });
     }
 
@@ -544,6 +563,7 @@ class Store {
 
             // 3. ACTUALIZAR REGISTRO DE ACTIVIDAD
             const productorName = newProductor?.nombre || 'Desconocido';
+            actividadObj.operacion = 'Recepción de Fruta';
             let detalleStr = `De: ${productorName}, Recibe: ${nuevoPayload.personaRecibe} (EDITADO)`;
 
             if (nuevoPayload.lotes.length === 1) {
@@ -592,7 +612,7 @@ class Store {
             const productorName = productor?.nombre || 'Desconocido';
 
             const rawPayload = { personaRetira, cantidad, productorId, almacenOrigenId, fechaDespacho };
-            this._registrarActividad(state, transaction, 'Desp. Vacías', `A productor: ${productorName}, Retira: ${personaRetira}`, `-${cantidad} vacías`, fechaDespacho, rawPayload);
+            this._registrarActividad(state, transaction, 'Despacho de Vacías', `A productor: ${productorName}, Retira: ${personaRetira}`, `-${cantidad} vacías`, fechaDespacho, rawPayload);
         });
     }
 
@@ -642,6 +662,7 @@ class Store {
             // 3. ACTUALIZAR REGISTRO DE ACTIVIDAD
             const productorName = newProductor?.nombre || 'Desconocido';
 
+            actividadObj.operacion = 'Despacho de Vacías';
             actividadObj.detalle = `A productor: ${productorName}, Retira: ${nuevoPayload.personaRetira} (EDITADO)`;
             actividadObj.cantidad = `-${nuevaCantidad} vacías`;
             actividadObj.rawPayload = { ...old, ...nuevoPayload };
@@ -677,7 +698,7 @@ class Store {
             const pDestino = pDestinoObj?.nombre || 'Desconocido';
 
             const rawPayload = { personaTransfiere, productorOrigenId, productorDestinoId, cantidad, fechaTransferencia };
-            this._registrarActividad(state, transaction, 'Transf. Fincas', `De: ${pOrigen} a ${pDestino} por ${personaTransfiere}`, `${cantidad} canastas`, fechaTransferencia, rawPayload);
+            this._registrarActividad(state, transaction, 'Transferencia entre Fincas', `De: ${pOrigen} a ${pDestino} por ${personaTransfiere}`, `${cantidad} canastas`, fechaTransferencia, rawPayload);
         });
     }
 
@@ -709,7 +730,7 @@ class Store {
             const detallesStr = Object.entries(frutasDespachadas).map(([f, c]) => `${f} (${c})`).join(', ');
 
             const rawPayload = { clienteNombre, detalles, total, fecha };
-            this._registrarActividad(state, transaction, 'Desp. Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
+            this._registrarActividad(state, transaction, 'Despacho a Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
         });
     }
 
@@ -819,14 +840,14 @@ class Store {
 
                 const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
-                this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
+                this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
                 const rawPayload = { tipoOrigen, clienteNombre, productorId, esLlena, productoId, almacenDestinoId, fechaRecepcion };
                 const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
-                this._registrarActividad(state, transaction, 'Devolución', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
+                this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
 
             if (productor) productor.canastasPrestadas = Math.max(0, deudaActual - cantidad);
@@ -850,7 +871,7 @@ class Store {
             state.inventario.canastasVacias += cantidad;
 
             const rawPayload = { proveedorNombre, cantidad, almacenDestinoId, personaRecibe, fechaCompra };
-            this._registrarActividad(state, transaction, 'Compra', `De proveedor: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, rawPayload);
+            this._registrarActividad(state, transaction, 'Compra de Canastas', `De proveedor: ${proveedorNombre}, Recibe: ${personaRecibe}`, `+${cantidad} vacías`, fechaCompra, rawPayload);
         });
     }
 
@@ -899,7 +920,7 @@ class Store {
 
             const pStr = productoIdActual === productoIdNuevo ? 'Misma Fruta' : 'Cambio Fruta';
             const rawPayload = { almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId };
-            this._registrarActividad(state, transaction, 'Transf. Interna', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
+            this._registrarActividad(state, transaction, 'Transferencia entre Almacenes', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
         });
     }
 
@@ -920,7 +941,7 @@ class Store {
 
             const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
             const descStr = descripcion ? ` - ${descripcion}` : '';
-            this._registrarActividad(state, transaction, 'Decomiso', `Producto: ${pName} | Motivo: ${motivo}${descStr}`, `${cantidad} vaciadas`, fechaDecomiso, { cantidad, productoId, almacenOrigenId, almacenVaciasId, motivo, descripcion, fechaDecomiso });
+            this._registrarActividad(state, transaction, 'Decomiso de Fruta', `Producto: ${pName} | Motivo: ${motivo}${descStr}`, `${cantidad} vaciadas`, fechaDecomiso, { cantidad, productoId, almacenOrigenId, almacenVaciasId, motivo, descripcion, fechaDecomiso });
         });
     }
 
@@ -944,7 +965,7 @@ class Store {
             state.inventario.canastasLlenas += cantidad;
 
             const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
-            this._registrarActividad(state, transaction, 'Fruta Demás', `Llenadas con: ${pName}`, `+${cantidad} llenadas`, fechaLlenado, { cantidad, productoId, almacenOrigenId, almacenDestinoId, fechaLlenado });
+            this._registrarActividad(state, transaction, 'Ingreso Fruta Demás', `Llenadas con: ${pName}`, `+${cantidad} llenadas`, fechaLlenado, { cantidad, productoId, almacenOrigenId, almacenDestinoId, fechaLlenado });
         });
     }
 
@@ -964,7 +985,7 @@ class Store {
             this._registrarActividad(
                 state,
                 transaction,
-                'Salida Canastas',
+                'Baja de Canastas',
                 `Baja autorizada por: ${personaBaja} - ${descripcion}`,
                 `-${cantidad} vacías`,
                 fechaBaja,

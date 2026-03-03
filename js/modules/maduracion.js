@@ -115,7 +115,7 @@ function calcularEdadFIFO() {
                     let fechaIngreso = act.date;
 
                     // Recepciones
-                    if (act.operacion === 'Recepción') {
+                    if (act.operacion === 'Recepción' || act.operacion === 'Recepción de Fruta') {
                         const lotes = act.rawPayload.lotes || [{ productoId: act.rawPayload.productoId, almacenId: act.rawPayload.almacenDestinoId, cantidad: act.rawPayload.cantidad }];
                         for (const l of lotes) {
                             if (l.almacenId === origenAlmacenId && l.productoId === productoId) {
@@ -127,7 +127,7 @@ function calcularEdadFIFO() {
                         }
                     }
                     // Transferencias Internas (Destino = Este Almacen)
-                    else if (act.operacion === 'Transf. Interna') {
+                    else if (act.operacion === 'Transf. Interna' || act.operacion === 'Transferencia entre Almacenes') {
                         if (act.rawPayload.almacenDestinoId === origenAlmacenId && act.rawPayload.productoIdNuevo === productoId) {
                             sumadas += parseInt(act.rawPayload.cantidad);
                             if (act.rawPayload.fechaTransferencia) {

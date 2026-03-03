@@ -214,20 +214,72 @@ const Charts = {
     },
 
     renderWeeklyDashboard() {
-        const selector = document.getElementById('sem-semana-selector');
-        if (!selector) return;
+        const selectorA = document.getElementById('sem-semana-selector');
+        const selectorB = document.getElementById('sem-semana-selector-b');
+        if (!selectorA || !selectorB) return;
 
-        if (!selector.value) {
-            selector.value = this.getCurrentWeekString();
-            selector.addEventListener('change', () => this.renderWeeklyDashboard());
+        // Init values if empty
+        if (!selectorA.value) {
+            selectorA.value = this.getCurrentWeekString();
+        }
+        if (!selectorB.value) {
+            selectorB.value = this.getPreviousWeekString(selectorA.value);
         }
 
-        const selectedWeek = selector.value;
-        const { start, end } = this.getWeekRange(selectedWeek);
+        // Add event listeners if not already present
+        if (!selectorA.dataset.bound) {
+            selectorA.addEventListener('change', () => this.renderWeeklyDashboard());
+            selectorA.dataset.bound = "true";
+        }
+        if (!selectorB.dataset.bound) {
+            selectorB.addEventListener('change', () => this.renderWeeklyDashboard());
+            selectorB.dataset.bound = "true";
+        }
 
-        this.calculateWeeklyBalances(start, end);
-        this.renderWeeklyCharts(start, end);
+        const weekA = selectorA.value;
+        const weekB = selectorB.value;
+
+        // Labels UI
+        const labelA = document.getElementById('label-semana-a');
+        const labelB = document.getElementById('label-semana-b');
+        if (labelA) labelA.innerText = `Semana ${weekA.split('-W')[1]} (${weekA.split('-W')[0]})`;
+        if (labelB) labelB.innerText = `Semana ${weekB.split('-W')[1]} (${weekB.split('-W')[0]})`;
+
+        const rangeA = this.getWeekRange(weekA);
+        const rangeB = this.getWeekRange(weekB);
+
+        // Los balances semanales y tablas diarias se basan primordialmente en la Semana A (la principal)
+        this.calculateWeeklyBalances(rangeA.start, rangeA.end);
+        this.renderWeeklyCharts(rangeA.start, rangeA.end);
+
+        // El Gráfico comparativo usa ambas
+        this.renderComparisonChart(rangeA, rangeB, weekA, weekB);
+
         this.renderCanastasPorCobrar();
+    },
+
+    getPreviousWeekString(weekStr) {
+        const [yearStr, weekNumStr] = weekStr.split('-W');
+        let year = parseInt(yearStr, 10);
+        let week = parseInt(weekNumStr, 10);
+
+        if (week > 1) {
+            week--;
+        } else {
+            year--;
+            // Buscar la última semana del año anterior
+            const d = new Date(year, 11, 28);
+            week = this.getISOWeek(d);
+        }
+        return `${year}-W${String(week).padStart(2, '0')}`;
+    },
+
+    getISOWeek(d) {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayNum = date.getUTCDay() || 7;
+        date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+        return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
     },
 
     calculateWeeklyBalances(startDate, endDate) {
@@ -314,7 +366,7 @@ const Charts = {
             const a_cantidad = match ? parseInt(match[0], 10) : 0;
 
             // Revert changes conceptually
-            if (a.operacion === 'Recepción') {
+            if (a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta') {
                 currentLlenas -= a_cantidad;
                 currentDespProd += a_cantidad; // Recepción decrementó deuda productor, revertir: sumar
                 updateLlenasBreakdown(payload, a_cantidad, true);
@@ -324,7 +376,7 @@ const Charts = {
                 currentDespCli -= a_cantidad; // Despacho cliente aumentó su deuda, revertir: restar
                 updateLlenasBreakdown(payload, a_cantidad, false);
                 applyDebtDelta(currentDeudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías') {
+            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
                 currentVacias += a_cantidad;
                 currentDespProd -= a_cantidad; // Desp vacías aumentó deuda productor, revertir: restar
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
@@ -349,13 +401,13 @@ const Charts = {
                     currentDespCli += a_cantidad; // Devolución llenas disminuyó deuda cliente, revertir: sumar
                     applyDebtDelta(currentDeudaCliente, payload.clienteId, a_cantidad);
                 }
-            } else if (a.operacion === 'Transf. Fincas') {
+            } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
                 applyDebtDelta(currentDeudaProductor, payload.productorOrigenId, a_cantidad);
                 applyDebtDelta(currentDeudaProductor, payload.productorDestinoId, -a_cantidad);
             } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
                 currentVacias -= a_cantidad;
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso') {
+            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
                 currentLlenas += a_cantidad;
                 currentVacias -= a_cantidad;
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenVaciasId, -a_cantidad);
@@ -365,7 +417,7 @@ const Charts = {
                 currentVacias += a_cantidad;
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
                 updateLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Salida Canastas') {
+            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas') {
                 currentVacias += a_cantidad;
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenId, a_cantidad);
             }
@@ -426,7 +478,7 @@ const Charts = {
                 initialDespCli -= a_cantidad;
                 updateInitialLlenasBreakdown(payload, a_cantidad, false);
                 applyDebtDelta(initialDeudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías') {
+            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
                 initialVacias += a_cantidad;
                 initialDespProd -= a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
@@ -451,13 +503,13 @@ const Charts = {
                     initialDespCli += a_cantidad;
                     applyDebtDelta(initialDeudaCliente, payload.clienteId, a_cantidad);
                 }
-            } else if (a.operacion === 'Transf. Fincas') {
+            } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
                 applyDebtDelta(initialDeudaProductor, payload.productorOrigenId, a_cantidad);
                 applyDebtDelta(initialDeudaProductor, payload.productorDestinoId, -a_cantidad);
             } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas') {
                 initialVacias -= a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso') {
+            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
                 initialLlenas += a_cantidad;
                 initialVacias -= a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenVaciasId, -a_cantidad);
@@ -467,7 +519,7 @@ const Charts = {
                 initialVacias += a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
                 updateInitialLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Salida Canastas') {
+            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas') {
                 initialVacias += a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenId, a_cantidad);
             }
@@ -675,6 +727,161 @@ const Charts = {
         }
     },
 
+    getDispatchDataForPeriod(startDate, endDate) {
+        const allActivity = window.appStore.getActividad(20000);
+        const productos = window.appStore.getProductos();
+        const totals = {};
+
+        allActivity.forEach(a => {
+            if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
+                const d = new Date(a.date || a.fecha);
+                if (d >= startDate && d <= endDate) {
+                    if (a.rawPayload) {
+                        const items = a.rawPayload.detalles || a.rawPayload.lotes || [];
+                        let addedAnyProd = false;
+                        items.forEach(lote => {
+                            if (lote.productoId) {
+                                totals[lote.productoId] = (totals[lote.productoId] || 0) + (parseInt(lote.cantidad) || 0);
+                                addedAnyProd = true;
+                            }
+                        });
+
+                        if (!addedAnyProd && a.detalle && a.detalle.includes('|')) {
+                            this._parseDetailToTotals(a.detalle, productos, totals);
+                        }
+                    } else if (a.detalle && a.detalle.includes('|')) {
+                        this._parseDetailToTotals(a.detalle, productos, totals);
+                    }
+                }
+            }
+        });
+        return totals;
+    },
+
+    _parseDetailToTotals(detalle, productos, totals) {
+        const parts = detalle.split('|');
+        if (parts.length > 1) {
+            parts[1].trim().split(',').forEach(item => {
+                const match = item.match(/(.+?)\s*\((\d+)\)/);
+                if (match) {
+                    const prodName = match[1].trim();
+                    const qty = parseInt(match[2], 10);
+                    const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                    if (foundProd) {
+                        totals[foundProd.id] = (totals[foundProd.id] || 0) + qty;
+                    }
+                }
+            });
+        }
+    },
+
+    renderComparisonChart(rangeA, rangeB, weekA, weekB) {
+        const ctx = document.getElementById('comparisonWeeklyChart');
+        if (!ctx) return;
+
+        if (this.instances.comparisonChart) {
+            this.instances.comparisonChart.destroy();
+        }
+
+        const dataA = this.getDispatchDataForPeriod(rangeA.start, rangeA.end);
+        const dataB = this.getDispatchDataForPeriod(rangeB.start, rangeB.end);
+
+        const productos = window.appStore.getProductos();
+
+        const activeProds = productos.filter(p => (dataA[p.id] || 0) > 0 || (dataB[p.id] || 0) > 0);
+
+        if (activeProds.length === 0) {
+            this.showEmptyState(ctx, 'No hay despachos registrados para comparar en estas semanas.');
+            return;
+        }
+
+        activeProds.sort((a, b) => {
+            const totalA = (dataA[a.id] || 0) + (dataB[a.id] || 0);
+            const totalB = (dataA[b.id] || 0) + (dataB[b.id] || 0);
+            return totalB - totalA;
+        });
+
+        const labels = activeProds.map(p => p.nombre.toUpperCase());
+        const datasetA = activeProds.map(p => dataA[p.id] || 0);
+        const datasetB = activeProds.map(p => dataB[p.id] || 0);
+
+        const colorA = '#3b82f6';
+        const colorB = '#f59e0b';
+
+        this.instances.comparisonChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: `Semana ${weekA.split('-W')[1]}`,
+                        data: datasetA,
+                        backgroundColor: colorA,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.7
+                    },
+                    {
+                        label: `Semana ${weekB.split('-W')[1]}`,
+                        data: datasetB,
+                        backgroundColor: colorB,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.7
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: { display: false, drawBorder: false },
+                        ticks: {
+                            font: { weight: '600', size: 10 },
+                            maxRotation: 0,
+                            minRotation: 0,
+                            padding: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(161, 161, 170, 0.1)', drawBorder: false },
+                        ticks: {
+                            font: { size: 11 },
+                            callback: value => value.toLocaleString()
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: '#18181b',
+                        titleColor: '#fff',
+                        bodyColor: '#cbcbcb',
+                        borderColor: '#27272a',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function (context) {
+                                return ` ${context.dataset.label}: ${context.parsed.y.toLocaleString()} canastas`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        ctx.style.display = 'block';
+        const emptyMsg = ctx.parentElement.querySelector('.empty-chart-message');
+        if (emptyMsg) emptyMsg.remove();
+    },
+
     shareWhatsAppDay(isoDateStr, txDataByDay, diasSemana, formatter) {
         const d = new Date(isoDateStr);
         const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -785,11 +992,11 @@ const Charts = {
                 }
             };
 
-            if (a.operacion === 'Recepción') {
+            if (a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta') {
                 isNegative = false;
                 checkLotesOrDetalles();
                 matched = true;
-            } else if (a.operacion === 'Desp. Vacías') {
+            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
                 isNegative = true;
                 if (payload.almacenOrigenId === targetAlmacenId) {
                     if (!targetProductoId || targetProductoId === 'vacias') {

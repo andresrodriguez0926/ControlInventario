@@ -385,7 +385,7 @@ const UI = {
 
     updateDashboard() {
         const stats = window.appStore ? window.appStore.getStats() : { totalProductos: 0, canastasLlenas: 0, canastasVacias: 0, totalAlmacenes: 0, despachadasProductor: 0, despachadasCliente: 0 };
-        const activity = window.appStore ? window.appStore.getActividad() : [];
+        const activity = window.appStore ? window.appStore.getActividad(25) : [];
 
         // Update stats
         if (document.getElementById('stat-total-products')) {

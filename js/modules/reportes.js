@@ -25,6 +25,7 @@ window.appModules['reportes'] = () => {
                             <option value="recepciones">Canastas Compradas (Recepciones)</option>
                             <option value="decomisos">Fruta Decomisada</option>
                             <option value="despachos">Fruta Despachada a Clientes</option>
+                            <option value="vacias">Despacho de Vacías (Productores)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -134,8 +135,8 @@ window.appModuleEvents['reportes'] = () => {
     };
 
     const extractNumber = (str) => {
-        const match = str.match(/\\d+/);
-        return match ? parseInt(match[0], 10) : 0;
+        const match = str.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
     };
 
     // Cambiar la UI dinámica según el tipo
@@ -146,22 +147,29 @@ window.appModuleEvents['reportes'] = () => {
             wrpCliente.classList.add('hidden');
             wrpProducto.classList.remove('hidden');
             colEntidad.textContent = 'Productor';
-            colProducto.style.display = 'table-cell';
+            colProducto.textContent = 'Producto';
             tituloTabla.textContent = 'Resultados: Canastas Compradas (Recepciones)';
         } else if (val === 'decomisos') {
             wrpProductor.classList.add('hidden');
             wrpCliente.classList.add('hidden');
             wrpProducto.classList.remove('hidden');
-            colEntidad.textContent = '----';
-            colProducto.style.display = 'table-cell';
+            colEntidad.textContent = 'Tipo';
+            colProducto.textContent = 'Producto';
             tituloTabla.textContent = 'Resultados: Fruta Decomisada';
         } else if (val === 'despachos') {
             wrpProductor.classList.add('hidden');
             wrpCliente.classList.remove('hidden');
             wrpProducto.classList.remove('hidden'); // Despachos ahora muestran el desglose
             colEntidad.textContent = 'Cliente';
-            colProducto.style.display = 'table-cell';
+            colProducto.textContent = 'Detalle de Productos';
             tituloTabla.textContent = 'Resultados: Fruta Despachada a Clientes';
+        } else if (val === 'vacias') {
+            wrpProductor.classList.remove('hidden');
+            wrpCliente.classList.add('hidden');
+            wrpProducto.classList.add('hidden');
+            colEntidad.textContent = 'Productor';
+            colProducto.textContent = 'Referencia';
+            tituloTabla.textContent = 'Resultados: Despacho de Vacías (Productores)';
         }
 
         // Auto trigger search on tab change to refresh info
@@ -257,24 +265,30 @@ window.appModuleEvents['reportes'] = () => {
 
             // Filtrar Opciones Principales
             if (fTipo === 'recepciones') {
-                if (a.operacion !== 'Recepción') return false;
+                if (a.operacion !== 'Recepción' && a.operacion !== 'Recepción de Fruta') return false;
 
                 // detalle -> "De: ProductorX, Prod: ProductoY, Recibe: PersonaZ"
                 if (fProductor && !a.detalle.toLowerCase().includes(`de: ${fProductor}`)) return false;
                 if (fProducto && !a.detalle.toLowerCase().includes(`prod: ${fProducto}`)) return false;
             }
             else if (fTipo === 'decomisos') {
-                if (a.operacion !== 'Decomiso') return false;
+                if (a.operacion !== 'Decomiso' && a.operacion !== 'Decomiso de Fruta') return false;
 
                 // detalle -> "Producto: Producto Nombre"
                 if (fProducto && !a.detalle.toLowerCase().includes(`producto: ${fProducto}`)) return false;
             }
             else if (fTipo === 'despachos') {
-                if (a.operacion !== 'Desp. Cliente') return false;
+                if (a.operacion !== 'Desp. Cliente' && a.operacion !== 'Despacho a Cliente') return false;
 
                 // detalle -> "A cliente: NombreCliente | ProductoA (X), ProductoB (Y)"
                 if (fCliente && !a.detalle.toLowerCase().includes(`a cliente: ${fCliente}`)) return false;
                 if (fProducto && !a.detalle.toLowerCase().includes(fProducto)) return false;
+            }
+            else if (fTipo === 'vacias') {
+                if (a.operacion !== 'Desp. Vacías' && a.operacion !== 'Despacho de Vacías') return false;
+
+                // detalle -> "A productor: NombreProductor, Retira: PersonaX"
+                if (fProductor && !a.detalle.toLowerCase().includes(`a productor: ${fProductor}`)) return false;
             }
 
             return true;
@@ -294,22 +308,28 @@ window.appModuleEvents['reportes'] = () => {
                 totalAcumulado += cantNum;
 
                 let entidad = '-';
-                let prod = '-';
+                let producto = '-';
+                let operacionYDetalle = a.detalle;
 
                 // Parsear detalle rudimentariamente para mostrarlo mejor en tabla
                 if (fTipo === 'recepciones') {
-                    const matchDe = a.detalle.match(/De:([^,]+)/i);
-                    const matchProd = a.detalle.match(/Prod:([^,]+)/i);
-                    if (matchDe) entidad = matchDe[1].trim();
-                    if (matchProd) prod = matchProd[1].trim();
+                    const matchProductor = a.detalle.match(/De:\s*(.*?),/);
+                    const matchProducto = a.detalle.match(/Prod:\s*(.*?),/);
+                    entidad = matchProductor ? matchProductor[1].trim() : 'Desconocido';
+                    producto = matchProducto ? matchProducto[1].trim() : 'Múltiple';
                 } else if (fTipo === 'decomisos') {
-                    const matchProd = a.detalle.split('|')[0].match(/Producto:([^,]+)/i);
-                    if (matchProd) prod = matchProd[1].trim();
+                    entidad = 'Decomiso';
+                    const matchProducto = a.detalle.match(/Producto:\s*(.*)/);
+                    producto = matchProducto ? matchProducto[1].trim() : 'Desconocido';
                 } else if (fTipo === 'despachos') {
+                    const matchCliente = a.detalle.match(/A cliente:\s*(.*?)\s*\|/);
+                    entidad = matchCliente ? matchCliente[1].trim() : 'Varios';
                     const parts = a.detalle.split('|');
-                    const matchCli = parts[0].match(/cliente:([^,]+)/i);
-                    if (matchCli) entidad = matchCli[1].trim();
-                    if (parts.length > 1) prod = parts[1].trim();
+                    producto = parts.length > 1 ? parts[1].trim() : '-';
+                } else if (fTipo === 'vacias') {
+                    const matchProductor = a.detalle.match(/A productor:\s*(.*?),\s*Retira:/);
+                    entidad = matchProductor ? matchProductor[1].trim() : 'Desconocido';
+                    producto = 'Canastas Vacías';
                 }
 
                 // Render de Fila

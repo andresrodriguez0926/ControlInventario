@@ -455,7 +455,7 @@ window.appModules['recepcion-canastas'] = () => {
     // Opciones para Radio Button
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén destino...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Devolución');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas');
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -762,7 +762,7 @@ window.appModules['decomiso'] = () => {
 
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Decomiso');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta');
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -983,7 +983,7 @@ window.appModules['canastas-demas'] = () => {
 
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás');
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -1192,7 +1192,7 @@ window.appModules['salida-canastas'] = () => {
     const almacenes = window.appStore.getAlmacenes();
     const optsAlmacenes = generateSelectOptions(almacenes, 'Seleccione un almacén...');
 
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Salida Canastas');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas');
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">

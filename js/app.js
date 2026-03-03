@@ -336,7 +336,7 @@ window.modificarDespachoVacias = function (idActividad) {
 // Visor de Documento de Orígen
 // ==========================================
 window.exportarRecepcionesExcel = function (startDateStr = '', endDateStr = '') {
-    let actividad = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción');
+    let actividad = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta');
 
     // Filter by dates if provided (Avoiding timezone UTC shift by parsing explicitly)
     if (startDateStr) {
@@ -501,7 +501,7 @@ window.verDocumentoOrigen = function (idActividad) {
         const getAlmacenName = id => window.appStore.getAlmacenes().find(a => a.id === id)?.nombre || id;
 
         // Mostrar datos según el tipo de operación
-        if (actividad.operacion === 'Recepción') {
+        if (actividad.operacion === 'Recepción' || actividad.operacion === 'Recepción de Fruta') {
             addRow('Productor', getProductorName(payload.productorId));
 
             if (payload.lotes && payload.lotes.length > 0) {
@@ -525,7 +525,7 @@ window.verDocumentoOrigen = function (idActividad) {
             addRow('Entregado por', payload.personaEntrega);
             addRow('Recibido por', payload.personaRecibe);
             addRow('Fecha Técnica', payload.fechaRecepcion);
-        } else if (actividad.operacion === 'Desp. Vacías') {
+        } else if (actividad.operacion === 'Desp. Vacías' || actividad.operacion === 'Despacho de Vacías') {
             addRow('Productor Destino', getProductorName(payload.productorId));
             addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
             addRow('Retirado por', payload.personaRetira);
@@ -543,7 +543,7 @@ window.verDocumentoOrigen = function (idActividad) {
                 addRow('Transferido por', payload.personaTransfiere);
                 if (payload.fechaTransferencia) addRow('Fecha Técnica', payload.fechaTransferencia);
             }
-        } else if (actividad.operacion === 'Transf. Interna') {
+        } else if (actividad.operacion === 'Transf. Interna' || actividad.operacion === 'Transferencia entre Almacenes') {
             addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
             addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
             addRow('Producto Transferido', getProductoName(payload.productoIdActual));
@@ -570,24 +570,24 @@ window.verDocumentoOrigen = function (idActividad) {
                     });
                 }
             }
-        } else if (actividad.operacion === 'Fruta Demás' || actividad.operacion === 'Canastas Demás') {
+        } else if (actividad.operacion === 'Fruta Demás' || actividad.operacion === 'Canastas Demás' || actividad.operacion === 'Ingreso Fruta Demás') {
             addRow('Producto', getProductoName(payload.productoId));
             addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
             addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
             if (payload.fechaLlenado) addRow('Fecha Técnica', payload.fechaLlenado);
-        } else if (actividad.operacion === 'Decomiso') {
+        } else if (actividad.operacion === 'Decomiso' || actividad.operacion === 'Decomiso de Fruta') {
             addRow('Producto', getProductoName(payload.productoId));
             addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
             addRow('Almacén Vacias', getAlmacenName(payload.almacenVaciasId));
             addRow('Motivo', payload.motivo);
             if (payload.descripcion) addRow('Descripción', payload.descripcion);
             if (payload.fechaDecomiso) addRow('Fecha Técnica', payload.fechaDecomiso);
-        } else if (actividad.operacion === 'Compra' || actividad.operacion === 'Compra Canastas') {
+        } else if (actividad.operacion === 'Compra' || actividad.operacion === 'Compra Canastas' || actividad.operacion === 'Compra de Canastas') {
             addRow('Proveedor', payload.proveedorNombre);
             addRow('Recibido por', payload.personaRecibe);
             addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
             if (payload.fechaCompra) addRow('Fecha Técnica', payload.fechaCompra);
-        } else if (actividad.operacion === 'Salida Canastas') {
+        } else if (actividad.operacion === 'Salida Canastas' || actividad.operacion === 'Baja de Canastas') {
             addRow('Persona Baja', payload.personaBaja);
             addRow('Almacén', getAlmacenName(payload.almacenId));
             addRow('Motivo', payload.descripcion);
