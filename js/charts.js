@@ -1109,7 +1109,7 @@ const Charts = {
 
                     // Deep checks in arrays (lotes - Recepción uses this)
                     if (!afectoAlmacen && payload.lotes && Array.isArray(payload.lotes)) {
-                        if (payload.lotes.some(l => l.almacenId === almacenId)) afectoAlmacen = true;
+                        if (payload.lotes.some(l => l.almacenId === almacenId || l.almacenDestinoId === almacenId)) afectoAlmacen = true;
                     }
 
                     // Deep checks in arrays (detalles - other ops)
@@ -1136,10 +1136,10 @@ const Charts = {
                         }
 
                         if (!afectoProducto && payload.lotes && Array.isArray(payload.lotes)) {
-                            if (payload.lotes.some(l => l.productoId === productoId && l.almacenId === almacenId)) afectoProducto = true;
+                            if (payload.lotes.some(l => l.productoId === productoId && (l.almacenId === almacenId || l.almacenDestinoId === almacenId))) afectoProducto = true;
                         }
                         if (!afectoProducto && payload.detalles && Array.isArray(payload.detalles)) {
-                            if (payload.detalles.some(d => d.productoId === productoId && (d.almacenOrigenId === almacenId || d.almacenId === almacenId))) afectoProducto = true;
+                            if (payload.detalles.some(d => d.productoId === productoId && (d.almacenOrigenId === almacenId || d.almacenId === almacenId || d.almacenDestinoId === almacenId))) afectoProducto = true;
                         }
                         return afectoProducto;
                     }
