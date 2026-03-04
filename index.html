@@ -1133,6 +1133,22 @@
                         console.log('ServiceWorker registration failed: ', err);
                     });
             });
+
+            // Recargar cuando un nuevo ServiceWorker tome el control
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    if (window.showToast) {
+                        window.showToast("Actualización detectada. Recargando aplicación...", "info");
+                    } else if (typeof showToast === 'function') {
+                        showToast("Actualización detectada. Recargando aplicación...", "info");
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+            });
         }
     </script>
 </body>
