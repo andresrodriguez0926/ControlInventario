@@ -977,16 +977,20 @@ const Charts = {
         const almacenes = window.appStore.getAlmacenes();
         const productos = window.appStore.getProductos();
 
-        if (selAlmacen.options.length <= 1 && almacenes.length > 0) {
+        if (almacenes.length > 0 && selAlmacen.options.length !== almacenes.length + 1) {
+            const valA = selAlmacen.value;
             let htmlA = '<option value="">-- Seleccionar Almacén --</option>';
             almacenes.forEach(a => htmlA += `<option value="${a.id}">${a.nombre}</option>`);
             selAlmacen.innerHTML = htmlA;
+            if (valA) selAlmacen.value = valA;
         }
 
-        if (selProducto.options.length <= 1 && productos.length > 0) {
+        if (productos.length > 0 && selProducto.options.length !== productos.length + 1) {
+            const valP = selProducto.value;
             let htmlP = '<option value="">-- Todos --</option>';
             productos.forEach(p => htmlP += `<option value="${p.id}">${p.nombre}</option>`);
             selProducto.innerHTML = htmlP;
+            if (valP) selProducto.value = valP;
         }
 
         // Initialize today in dates if empty
