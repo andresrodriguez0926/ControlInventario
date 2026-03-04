@@ -381,7 +381,7 @@ const Charts = {
                 currentDespProd -= a_cantidad; // Desp vacías aumentó deuda productor, revertir: restar
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
                 applyDebtDelta(currentDeudaProductor, payload.productorId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Vacías')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
                 currentVacias -= a_cantidad;
                 if (payload.tipoOrigen === 'productor') {
                     currentDespProd += a_cantidad;
@@ -391,7 +391,7 @@ const Charts = {
                     applyDebtDelta(currentDeudaCliente, payload.clienteId, a_cantidad);
                 }
                 applyVaciasDelta(currentVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Llenas')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
                 currentLlenas -= a_cantidad;
                 updateLlenasBreakdown(payload, a_cantidad, true);
                 if (payload.tipoOrigen === 'productor') {
@@ -483,7 +483,7 @@ const Charts = {
                 initialDespProd -= a_cantidad;
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
                 applyDebtDelta(initialDeudaProductor, payload.productorId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Vacías')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
                 initialVacias -= a_cantidad;
                 if (payload.tipoOrigen === 'productor') {
                     initialDespProd += a_cantidad;
@@ -493,7 +493,7 @@ const Charts = {
                     applyDebtDelta(initialDeudaCliente, payload.clienteId, a_cantidad);
                 }
                 applyVaciasDelta(initialVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Devolución' && a.detalle && a.detalle.includes('Llenas')) {
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
                 initialLlenas -= a_cantidad;
                 updateInitialLlenasBreakdown(payload, a_cantidad, true);
                 if (payload.tipoOrigen === 'productor') {
@@ -583,11 +583,10 @@ const Charts = {
         let totalTx = 0;
 
         duringWeek.forEach(a => {
-            if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                const dateObj = new Date(a.date || a.fecha);
-                // Use local date for dayKey to avoid UTC midnight rollover shifting e.g. Friday → Saturday
-                const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            const dateObj = new Date(a.date || a.fecha);
+            const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
+            if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
                 if (!txDataByDay[dayKey]) {
                     txDataByDay[dayKey] = {
                         dateObj: dateObj,
@@ -647,6 +646,46 @@ const Charts = {
                             }
                         });
                     }
+                }
+            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
+                // Si es devolución de llenas de cliente, restarlo del despacho diario
+                let foundProdId = null;
+                let foundQty = 0;
+                let isCliente = false;
+
+                if (a.rawPayload) {
+                    if (a.rawPayload.tipoOrigen === 'cliente' && a.rawPayload.productoId) {
+                        isCliente = true;
+                        foundProdId = a.rawPayload.productoId;
+                        foundQty = parseInt(a.rawPayload.cantidad) || 0;
+                    }
+                } else if (a.detalle && a.detalle.includes('De Cliente')) {
+                    isCliente = true;
+                    // Intenta extraer el nombre del producto "Llenas de PRODUCTO)"
+                    const match = a.detalle.match(/Llenas de (.*?)\)/);
+                    if (match) {
+                        const prodName = match[1].trim();
+                        const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                        if (foundProd) {
+                            foundProdId = foundProd.id;
+                            const qtyMatch = String(a.cantidad || '').match(/\d+/);
+                            foundQty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
+                        }
+                    }
+                }
+
+                if (isCliente && foundProdId && foundQty > 0) {
+                    if (!txDataByDay[dayKey]) {
+                        txDataByDay[dayKey] = {
+                            dateObj: dateObj,
+                            total: 0,
+                            prods: {}
+                        };
+                    }
+
+                    txDataByDay[dayKey].prods[foundProdId] = (txDataByDay[dayKey].prods[foundProdId] || 0) - foundQty;
+                    txDataByDay[dayKey].total -= foundQty;
+                    totalTx -= foundQty;
                 }
             }
         });
@@ -733,9 +772,9 @@ const Charts = {
         const totals = {};
 
         allActivity.forEach(a => {
-            if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                const d = new Date(a.date || a.fecha);
-                if (d >= startDate && d <= endDate) {
+            const d = new Date(a.date || a.fecha);
+            if (d >= startDate && d <= endDate) {
+                if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
                     if (a.rawPayload) {
                         const items = a.rawPayload.detalles || a.rawPayload.lotes || [];
                         let addedAnyProd = false;
@@ -751,6 +790,23 @@ const Charts = {
                         }
                     } else if (a.detalle && a.detalle.includes('|')) {
                         this._parseDetailToTotals(a.detalle, productos, totals);
+                    }
+                } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
+                    if (a.rawPayload && a.rawPayload.tipoOrigen === 'cliente' && a.rawPayload.productoId) {
+                        const cant = parseInt(a.rawPayload.cantidad) || 0;
+                        totals[a.rawPayload.productoId] = (totals[a.rawPayload.productoId] || 0) - cant;
+                    } else if (!a.rawPayload && a.detalle.includes('De Cliente')) {
+                        // Fallback parsing for legacy records without rawPayload
+                        const match = a.detalle.match(/Llenas de (.*?)\)/);
+                        if (match) {
+                            const prodName = match[1].trim();
+                            const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                            if (foundProd) {
+                                const qtyMatch = String(a.cantidad || '').match(/\d+/);
+                                const qty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
+                                totals[foundProd.id] = (totals[foundProd.id] || 0) - qty;
+                            }
+                        }
                     }
                 }
             }
