@@ -177,86 +177,94 @@ window.appModuleEvents['reporte-fruta'] = () => {
         let tOut = 0;
 
         act.forEach(a => {
-            const raw = a.rawPayload;
-            if (!raw) return;
+            if (a.anulado || a.eliminado) return;
+
+            const raw = a.rawPayload || {};
+            const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
+            const match = qtyStr.match(/\d+/);
+            const a_cantidad = match ? parseInt(match[0], 10) : 0;
 
             // Filtro por fecha
             const logDate = new Date(a.date);
             if (dateStart && logDate < dateStart) return;
             if (dateEnd && logDate > dateEnd) return;
 
-            // Revisar si el payload involucra a este producto de alguna forma y extraer montos.
             let qtyIn = 0;
             let qtyOut = 0;
             let isRelated = false;
 
-            // A) Recepciones
-            if (a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta') {
+            // Helper para sumar entradas/salidas si el producto coincide
+            const incrementIfMatch = (pId, amount, isIn) => {
+                let matches = false;
+                if (pId === selProductoId) {
+                    matches = true;
+                } else if (!pId && a.detalle && a.detalle.toLowerCase().includes(currentProductName.toLowerCase())) {
+                    // Fallback para registros muy antiguos ("legacy") sin productoId
+                    matches = true;
+                }
+
+                if (matches) {
+                    if (isIn) qtyIn += amount;
+                    else qtyOut += amount;
+                    isRelated = true;
+                }
+            };
+
+            // Helper general para recorrer lotes/detalles
+            const processLlenasForward = (isIn) => {
                 if (raw.lotes) {
                     raw.lotes.forEach(l => {
-                        if (l.productoId === selProductoId) {
-                            qtyIn += parseInt(l.cantidad) || 0;
-                            isRelated = true;
-                        }
+                        incrementIfMatch(l.productoId, parseInt(l.cantidad) || 0, isIn);
                     });
-                } else if (raw.productoId === selProductoId) {
-                    qtyIn += parseInt(raw.cantidad) || 0;
-                    isRelated = true;
-                }
-            }
-            // B) Devoluciones Llenas
-            else if (a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') {
-                if (raw.esLlena && raw.productoId === selProductoId) {
-                    qtyIn += parseInt(raw.cantidad) || 0;
-                    isRelated = true;
-                }
-            }
-            // C) Despacho Cliente
-            else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                if (raw.detalles) {
+                } else if (raw.detalles) {
                     raw.detalles.forEach(d => {
-                        if (d.productoId === selProductoId) {
-                            qtyOut += parseInt(d.cantidad) || 0;
-                            isRelated = true;
-                        }
+                        let pId = d.productoId;
+                        if (!pId && raw.detalles.length === 1) pId = selProductoId; // Fallback optimista
+                        incrementIfMatch(pId, parseInt(d.cantidad) || 0, isIn);
                     });
+                } else {
+                    const pId = raw.productoId || raw.productoIdActual || raw.productoIdNuevo;
+                    incrementIfMatch(pId, a_cantidad, isIn);
                 }
-            }
-            // D) Decomiso (cuenta como salida)
-            else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
-                if (raw.productoId === selProductoId) {
-                    qtyOut += parseInt(raw.cantidad) || 0;
-                    isRelated = true;
-                }
-            }
-            // E) Fruta Demás (entrada)
-            else if (a.operacion === 'Fruta Demás' || a.operacion === 'Ingreso Fruta Demás') {
-                if (raw.productoId === selProductoId) {
-                    qtyIn += parseInt(raw.cantidad) || 0;
-                    isRelated = true;
-                }
-            }
-            // F) Transferencia Interna (revisar reclasificaciones o simple mov)
-            else if (a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes') {
-                const qty = parseInt(raw.cantidad) || 0;
-                if (qty > 0) {
-                    const pOld = raw.productoIdActual;
-                    const pNew = raw.productoIdNuevo || raw.productoIdActual;
+            };
 
-                    if (pOld === selProductoId && pNew !== selProductoId) {
-                        // Salida por reclasificación a otra fruta
-                        qtyOut += qty;
-                        isRelated = true;
-                    } else if (pOld !== selProductoId && pNew === selProductoId) {
-                        // Entrada por reclasificación proveniente de otra fruta
-                        qtyIn += qty;
-                        isRelated = true;
-                    } else if (pOld === selProductoId && pNew === selProductoId) {
-                        // Solo se mueve de cuarto, es interno. Ni entra ni sale del inventario global.
-                        // Lo mostramos como "Neutro" (0 y 0) por visibilidad, o simplemente lo ignoramos.
-                        // Optaremos por mostrarlo sin sumar totales de entradas ni salidas globales, para dar trazabilidad intra-fincas.
-                        isRelated = true;
-                    }
+            // Reglas de negocio (iguales a inventario-fecha.js pero hacia adelante)
+            // A) Recepciones (Entrada)
+            if (a.operacion.includes('Recepción')) {
+                processLlenasForward(true);
+            }
+            // B) Devoluciones Llenas (Entrada)
+            else if (a.operacion.includes('Devolución') && a.detalle && a.detalle.includes('Llenas')) {
+                processLlenasForward(true);
+            }
+            // C) Despachos (Salida)
+            else if (a.operacion.includes('Desp. Cliente') || a.operacion.includes('Despacho a Cliente')) {
+                processLlenasForward(false);
+            }
+            // D) Decomisos (Salida)
+            else if (a.operacion.includes('Decomiso')) {
+                processLlenasForward(false);
+            }
+            // E) Fruta Demás / Ajustes (Entrada)
+            else if (a.operacion.includes('Fruta Demás') || a.operacion.includes('Ingreso Fruta Demás')) {
+                processLlenasForward(true);
+            }
+            // F) Transferencia Interna (Reclasificación o movimiento)
+            else if (a.operacion.includes('Transf. Interna') || a.operacion.includes('Transferencia entre Almacenes')) {
+                const pOrig = raw.productoIdActual;
+                const pDest = raw.productoIdNuevo || raw.productoIdActual;
+
+                if (pOrig === selProductoId && pDest !== selProductoId) {
+                    // Sale de la fruta actual
+                    qtyOut += a_cantidad;
+                    isRelated = true;
+                } else if (pOrig !== selProductoId && pDest === selProductoId) {
+                    // Entra como fruta nueva
+                    qtyIn += a_cantidad;
+                    isRelated = true;
+                } else if (pOrig === selProductoId && pDest === selProductoId) {
+                    // Movimiento interno. Mostramos neutral para trazabilidad.
+                    isRelated = true;
                 }
             }
 
