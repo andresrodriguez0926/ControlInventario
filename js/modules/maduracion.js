@@ -277,6 +277,24 @@ function renderMaduracionTabs() {
             const statusColor = cuarto.totalListas > 0 ? 'border-danger/40' : 'border-border';
             const alertBadge = cuarto.totalListas > 0 ? `<div class="bg-danger text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg shadow-danger/20"><i data-lucide="flame" class="w-3 h-3"></i> ¡Despachar!</div>` : '';
 
+            const getFutureDateText = (daysToAdd) => {
+                if (daysToAdd <= 0) return 'Hoy';
+                const d = new Date();
+                d.setDate(d.getDate() + daysToAdd);
+                return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
+            };
+
+            const saleHoyStr = getFutureDateText(limiteDias);
+            let sale1_2Str = '';
+            if (limiteDias <= 2) {
+                sale1_2Str = 'Pronto';
+            } else if (limiteDias === 3) {
+                sale1_2Str = getFutureDateText(1) + ' a ' + getFutureDateText(2);
+            } else {
+                sale1_2Str = getFutureDateText(limiteDias - 2) + ' a ' + getFutureDateText(limiteDias - 1);
+            }
+            const saleCasiStr = getFutureDateText(1);
+
             html += `
                 <div class="surface-card p-0 overflow-hidden relative border ${statusColor} transition-colors">
                     ${cuarto.totalListas > 0 ? `<div class="absolute top-0 right-0 w-32 h-32 bg-danger/10 rounded-full blur-3xl pointer-events-none"></div>` : ''}
@@ -301,9 +319,18 @@ function renderMaduracionTabs() {
                             <thead>
                                 <tr class="text-text-secondary text-xs uppercase tracking-wider bg-surface-light/30 border-b border-border">
                                     <th class="py-3 px-5 font-medium">Producto Depositado</th>
-                                    <th class="py-3 px-5 font-medium text-center">Fresco (Hoy)</th>
-                                    <th class="py-3 px-5 font-medium text-center">1-2 Días</th>
-                                    <th class="py-3 px-5 font-medium text-center">Casi (${limiteDias - 1} Días)</th>
+                                    <th class="py-3 px-5 font-medium text-center leading-tight">
+                                        Fresco (Hoy)<br>
+                                        <span class="text-[10px] text-info normal-case font-bold opacity-80 mt-1 block capitalize">Sale: ${saleHoyStr}</span>
+                                    </th>
+                                    <th class="py-3 px-5 font-medium text-center leading-tight">
+                                        1-2 Días<br>
+                                        <span class="text-[10px] text-info normal-case font-bold opacity-80 mt-1 block capitalize">Sale: ${sale1_2Str}</span>
+                                    </th>
+                                    <th class="py-3 px-5 font-medium text-center leading-tight">
+                                        Casi (${limiteDias - 1} Días)<br>
+                                        <span class="text-[10px] text-info normal-case font-bold opacity-80 mt-1 block capitalize">Sale: ${saleCasiStr}</span>
+                                    </th>
                                     <th class="py-3 px-5 font-black text-center text-danger bg-danger/5 w-40">¡LISTAS! (${limiteDias}+ Días)</th>
                                 </tr>
                             </thead>
