@@ -1193,7 +1193,7 @@ class Store {
     }
 
     async transferenciaInterna({ almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId }) {
-        cantidad = parseInt(cantidad);
+        cantidad = parseInt(cantidad) || 0;
         canastasVacias = parseInt(canastasVacias) || 0;
         await this.runTransaction((state, transaction) => {
             if (almacenOrigenId === almacenDestinoId && productoIdActual === productoIdNuevo && canastasVacias === 0) {
@@ -1201,18 +1201,21 @@ class Store {
             }
 
             const invOrigen = state.inventario.porAlmacen[almacenOrigenId];
-            if (!invOrigen || !invOrigen[productoIdActual] || invOrigen[productoIdActual] < cantidad) {
-                const pName = state.productos.find(p => p.id === productoIdActual)?.nombre || 'Producto';
-                throw new Error(`Inventario insuficiente: No hay ${cantidad} canastas llenas de ${pName} en el almacén de origen.`);
+
+            if (cantidad > 0) {
+                if (!invOrigen || !invOrigen[productoIdActual] || invOrigen[productoIdActual] < cantidad) {
+                    const pName = state.productos.find(p => p.id === productoIdActual)?.nombre || 'Producto';
+                    throw new Error(`Inventario insuficiente: No hay ${cantidad} canastas llenas de ${pName} en el almacén de origen.`);
+                }
+
+                // Descontar llenas del origen
+                invOrigen[productoIdActual] -= cantidad;
+
+                // Sumar llenas al destino (con el producto que será ahora)
+                if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
+                const invDestino = state.inventario.porAlmacen[almacenDestinoId];
+                invDestino[productoIdNuevo] = (invDestino[productoIdNuevo] || 0) + cantidad;
             }
-
-            // Descontar llenas del origen
-            invOrigen[productoIdActual] -= cantidad;
-
-            // Sumar llenas al destino (con el producto que será ahora)
-            if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
-            const invDestino = state.inventario.porAlmacen[almacenDestinoId];
-            invDestino[productoIdNuevo] = (invDestino[productoIdNuevo] || 0) + cantidad;
 
             // (La cantidad GLOBAL de "canastas llenas" no cambia, solo se mueven de lugar/tipo)
 
@@ -1235,9 +1238,14 @@ class Store {
                 vaciasStr = ` | Vacías: ${canastasVacias}`;
             }
 
-            const pStr = productoIdActual === productoIdNuevo ? 'Misma Fruta' : 'Cambio Fruta';
+            const pStr = cantidad > 0 ? (productoIdActual === productoIdNuevo ? 'Misma Fruta' : 'Cambio Fruta') : 'Solo Vacías';
             const rawPayload = { almacenOrigenId, almacenDestinoId, productoIdActual, productoIdNuevo, cantidad, personaTransfiere, fechaTransferencia, canastasVacias, almacenDestinoVaciasId };
-            this._registrarActividad(state, transaction, 'Transferencia entre Almacenes', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, `${cantidad} llenas${canastasVacias > 0 ? ` + ${canastasVacias} vacías` : ''}`, fechaTransferencia, rawPayload);
+
+            let cantStr = [];
+            if (cantidad > 0) cantStr.push(`${cantidad} llenas`);
+            if (canastasVacias > 0) cantStr.push(`${canastasVacias} vacías`);
+
+            this._registrarActividad(state, transaction, 'Transferencia entre Almacenes', `Mueve: ${personaTransfiere} (${pStr})${vaciasStr}`, cantStr.join(' + '), fechaTransferencia, rawPayload);
         });
     }
 

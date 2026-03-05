@@ -530,6 +530,24 @@ window.verDocumentoOrigen = function (idActividad) {
             addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
             addRow('Retirado por', payload.personaRetira);
             addRow('Fecha Técnica', payload.fechaDespacho);
+        } else if (actividad.operacion === 'Transf. Interna' || actividad.operacion === 'Transferencia entre Almacenes') {
+            if (payload.cantidad > 0) {
+                addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
+                addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
+                addRow('Producto Transferido', getProductoName(payload.productoIdActual));
+                if (payload.productoIdActual !== payload.productoIdNuevo) {
+                    addRow('Reclasificado a', getProductoName(payload.productoIdNuevo));
+                }
+            } else {
+                addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
+            }
+
+            if (payload.canastasVacias > 0) {
+                addRow('Destino de Vacías', getAlmacenName(payload.almacenDestinoVaciasId));
+            }
+
+            addRow('Transferido por', payload.personaTransfiere);
+            if (payload.fechaTransferencia) addRow('Fecha Técnica', payload.fechaTransferencia);
         } else if (actividad.operacion.includes('Transf. Fincas') || actividad.operacion.includes('Transferencia')) {
             if (payload.esHeredado) {
                 // Caso reconstruido (Heredado)
@@ -543,15 +561,6 @@ window.verDocumentoOrigen = function (idActividad) {
                 addRow('Transferido por', payload.personaTransfiere);
                 if (payload.fechaTransferencia) addRow('Fecha Técnica', payload.fechaTransferencia);
             }
-        } else if (actividad.operacion === 'Transf. Interna' || actividad.operacion === 'Transferencia entre Almacenes') {
-            addRow('Almacén Orígen', getAlmacenName(payload.almacenOrigenId));
-            addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId));
-            addRow('Producto Transferido', getProductoName(payload.productoIdActual));
-            if (payload.productoIdActual !== payload.productoIdNuevo) {
-                addRow('Reclasificado a', getProductoName(payload.productoIdNuevo));
-            }
-            addRow('Transferido por', payload.personaTransfiere);
-            if (payload.fechaTransferencia) addRow('Fecha Técnica', payload.fechaTransferencia);
         } else if (actividad.operacion.includes('Desp. Cliente') || actividad.operacion.includes('Despacho a Cliente')) {
             if (payload.esHeredado) {
                 // Caso reconstruido

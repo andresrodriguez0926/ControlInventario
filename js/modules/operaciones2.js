@@ -506,7 +506,7 @@ window.appModules['recepcion-canastas'] = () => {
                     <div class="form-group md:col-span-2 border-b border-border pb-4 mb-2 flex justify-between items-center">
                         <h4 class="text-primary font-semibold">Datos de Devolución</h4>
                         <div class="w-48">
-                            <label class="form-label mb-1 text-xs text-text-muted">Fecha (Máx. 3 días)</label>
+                            <label class="form-label mb-1 text-xs text-text-muted">Fecha (Hasta +1 día)</label>
                             <input type="date" id="dev-fecha" class="form-input text-sm py-1" required>
                         </div>
                     </div>
@@ -752,8 +752,11 @@ window.appModuleEvents['recepcion-canastas'] = () => {
     if (devFecha) {
         const today = new Date();
         const offset = today.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(today - offset)).toISOString().slice(0, 10);
-        const maxDate = localISOTime;
+
+        const maxDateObj = new Date(today);
+        maxDateObj.setDate(today.getDate() + 1);
+        const maxLocalISOTime = (new Date(maxDateObj - offset)).toISOString().slice(0, 10);
+        const maxDate = maxLocalISOTime;
 
         const minDateObj = new Date(today);
         minDateObj.setDate(today.getDate() - 3);
@@ -762,7 +765,9 @@ window.appModuleEvents['recepcion-canastas'] = () => {
 
         devFecha.min = minDate;
         devFecha.max = maxDate;
-        devFecha.value = maxDate;
+        // Seguimos poniendo hoy por defecto
+        const defaultDate = new Date(today - offset).toISOString().slice(0, 10);
+        devFecha.value = defaultDate;
     }
 
     form.addEventListener('submit', async (e) => {

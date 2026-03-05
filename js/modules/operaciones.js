@@ -785,8 +785,26 @@ window.appModules['transferencia-interna'] = () => {
                         </div>
                     </div>
 
+                    <div class="form-group md:col-span-2 border-b border-border pb-4 mb-2">
+                        <label class="form-label mb-2 font-bold text-primary">¿Qué tipo de canastas se van a trasladar?</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="tint-tipo" value="llenas" class="w-4 h-4 accent-primary" checked>
+                                <span class="text-white">Solo Llenas</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="tint-tipo" value="vacias" class="w-4 h-4 accent-warning">
+                                <span class="text-white">Solo Vacías</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="tint-tipo" value="ambas" class="w-4 h-4 accent-success">
+                                <span class="text-white">Llenas y Vacías</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- Flecha decorativa en desktop -->
-                    <div class="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none z-10" style="top: 40px;">
+                    <div class="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none z-10" style="top: 100px;">
                         <div class="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center">
                             <i data-lucide="arrow-right" class="w-5 h-5 text-text-secondary"></i>
                         </div>
@@ -800,7 +818,7 @@ window.appModules['transferencia-interna'] = () => {
                                 ${optsAlmacen}
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="container-tint-prod-actual">
                             <label class="form-label mb-1">Fruta Actual</label>
                             <select id="tint-prod-actual" class="form-select" required>
                                 ${optsProductos}
@@ -816,7 +834,7 @@ window.appModules['transferencia-interna'] = () => {
                                 ${optsAlmacen}
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="container-tint-prod-nuevo">
                             <label class="form-label mb-1">Nueva Clasificación (Fruta)</label>
                             <select id="tint-prod-nuevo" class="form-select" required>
                                 ${optsProductos}
@@ -830,13 +848,13 @@ window.appModules['transferencia-interna'] = () => {
                         <input type="text" id="tint-persona" class="form-input" required placeholder="Nombre de quien autoriza/mueve">
                     </div>
 
-                    <div class="form-group md:col-span-2">
+                    <div class="form-group md:col-span-2" id="container-tint-cantidad">
                         <label class="form-label mb-1">Cantidad de Canastas Llenas</label>
                         <input type="number" id="tint-cantidad" class="form-input" min="1" required placeholder="Ej: 50">
                     </div>
 
                     <!-- TRAZABILIDAD DE VACÍAS -->
-                    <div class="form-group md:col-span-2 border-t border-border pt-5 mt-1">
+                    <div class="form-group md:col-span-2 border-t border-border pt-5 mt-1" id="container-tint-vacias-toggle">
                         <div class="flex items-center gap-3 mb-3">
                             <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input type="checkbox" id="tint-toggle-vacias" class="w-4 h-4 accent-warning">
@@ -846,19 +864,20 @@ window.appModules['transferencia-interna'] = () => {
                                 </span>
                             </label>
                         </div>
-                        <div id="tint-vacias-fields" class="hidden animate-fade-in p-4 bg-warning/5 border border-dashed border-warning/30 rounded-xl grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="form-group mb-0">
-                                <label class="form-label mb-1 text-warning font-semibold">Cant. Vacías a Trasladar</label>
-                                <input type="number" id="tint-vacias" class="form-input border-warning/30 focus:border-warning" min="1" placeholder="Ej: 20">
-                            </div>
-                            <div class="form-group mb-0">
-                                <label class="form-label mb-1 text-warning font-semibold">Destino de las Vacías</label>
-                                <select id="tint-destino-vacias" class="form-select border-warning/30 focus:border-warning">
-                                    <option value="">Mismo destino que la fruta</option>
-                                    ${optsAlmacen}
-                                </select>
-                                <p class="text-xs text-text-muted mt-1">* Deja en blanco si van al mismo almacén que la fruta.</p>
-                            </div>
+                    </div>
+                    
+                    <div id="tint-vacias-fields" class="hidden animate-fade-in md:col-span-2 p-4 bg-warning/5 border border-dashed border-warning/30 rounded-xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group mb-0">
+                            <label class="form-label mb-1 text-warning font-semibold">Cant. Vacías a Trasladar</label>
+                            <input type="number" id="tint-vacias" class="form-input border-warning/30 focus:border-warning" min="1" placeholder="Ej: 20">
+                        </div>
+                        <div class="form-group mb-0" id="container-tint-destino-vacias">
+                            <label class="form-label mb-1 text-warning font-semibold">Destino de las Vacías</label>
+                            <select id="tint-destino-vacias" class="form-select border-warning/30 focus:border-warning">
+                                <option value="">Mismo destino que la fruta</option>
+                                ${optsAlmacen}
+                            </select>
+                            <p class="text-xs text-text-muted mt-1">* Deja en blanco si van al mismo almacén que la fruta.</p>
                         </div>
                     </div>
                 </div>
@@ -893,7 +912,7 @@ window.appModules['transferencia-interna'] = () => {
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
-                                        <td class="py-2.5 px-4 font-bold text-info">${a.rawPayload?.cantidad || a.cantidad}</td>
+                                        <td class="py-2.5 px-4 font-bold text-info">${a.rawPayload?.cantidad !== undefined ? a.rawPayload.cantidad : (a.cantidad || '-')}</td>
                                         <td class="py-2.5 px-4 font-bold ${a.rawPayload?.canastasVacias > 0 ? 'text-warning' : 'text-text-muted'}">${a.rawPayload?.canastasVacias > 0 ? a.rawPayload.canastasVacias : '-'}</td>
                                         <td class="py-2.5 px-4 text-center">
                                             <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 mx-auto whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
@@ -944,19 +963,104 @@ window.appModuleEvents['transferencia-interna'] = () => {
     if (!form) return;
 
     // Toggle vacías section
+    const radiosTipo = document.querySelectorAll('input[name="tint-tipo"]');
+    const containerProdActual = document.getElementById('container-tint-prod-actual');
+    const containerProdNuevo = document.getElementById('container-tint-prod-nuevo');
+    const containerCantidad = document.getElementById('container-tint-cantidad');
+    const containerVaciasToggle = document.getElementById('container-tint-vacias-toggle');
     const toggleVacias = document.getElementById('tint-toggle-vacias');
     const vaciasFields = document.getElementById('tint-vacias-fields');
-    if (toggleVacias && vaciasFields) {
-        toggleVacias.addEventListener('change', () => {
-            if (toggleVacias.checked) {
+    const containerDestinoVacias = document.getElementById('container-tint-destino-vacias');
+
+    const selectProdActual = document.getElementById('tint-prod-actual');
+    const selectProdNuevo = document.getElementById('tint-prod-nuevo');
+    const inputCantidad = document.getElementById('tint-cantidad');
+    const inputVacias = document.getElementById('tint-vacias');
+
+    function updateTintForm() {
+        if (!radiosTipo.length) return;
+        const tipo = Array.from(radiosTipo).find(r => r.checked).value;
+
+        if (tipo === 'llenas') {
+            containerProdActual.classList.remove('hidden');
+            containerProdNuevo.classList.remove('hidden');
+            containerCantidad.classList.remove('hidden');
+            containerVaciasToggle.classList.remove('hidden');
+
+            selectProdActual.required = true;
+            selectProdNuevo.required = true;
+            inputCantidad.required = true;
+
+            if (toggleVacias && toggleVacias.checked) {
                 vaciasFields.classList.remove('hidden');
                 vaciasFields.classList.add('grid');
-            } else {
+                inputVacias.required = true;
+                if (containerDestinoVacias) {
+                    containerDestinoVacias.classList.remove('hidden');
+                    containerDestinoVacias.style.display = 'block';
+                }
+            } else if (vaciasFields) {
                 vaciasFields.classList.add('hidden');
                 vaciasFields.classList.remove('grid');
+                inputVacias.required = false;
+                if (containerDestinoVacias) {
+                    containerDestinoVacias.classList.remove('hidden');
+                    containerDestinoVacias.style.display = 'block';
+                }
             }
-        });
+        } else if (tipo === 'vacias') {
+            containerProdActual.classList.add('hidden');
+            containerProdNuevo.classList.add('hidden');
+            containerCantidad.classList.add('hidden');
+            containerVaciasToggle.classList.add('hidden');
+
+            selectProdActual.required = false;
+            selectProdNuevo.required = false;
+            inputCantidad.required = false;
+
+            // Siempre mostrar vacías
+            if (vaciasFields) {
+                vaciasFields.classList.remove('hidden');
+                // Al ser Solo Vacías, queremos que el campo de cantidad ocupe todo el ancho
+                vaciasFields.classList.remove('grid-cols-2');
+                vaciasFields.classList.add('grid-cols-1');
+                vaciasFields.classList.add('grid');
+                inputVacias.required = true;
+
+                if (containerDestinoVacias) {
+                    containerDestinoVacias.classList.add('hidden');
+                    containerDestinoVacias.style.display = 'none';
+                }
+            }
+        } else if (tipo === 'ambas') {
+            containerProdActual.classList.remove('hidden');
+            containerProdNuevo.classList.remove('hidden');
+            containerCantidad.classList.remove('hidden');
+            containerVaciasToggle.classList.add('hidden'); // Ocultar toggle porque ambas implica sí o sí
+
+            selectProdActual.required = true;
+            selectProdNuevo.required = true;
+            inputCantidad.required = true;
+
+            if (vaciasFields) {
+                vaciasFields.classList.remove('hidden');
+                // Volver a 2 columnas
+                vaciasFields.classList.remove('grid-cols-1');
+                vaciasFields.classList.add('grid-cols-2');
+                vaciasFields.classList.add('grid');
+                inputVacias.required = true;
+                if (containerDestinoVacias) {
+                    containerDestinoVacias.classList.remove('hidden');
+                    containerDestinoVacias.style.display = 'block';
+                }
+            }
+        }
     }
+
+    if (radiosTipo) radiosTipo.forEach(radio => radio.addEventListener('change', updateTintForm));
+    if (toggleVacias) toggleVacias.addEventListener('change', updateTintForm);
+
+    updateTintForm(); // Init
 
     const tintFecha = document.getElementById('tint-fecha');
     if (tintFecha) {
@@ -983,20 +1087,36 @@ window.appModuleEvents['transferencia-interna'] = () => {
         btn.disabled = true;
 
         try {
+            const tipo = Array.from(document.querySelectorAll('input[name="tint-tipo"]')).find(r => r.checked)?.value || 'llenas';
             const toggleVaciasEl = document.getElementById('tint-toggle-vacias');
-            const canastasVacias = (toggleVaciasEl?.checked) ? parseInt(document.getElementById('tint-vacias')?.value || 0) : 0;
+
+            let canastasVacias = 0;
+            if (tipo === 'vacias' || tipo === 'ambas' || (tipo === 'llenas' && toggleVaciasEl?.checked)) {
+                canastasVacias = parseInt(document.getElementById('tint-vacias')?.value || 0);
+            }
+
             const destinoVaciasRaw = document.getElementById('tint-destino-vacias')?.value;
             const almacenDestinoId = document.getElementById('tint-destino').value;
             // If no specific destination for vacias is chosen, use the same as fruit destination
             const almacenDestinoVaciasId = (destinoVaciasRaw && destinoVaciasRaw !== '') ? destinoVaciasRaw : almacenDestinoId;
 
+            let productoIdActual = null;
+            let productoIdNuevo = null;
+            let cantidadLlenas = 0;
+
+            if (tipo === 'llenas' || tipo === 'ambas') {
+                productoIdActual = document.getElementById('tint-prod-actual').value;
+                productoIdNuevo = document.getElementById('tint-prod-nuevo').value;
+                cantidadLlenas = document.getElementById('tint-cantidad').value;
+            }
+
             await window.appStore.transferenciaInterna({
                 almacenOrigenId: document.getElementById('tint-origen').value,
                 almacenDestinoId,
-                productoIdActual: document.getElementById('tint-prod-actual').value,
-                productoIdNuevo: document.getElementById('tint-prod-nuevo').value,
+                productoIdActual,
+                productoIdNuevo,
                 personaTransfiere: document.getElementById('tint-persona').value,
-                cantidad: document.getElementById('tint-cantidad').value,
+                cantidad: cantidadLlenas,
                 fechaTransferencia: document.getElementById('tint-fecha').value,
                 canastasVacias,
                 almacenDestinoVaciasId
