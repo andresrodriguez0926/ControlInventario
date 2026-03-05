@@ -58,28 +58,36 @@ window.appModules['reporte-fruta'] = () => {
 
             <div id="rf-resultados-container" class="hidden animate-fade-in space-y-6">
                 <!-- Summary Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="surface-card p-5 border-l-4 border-success flex flex-col justify-center">
-                        <span class="text-text-secondary text-sm font-semibold uppercase tracking-wider mb-1">Total Entradas (+)</span>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="surface-card p-4 border-t-4 border-t-primary flex flex-col justify-center bg-primary/5">
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Suma total de esta fruta que existe físicamente en el sistema AHORA MISMO.">Inventario Actual Real</span>
                         <div class="flex items-end gap-3">
-                            <i data-lucide="trending-up" class="w-8 h-8 text-success/50"></i>
-                            <span class="text-3xl font-black text-white" id="rf-total-in">0</span>
+                            <i data-lucide="package" class="w-6 h-6 text-primary/70"></i>
+                            <span class="text-2xl font-black text-white" id="rf-actual-inv">0</span>
                         </div>
                     </div>
                     
-                    <div class="surface-card p-5 border-l-4 border-danger flex flex-col justify-center">
-                        <span class="text-text-secondary text-sm font-semibold uppercase tracking-wider mb-1">Total Salidas (-)</span>
+                    <div class="surface-card p-4 border-l-4 border-success flex flex-col justify-center">
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Entradas de fruta en el rango de fechas consultado">Entradas del Rango (+)</span>
                         <div class="flex items-end gap-3">
-                            <i data-lucide="trending-down" class="w-8 h-8 text-danger/50"></i>
-                            <span class="text-3xl font-black text-white" id="rf-total-out">0</span>
+                            <i data-lucide="trending-up" class="w-6 h-6 text-success/50"></i>
+                            <span class="text-2xl font-black text-white" id="rf-total-in">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="surface-card p-4 border-l-4 border-danger flex flex-col justify-center">
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Salidas de fruta en el rango de fechas consultado">Salidas del Rango (-)</span>
+                        <div class="flex items-end gap-3">
+                            <i data-lucide="trending-down" class="w-6 h-6 text-danger/50"></i>
+                            <span class="text-2xl font-black text-white" id="rf-total-out">0</span>
                         </div>
                     </div>
 
-                    <div class="surface-card p-5 border-l-4 border-info flex flex-col justify-center bg-info/5">
-                        <span class="text-text-secondary text-sm font-semibold uppercase tracking-wider mb-1">Balance Neto del Periodo</span>
+                    <div class="surface-card p-4 border-l-4 border-info flex flex-col justify-center">
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Diferencia entre Entradas y Salidas durante el rango de fechas">Flujo Neto del Rango</span>
                         <div class="flex items-end gap-3">
-                            <i data-lucide="scale" class="w-8 h-8 text-info/50"></i>
-                            <span class="text-3xl font-black text-info" id="rf-balance">0</span>
+                            <i data-lucide="scale" class="w-6 h-6 text-info/50"></i>
+                            <span class="text-2xl font-black text-info" id="rf-balance">0</span>
                         </div>
                     </div>
                 </div>
@@ -180,9 +188,12 @@ window.appModuleEvents['reporte-fruta'] = () => {
             if (a.anulado || a.eliminado) return;
 
             const raw = a.rawPayload || {};
-            const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
-            const match = qtyStr.match(/\d+/);
-            const a_cantidad = match ? parseInt(match[0], 10) : 0;
+            let a_cantidad = parseInt(raw.cantidad);
+            if (isNaN(a_cantidad)) {
+                const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
+                const match = qtyStr.match(/\d+/);
+                a_cantidad = match ? parseInt(match[0], 10) : 0;
+            }
 
             // Filtro por fecha
             const logDate = new Date(a.date);
@@ -291,6 +302,16 @@ window.appModuleEvents['reporte-fruta'] = () => {
 
         currentData = reportRows;
 
+        // Calculamos el Inventario Real Actual de forma independiente sumando la data oficial del store
+        const invAlmacenes = window.appStore.getInventarioPorAlmacen() || {};
+        let realCurrentInventory = 0;
+        Object.values(invAlmacenes).forEach(alm => {
+            if (alm[selProductoId]) {
+                realCurrentInventory += alm[selProductoId];
+            }
+        });
+        document.getElementById('rf-actual-inv').textContent = realCurrentInventory.toLocaleString();
+
         // --- Render results ---
         document.getElementById('rf-total-in').textContent = tIn.toLocaleString();
         document.getElementById('rf-total-out').textContent = tOut.toLocaleString();
@@ -298,7 +319,7 @@ window.appModuleEvents['reporte-fruta'] = () => {
         const balance = tIn - tOut;
         const balEl = document.getElementById('rf-balance');
         balEl.textContent = (balance > 0 ? '+' : '') + balance.toLocaleString();
-        balEl.className = `text-3xl font-black ${balance >= 0 ? 'text-info' : 'text-danger'}`;
+        balEl.className = `text-2xl font-black ${balance >= 0 ? 'text-info' : 'text-danger'}`;
 
         if (reportRows.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos para esta fruta en el rango seleccionado.</td></tr>`;
