@@ -17,7 +17,7 @@ window.appModules['inventario-fecha'] = () => {
                 <div>
                     <h2 class="text-2xl font-bold text-white flex items-center gap-2">
                         <i data-lucide="calendar-clock" class="w-6 h-6 text-primary"></i>
-                        Inventario a la Fecha
+                        Inventario a la Fecha (v24)
                     </h2>
                     <p class="text-text-secondary">Consulta el estado del inventario (incluyendo registros a futuro) hasta la fecha seleccionada.</p>
                 </div>
@@ -210,165 +210,163 @@ window.appModuleEvents['inventario-fecha'] = () => {
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
     });
 
-    btnGenerar.addEventListener('click', () => {
+    btnGenerar.addEventListener('click', async () => {
         const fechaStr = inputFecha.value;
         if (!fechaStr) {
             window.UI.showToast("Debe seleccionar una fecha", "warning");
             return;
         }
 
+        // Mostrar indicador de carga
+        btnGenerar.disabled = true;
+        btnGenerar.innerHTML = `<span class="flex items-center gap-2"><i class="animate-spin" data-lucide="loader-2"></i> Cargando Historia...</span>`;
+        if (window.lucide) window.lucide.createIcons({ root: btnGenerar });
+
         const [year, month, day] = fechaStr.split('-');
         const targetDate = new Date(year, month - 1, day);
         targetDate.setHours(23, 59, 59, 999);
 
-        // Fetch current base state
-        const stats = window.appStore.getStats();
-        let currentLlenas = stats.canastasLlenas;
-        let currentVacias = stats.canastasVacias;
-        let currentDespProd = stats.despachadasProductor || 0;
-        let currentDespCli = stats.despachadasCliente || 0;
+        // 1. Obtener TODO el historial (Carga profunda de v23/v24)
+        const allFullHistory = await window.appStore.loadFullActivity();
+        const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        
+        const allMap = new Map();
+        [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+        
+        const allActivity = Array.from(allMap.values());
+        allActivity.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
 
-        const invPorAlmacen = window.appStore.getInventarioPorAlmacen() || {};
+        console.log(`[CÁLCULO IF v24] Procesando ${allActivity.filter(a => new Date(a.date || a.fecha) <= targetDate).length} registros hasta la fecha.`);
+
+        // 2. Inicializar contadores en CERO (Forward Math)
+        let currentLlenas = 0;
+        let currentVacias = 0;
+        let currentDespProd = 0;
+        let currentDespCli = 0;
 
         let llenasPorAlmacenYProducto = {};
         let vaciasPorAlmacen = {};
-
-        Object.keys(invPorAlmacen).forEach(almId => {
-            vaciasPorAlmacen[almId] = invPorAlmacen[almId]?.vacias || 0;
-            llenasPorAlmacenYProducto[almId] = {};
-
-            Object.entries(invPorAlmacen[almId]).forEach(([key, val]) => {
-                if (key !== 'vacias' && val > 0) {
-                    llenasPorAlmacenYProducto[almId][key] = val;
-                }
-            });
-        });
-
         let deudaProductor = {};
-        window.appStore.getProductores().forEach(p => {
-            deudaProductor[p.id] = p.canastasPrestadas || 0;
-        });
-
         let deudaCliente = {};
-        window.appStore.getClientes().forEach(c => {
-            deudaCliente[c.id] = c.canastasPrestadas || 0;
-        });
-
-        const allActivity = window.appStore.getActividad(20000); // alto límite para abarcar el histórico necesario
-
-        // Las transacciones ocurren antes o después del targetDate
-        const postActivity = allActivity.filter(a => new Date(a.date || a.fecha) > targetDate);
 
         const applyObjDelta = (obj, key, delta) => {
             if (!key) key = 'no-especificado';
-            if (obj[key] === undefined) obj[key] = 0;
-            obj[key] += delta;
+            obj[key] = (obj[key] || 0) + delta;
         };
+
         const applyLlenasAlmacenDelta = (almId, prodId, delta) => {
             if (!almId) almId = 'no-especificado';
             if (!prodId) return;
             if (!llenasPorAlmacenYProducto[almId]) llenasPorAlmacenYProducto[almId] = {};
-            if (llenasPorAlmacenYProducto[almId][prodId] === undefined) llenasPorAlmacenYProducto[almId][prodId] = 0;
-            llenasPorAlmacenYProducto[almId][prodId] += delta;
+            llenasPorAlmacenYProducto[almId][prodId] = (llenasPorAlmacenYProducto[almId][prodId] || 0) + delta;
         };
 
-        const revertLlenasBreakdown = (payload = {}, a_cantidad, isDecrease) => {
-            const factor = isDecrease ? 1 : -1;
-
+        const updateLlenasBreakdown = (payload = {}, a_qty, isAdd) => {
+            const factor = isAdd ? 1 : -1;
             if (payload.lotes) {
-                payload.lotes.forEach(l => applyLlenasAlmacenDelta(l.almacenId || l.almacenDestinoId, l.productoId, factor * (parseInt(l.cantidad) || 0)));
+                payload.lotes.forEach(l => applyLlenasAlmacenDelta(l.almacenId || l.almacenDestinoId || payload.almacenId, l.productoId, factor * (parseInt(l.cantidad) || 0)));
             } else if (payload.detalles) {
                 payload.detalles.forEach(d => applyLlenasAlmacenDelta(d.almacenOrigenId || d.almacenId, d.productoId, factor * (parseInt(d.cantidad) || 0)));
             } else if (payload.productoId || payload.productoIdActual || payload.productoIdNuevo) {
                 const pId = payload.productoId || payload.productoIdActual || payload.productoIdNuevo;
                 const aId = payload.almacenId || payload.almacenDestinoId || payload.almacenOrigenId;
-                applyLlenasAlmacenDelta(aId, pId, factor * a_cantidad);
+                applyLlenasAlmacenDelta(aId, pId, factor * a_qty);
             }
         };
 
-        postActivity.forEach(a => {
+        // 3. Loop Forward
+        allActivity.forEach(a => {
+            if (a.anulado) return;
+            const date = new Date(a.date || a.fecha);
+            if (date > targetDate) return; // Cortamos en la fecha seleccionada
+
             const payload = a.rawPayload || {};
-            const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
-            const match = qtyStr.match(/\d+/);
-            const a_cantidad = match ? parseInt(match[0], 10) : 0;
+            const qtyStr = (a.cantidad || '0').toString();
+            const match = qtyStr.match(/-?\d+/);
+            const a_cantidad = match ? Math.abs(parseInt(match[0], 10)) : 0;
+            const op = a.operacion;
 
-            if (a.operacion === 'Recepción') {
-                currentLlenas -= a_cantidad;
-                currentDespProd += a_cantidad;
-                revertLlenasBreakdown(payload, a_cantidad, false);
-                applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
-            } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
+            if (op === 'Recepción' || op === 'Recepción de Fruta') {
                 currentLlenas += a_cantidad;
-                currentDespCli -= a_cantidad;
-                revertLlenasBreakdown(payload, a_cantidad, true);
-                applyObjDelta(deudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
-                currentVacias += a_cantidad;
-                currentDespProd -= a_cantidad;
-                applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, a_cantidad);
+                updateLlenasBreakdown(payload, a_cantidad, true);
                 applyObjDelta(deudaProductor, payload.productorId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
-                currentVacias -= a_cantidad;
-                if (payload.tipoOrigen === 'productor') {
-                    currentDespProd += a_cantidad;
-                    applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    currentDespCli += a_cantidad;
-                    const cId = payload.clienteId || (payload.clienteNombre ? clientes.find(c => c.nombre === payload.clienteNombre)?.id : null);
-                    applyObjDelta(deudaCliente, cId, a_cantidad);
-                }
-                applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
+            } 
+            else if (op === 'Desp. Cliente' || op === 'Despacho a Cliente') {
                 currentLlenas -= a_cantidad;
-                revertLlenasBreakdown(payload, a_cantidad, false);
-                if (payload.tipoOrigen === 'productor') {
-                    currentDespProd += a_cantidad;
-                    applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    currentDespCli += a_cantidad;
-                    const cId = payload.clienteId || (payload.clienteNombre ? clientes.find(c => c.nombre === payload.clienteNombre)?.id : null);
-                    applyObjDelta(deudaCliente, cId, a_cantidad);
-                }
-            } else if (a.operacion === 'Transf. Fincas') {
-                applyObjDelta(deudaProductor, payload.productorOrigenId, a_cantidad);
-                applyObjDelta(deudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
+                updateLlenasBreakdown(payload, a_cantidad, false);
+                applyObjDelta(deudaCliente, payload.clienteId, a_cantidad);
+            } 
+            else if (op === 'Desp. Vacías' || op === 'Despacho de Vacías') {
                 currentVacias -= a_cantidad;
-                applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
+                applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, -a_cantidad);
+                applyObjDelta(deudaProductor, payload.productorId, a_cantidad);
+            } 
+            else if (op === 'Devolución' || op === 'Devolución de Canastas') {
+                const isLlena = a.detalle && a.detalle.toLowerCase().includes('llena');
+                const isProd = (payload.tipoOrigen === 'productor');
+                if (isLlena) {
+                    currentLlenas += a_cantidad;
+                    updateLlenasBreakdown(payload, a_cantidad, true);
+                } else {
+                    currentVacias += a_cantidad;
+                    applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, a_cantidad);
+                }
+                if (isProd) applyObjDelta(deudaProductor, payload.productorId, -a_cantidad);
+                else applyObjDelta(deudaCliente, payload.clienteId, -a_cantidad);
+            } 
+            else if (op === 'Transf. Fincas' || op === 'Transferencia entre Fincas') {
+                applyObjDelta(deudaProductor, payload.productorOrigenId, -a_cantidad);
+                applyObjDelta(deudaProductor, payload.productorDestinoId, a_cantidad);
+            } 
+            else if (op === 'Compra' || op === 'Compra Canastas' || op === 'Compra de Canastas') {
+                currentVacias += a_cantidad;
+                applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, a_cantidad);
+            } 
+            else if (op === 'Decomiso' || op === 'Decomiso de Fruta') {
+                currentLlenas -= a_cantidad;
+                currentVacias += a_cantidad;
+                applyObjDelta(vaciasPorAlmacen, payload.almacenVaciasId, a_cantidad);
+                updateLlenasBreakdown(payload, a_cantidad, false);
+            } 
+            else if (op === 'Fruta Demás' || op === 'Canastas Demás' || op === 'Ingreso Fruta Demás') {
                 currentLlenas += a_cantidad;
                 currentVacias -= a_cantidad;
-                applyObjDelta(vaciasPorAlmacen, payload.almacenVaciasId, -a_cantidad);
-                revertLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás') {
-                currentLlenas -= a_cantidad;
-                currentVacias += a_cantidad;
-                applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, a_cantidad);
-                revertLlenasBreakdown(payload, a_cantidad, false);
-            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Salida de Canastas' || a.operacion === 'Baja de Canastas') {
-                currentVacias += a_cantidad;
-                applyObjDelta(vaciasPorAlmacen, payload.almacenId, a_cantidad);
-            } else if (a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes') {
-                const pOrig = payload.productoIdActual;
-                const pDest = payload.productoIdNuevo || payload.productoIdActual;
-                applyLlenasAlmacenDelta(payload.almacenOrigenId, pOrig, a_cantidad);
-                applyLlenasAlmacenDelta(payload.almacenDestinoId, pDest, -a_cantidad);
-
-                // Reverse Vacias movement if transferred purely as empty or mixed empty baskets
-                if (payload.almacenDestinoVaciasId) {
-                    const cantV = parseInt(payload.canastasVacias) || 0;
-                    currentVacias -= cantV;
-                    applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoVaciasId, -cantV);
-                    applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, cantV);
+                applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, -a_cantidad);
+                updateLlenasBreakdown(payload, a_cantidad, true);
+            } 
+            else if (op === 'Salida Canastas' || op === 'Baja de Canastas') {
+                currentVacias -= a_cantidad;
+                applyObjDelta(vaciasPorAlmacen, payload.almacenId, -a_cantidad);
+            } 
+            else if (op === 'Reparación Sistema') {
+                const isNeg = qtyStr.includes('-');
+                const diff = isNeg ? -Math.abs(a_cantidad) : Math.abs(a_cantidad);
+                currentLlenas += diff;
+                updateLlenasBreakdown(payload, Math.abs(diff), diff > 0);
+            } 
+            else if (op === 'Transf. Interna' || op === 'Transferencia entre Almacenes') {
+                const cantL = payload ? (parseInt(payload.cantidad) || 0) : 0;
+                const cantV = payload ? (parseInt(payload.canastasVacias) || 0) : 0;
+                if (cantL > 0) {
+                    applyLlenasAlmacenDelta(payload.almacenOrigenId, payload.productoIdActual, -cantL);
+                    applyLlenasAlmacenDelta(payload.almacenDestinoId, payload.productoIdNuevo || payload.productoIdActual, cantL);
+                }
+                if (cantV > 0) {
+                    applyObjDelta(vaciasPorAlmacen, payload.almacenOrigenId, -cantV);
+                    applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoVaciasId, cantV);
                 }
             }
         });
 
+        // Totales globales recalculados
+        currentDespProd = Object.values(deudaProductor).reduce((s, v) => s + v, 0);
+        currentDespCli = Object.values(deudaCliente).reduce((s, v) => s + v, 0);
+
         _lastGeneratedData = {
-            totalLlenas: Math.max(0, currentLlenas),
-            totalVacias: Math.max(0, currentVacias),
-            totalDespProd: Math.max(0, currentDespProd),
-            totalDespCli: Math.max(0, currentDespCli),
+            totalLlenas: currentLlenas,
+            totalVacias: currentVacias,
+            totalDespProd: currentDespProd,
+            totalDespCli: currentDespCli,
             llenasPorAlmacenYProducto,
             vaciasPorAlmacen,
             deudaProductor,
@@ -474,6 +472,11 @@ window.appModuleEvents['inventario-fecha'] = () => {
 
         contenedorResultados.classList.remove('hidden');
         if (window.lucide) window.lucide.createIcons({ root: contenedorResultados });
+
+        // Restaurar botón
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = `<span class="flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> Generar Reporte</span>`;
+        if (window.lucide) window.lucide.createIcons({ root: btnGenerar });
 
         window.UI.showToast("Reporte generado correctamente.", "success");
     });

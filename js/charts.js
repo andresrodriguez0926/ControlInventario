@@ -250,6 +250,7 @@ const Charts = {
 
         // Los balances semanales y tablas diarias se basan primordialmente en la Semana A (la principal)
         this.calculateWeeklyBalances(rangeA.start, rangeA.end);
+        // No await required here as UI is mostly non-blocking, but good to have
         this.renderWeeklyCharts(rangeA.start, rangeA.end);
 
         // El Gráfico comparativo usa ambas
@@ -282,294 +283,261 @@ const Charts = {
         return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
     },
 
-    calculateWeeklyBalances(startDate, endDate) {
-        const stats = window.appStore.getStats();
-        let currentLlenas = stats.canastasLlenas;
-        let currentVacias = stats.canastasVacias;
-        let currentDespProd = stats.despachadasProductor || 0;
-        let currentDespCli = stats.despachadasCliente || 0;
+    async calculateWeeklyBalances(startDate, endDate) {
+        // 1. Obtener toda la actividad asegurando carga completa
+        const allFullHistory = await window.appStore.loadFullActivity();
+        
+        // El state tiene una copia local que usamos para deduplicar
+        const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        
+        const allMap = new Map();
+        [...allFullHistory, ...activityFromState].forEach(a => {
+            if (a.id) allMap.set(a.id, a);
+        });
+        
+        const allActivity = Array.from(allMap.values());
+        allActivity.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
 
-        // Initialize per-warehouse empty baskets
-        const invPorAlmacen = window.appStore.getInventarioPorAlmacen() || {};
-        let currentVaciasPorAlm = {};
-        Object.keys(invPorAlmacen).forEach(almId => {
-            currentVaciasPorAlm[almId] = invPorAlmacen[almId]?.vacias || 0;
+        console.log(`[CÁLCULO v22] Procesando ${allActivity.length} registros totales.`);
+        
+        // AUDIT COUNTERS
+        let auditAdded = 0;   // Compras, Reparaciones(+), Fruta Demás? (si no consume vacía)
+        let auditRemoved = 0; // Bajas, Reparaciones(-)
+        let auditRepairsPlus = 0;
+        let auditRepairsMinus = 0;
+        let auditPurchases = 0;
+        let auditBajas = 0;
+
+        // 2. Inicializar contadores en cero
+        let llenas = 0;
+        let vacias = 0;
+        let despProd = 0;
+        let despCli = 0;
+
+        let vaciasPorAlm = {};
+        let llenasPorProducto = {};
+        let deudaProductor = {};
+        let deudaCliente = {};
+
+        let initialBalances = null;
+        let finalBalances = null;
+
+        const applyDebtDelta = (balances, id, delta, isProductor = true) => {
+            if (!id) id = 'no-especificado';
+            
+            // ELIMINADO Math.max(0, ...) para el motor de cálculo del Dashboard.
+            // Esto permite que el balance global se mantenga íntegro (14032).
+            // Si alguien devuelve algo que debía antes de marzo, la deuda simplemente
+            // se vuelve negativa temporalmente en el pasado para compensar.
+            balances[id] = (balances[id] || 0) + delta;
+            
+            if (isProductor) {
+                despProd = Object.values(deudaProductor).reduce((s, v) => s + v, 0);
+            } else {
+                despCli = Object.values(deudaCliente).reduce((s, v) => s + v, 0);
+            }
+        };
+        
+        const applyVaciasDelta = (balances, id, delta) => {
+            if (!id) id = 'no-especificado';
+            balances[id] = (balances[id] || 0) + delta;
+        };
+        const applyLlenasDelta = (balances, id, delta) => {
+            if (!id) return;
+            if (!balances[id]) balances[id] = { cantidad: 0 };
+            balances[id].cantidad += delta;
+        };
+
+        const updateLlenasBreakdown = (payload = {}, qty = 0) => {
+            if (payload.productoId || payload.productoIdActual || payload.productoIdNuevo) {
+                const pid = payload.productoId || payload.productoIdActual || payload.productoIdNuevo;
+                applyLlenasDelta(llenasPorProducto, pid, qty);
+            } else if (payload.lotes) {
+                payload.lotes.forEach(l => applyLlenasDelta(llenasPorProducto, l.productoId, l.cantidad));
+            } else if (payload.detalles) {
+                payload.detalles.forEach(d => applyLlenasDelta(llenasPorProducto, d.productoId, d.cantidad));
+            }
+        };
+
+        // 3. Iterar sobre toda la actividad
+        allActivity.forEach(a => {
+            if (a.anulado) return;
+
+            const date = new Date(a.date || a.fecha);
+            
+            if (!initialBalances && date >= startDate) {
+                initialBalances = {
+                    totalLlenas: llenas, totalVacias: vacias, 
+                    totalDespProd: despProd, totalDespCli: despCli,
+                    llenasPorProducto: JSON.parse(JSON.stringify(llenasPorProducto)),
+                    vaciasPorAlmacen: { ...vaciasPorAlm },
+                    deudaProductor: { ...deudaProductor }, deudaCliente: { ...deudaCliente }
+                };
+            }
+
+            const payload = a.rawPayload || {};
+            const qtyStr = (a.cantidad || '0').toString();
+            const match = qtyStr.match(/-?\d+/);
+            const a_cantidad = match ? Math.abs(parseInt(match[0], 10)) : 0;
+
+            const op = a.operacion;
+
+            if (op === 'Recepción' || op === 'Recepción de Fruta') {
+                llenas += a_cantidad;
+                updateLlenasBreakdown(payload, a_cantidad);
+                applyDebtDelta(deudaProductor, payload.productorId, -a_cantidad, true);
+            } 
+            else if (op === 'Desp. Cliente' || op === 'Despacho a Cliente') {
+                llenas -= a_cantidad;
+                updateLlenasBreakdown(payload, -a_cantidad);
+                applyDebtDelta(deudaCliente, payload.clienteId, a_cantidad, false);
+            } 
+            else if (op === 'Desp. Vacías' || op === 'Despacho de Vacías') {
+                vacias -= a_cantidad;
+                applyVaciasDelta(vaciasPorAlm, payload.almacenOrigenId, -a_cantidad);
+                applyDebtDelta(deudaProductor, payload.productorId, a_cantidad, true);
+            } 
+            else if (op === 'Devolución' || op === 'Devolución de Canastas') {
+                const isLlena = a.detalle && a.detalle.toLowerCase().includes('llena');
+                const isProductor = (payload.tipoOrigen === 'productor');
+                if (isLlena) {
+                    llenas += a_cantidad;
+                    updateLlenasBreakdown(payload, a_cantidad);
+                } else {
+                    vacias += a_cantidad;
+                    applyVaciasDelta(vaciasPorAlm, payload.almacenDestinoId, a_cantidad);
+                }
+                if (isProductor) applyDebtDelta(deudaProductor, payload.productorId, -a_cantidad, true);
+                else applyDebtDelta(deudaCliente, payload.clienteId, -a_cantidad, false);
+            } 
+            else if (op === 'Transf. Fincas' || op === 'Transferencia entre Fincas') {
+                applyDebtDelta(deudaProductor, payload.productorOrigenId, -a_cantidad, true);
+                applyDebtDelta(deudaProductor, payload.productorDestinoId, a_cantidad, true);
+            } 
+            else if (op === 'Compra' || op === 'Compra Canastas' || op === 'Compra de Canastas') {
+                vacias += a_cantidad;
+                applyVaciasDelta(vaciasPorAlm, payload.almacenDestinoId, a_cantidad);
+                auditPurchases += a_cantidad;
+                auditAdded += a_cantidad;
+            } 
+            else if (op === 'Decomiso' || op === 'Decomiso de Fruta') {
+                llenas -= a_cantidad;
+                vacias += a_cantidad;
+                applyVaciasDelta(vaciasPorAlm, payload.almacenVaciasId, a_cantidad);
+                updateLlenasBreakdown(payload, -a_cantidad);
+            } 
+            else if (op === 'Fruta Demás' || op === 'Canastas Demás' || op === 'Ingreso Fruta Demás') {
+                llenas += a_cantidad;
+                vacias -= a_cantidad;
+                applyVaciasDelta(vaciasPorAlm, payload.almacenOrigenId, -a_cantidad);
+                updateLlenasBreakdown(payload, a_cantidad);
+            } 
+            else if (op === 'Salida Canastas' || op === 'Baja de Canastas') {
+                vacias -= a_cantidad;
+                applyVaciasDelta(vaciasPorAlm, payload.almacenId, -a_cantidad);
+                auditBajas += a_cantidad;
+                auditRemoved += a_cantidad;
+            } 
+            else if (op === 'Reparación Sistema') {
+                const isNeg = qtyStr.includes('-');
+                const diff = isNeg ? -Math.abs(a_cantidad) : Math.abs(a_cantidad);
+                llenas += diff;
+                applyLlenasDelta(llenasPorProducto, payload.productoId, diff);
+                if (diff > 0) {
+                    auditRepairsPlus += diff;
+                    auditAdded += diff;
+                } else {
+                    auditRepairsMinus += Math.abs(diff);
+                    auditRemoved += Math.abs(diff);
+                }
+            } 
+            else if (op === 'Transferencia entre Almacenes') {
+                const cantLlenas = payload ? (parseInt(payload.cantidad) || 0) : 0;
+                const cantVacias = payload ? (parseInt(payload.canastasVacias) || 0) : 0;
+                if (cantLlenas > 0) {
+                    applyLlenasDelta(llenasPorProducto, payload.productoIdActual, -cantLlenas);
+                    applyLlenasDelta(llenasPorProducto, payload.productoIdNuevo, cantLlenas);
+                }
+                if (cantVacias > 0) {
+                    applyVaciasDelta(vaciasPorAlm, payload.almacenOrigenId, -cantVacias);
+                    applyVaciasDelta(vaciasPorAlm, payload.almacenDestinoVaciasId, cantVacias);
+                }
+            }
+
+            if (!finalBalances && date > endDate) {
+                finalBalances = {
+                    totalLlenas: llenas, totalVacias: vacias, 
+                    totalDespProd: despProd, totalDespCli: despCli,
+                    llenasPorProducto: JSON.parse(JSON.stringify(llenasPorProducto)),
+                    vaciasPorAlmacen: { ...vaciasPorAlm },
+                    deudaProductor: { ...deudaProductor }, deudaCliente: { ...deudaCliente }
+                };
+            }
         });
 
-        // Initialize per-product full baskets
-        let currentLlenasPorProducto = {};
-        if (invPorAlmacen) {
-            Object.values(invPorAlmacen).forEach(almacenData => {
-                Object.entries(almacenData).forEach(([key, val]) => {
-                    if (key !== 'vacias' && val > 0) {
-                        if (currentLlenasPorProducto[key] === undefined) currentLlenasPorProducto[key] = { cantidad: 0 };
-                        currentLlenasPorProducto[key].cantidad += val;
-                    }
-                });
-            });
+        // 4. Fallbacks y Auditoría
+        const totalCalculado = llenas + vacias + despProd + despCli;
+        console.log(`[AUDITORÍA v22] Total Global Final: ${totalCalculado} (Baskets)`);
+        console.log(`[AUDITORÍA v22] Compras: +${auditPurchases}, Reparaciones(+): +${auditRepairsPlus}, Bajas: -${auditBajas}, Reparaciones(-): -${auditRepairsMinus}`);
+        console.log(`[AUDITORÍA v22] Neto Creado: ${auditAdded - auditRemoved}`);
+        
+        if (totalCalculado !== 14032) {
+            console.warn(`[AUDITORÍA v22] DISCREPANCIA: El sistema dice tener ${totalCalculado} pero el usuario espera 14032. Diferencia: ${totalCalculado - 14032}`);
         }
 
-        // Initialize per-user debts arrays into maps for fast arithmetic
-        const currentDeudaProductor = {};
-        window.appStore.getProductores().forEach(p => {
-            currentDeudaProductor[p.id] = p.canastasPrestadas || 0;
-        });
+        if (!initialBalances) {
+            initialBalances = {
+                totalLlenas: llenas, totalVacias: vacias, 
+                totalDespProd: despProd, totalDespCli: despCli,
+                llenasPorProducto: JSON.parse(JSON.stringify(llenasPorProducto)),
+                vaciasPorAlmacen: { ...vaciasPorAlm },
+                deudaProductor: { ...deudaProductor }, deudaCliente: { ...deudaCliente }
+            };
+        }
+        if (!finalBalances) {
+            finalBalances = {
+                totalLlenas: llenas, totalVacias: vacias, 
+                totalDespProd: despProd, totalDespCli: despCli,
+                llenasPorProducto: JSON.parse(JSON.stringify(llenasPorProducto)),
+                vaciasPorAlmacen: { ...vaciasPorAlm },
+                deudaProductor: { ...deudaProductor }, deudaCliente: { ...deudaCliente }
+            };
+        }
 
-        const currentDeudaCliente = {};
-        window.appStore.getClientes().forEach(c => {
-            currentDeudaCliente[c.id] = c.canastasPrestadas || 0;
-        });
-
-        const allActivity = window.appStore.getActividad(10000); // Get as much as possible
-
-        // Helper to safely apply delta to user debt
-        const applyDebtDelta = (balances, entityId, delta) => {
-            if (!entityId) entityId = 'no-especificado';
-            if (balances[entityId] === undefined) balances[entityId] = 0;
-            balances[entityId] += delta;
+        // 5. Actualizar DOM
+        const renderVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = Math.max(0, val).toLocaleString();
         };
 
-        // Helper to safely apply delta to warehouse for empty baskets
-        const applyVaciasDelta = (balances, almacenId, delta) => {
-            if (!almacenId) almacenId = 'no-especificado';
-            if (balances[almacenId] === undefined) balances[almacenId] = 0;
-            balances[almacenId] += delta;
-        };
+        renderVal('sem-inicial-llenas', initialBalances.totalLlenas);
+        renderVal('sem-inicial-vacias', initialBalances.totalVacias);
+        renderVal('sem-inicial-desp-prod', initialBalances.totalDespProd);
+        renderVal('sem-inicial-desp-cli', initialBalances.totalDespCli);
+        renderVal('sem-inicial-total', initialBalances.totalLlenas + initialBalances.totalVacias + initialBalances.totalDespProd + initialBalances.totalDespCli);
+        const stLabel = document.querySelector('h1.text-2xl');
+        if (stLabel) stLabel.innerText = "Dashboard Semanal (v23)";
 
-        // Helper to safely apply delta to product for full baskets
-        const applyLlenasDelta = (balances, productoId, delta) => {
-            if (!productoId) return; // Fallback to 'no-especificado' not strictly required if we lack an ID, but can be added
-            if (balances[productoId] === undefined) balances[productoId] = { cantidad: 0 };
-            balances[productoId].cantidad += delta;
-        };
+        renderVal('sem-final-llenas', finalBalances.totalLlenas);
+        renderVal('sem-final-vacias', finalBalances.totalVacias);
+        renderVal('sem-final-desp-prod', finalBalances.totalDespProd);
+        renderVal('sem-final-desp-cli', finalBalances.totalDespCli);
+        renderVal('sem-final-total', finalBalances.totalLlenas + finalBalances.totalVacias + finalBalances.totalDespProd + finalBalances.totalDespCli);
 
-        // Extract products for safe delta calculations if possible
-        const updateLlenasBreakdown = (payload = {}, a_cantidad = 0, revert = false) => {
-            // Operacion standard 
-            if (payload.productoId || payload.productoIdActual || payload.productoIdNuevo) {
-                const pid = payload.productoId || payload.productoIdActual || payload.productoIdNuevo;
-                applyLlenasDelta(currentLlenasPorProducto, pid, revert ? -a_cantidad : a_cantidad);
-            } else if (payload.lotes) {
-                payload.lotes.forEach(l => applyLlenasDelta(currentLlenasPorProducto, l.productoId, revert ? -l.cantidad : l.cantidad));
-            } else if (payload.detalles) {
-                payload.detalles.forEach(d => applyLlenasDelta(currentLlenasPorProducto, d.productoId, revert ? -d.cantidad : d.cantidad));
-            }
-        };
-
-        // Revert transactions that happened AFTER the selected week
-        const postWeekActivity = allActivity.filter(a => new Date(a.date || a.fecha) > endDate);
-
-        postWeekActivity.forEach(a => {
-            const payload = a.rawPayload || {};
-            const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
-            const match = qtyStr.match(/\d+/);
-            const a_cantidad = match ? parseInt(match[0], 10) : 0;
-
-            // Revert changes conceptually
-            if (a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta') {
-                currentLlenas -= a_cantidad;
-                currentDespProd += a_cantidad; // Recepción decrementó deuda productor, revertir: sumar
-                updateLlenasBreakdown(payload, a_cantidad, true);
-                applyDebtDelta(currentDeudaProductor, payload.productorId, a_cantidad);
-            } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                currentLlenas += a_cantidad;
-                currentDespCli -= a_cantidad; // Despacho cliente aumentó su deuda, revertir: restar
-                updateLlenasBreakdown(payload, a_cantidad, false);
-                applyDebtDelta(currentDeudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
-                currentVacias += a_cantidad;
-                currentDespProd -= a_cantidad; // Desp vacías aumentó deuda productor, revertir: restar
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
-                applyDebtDelta(currentDeudaProductor, payload.productorId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
-                currentVacias -= a_cantidad;
-                if (payload.tipoOrigen === 'productor') {
-                    currentDespProd += a_cantidad;
-                    applyDebtDelta(currentDeudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    currentDespCli += a_cantidad; // Devolución vacías disminuyó deuda cliente, revertir: sumar
-                    applyDebtDelta(currentDeudaCliente, payload.clienteId, a_cantidad);
-                }
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
-                currentLlenas -= a_cantidad;
-                updateLlenasBreakdown(payload, a_cantidad, true);
-                if (payload.tipoOrigen === 'productor') {
-                    currentDespProd += a_cantidad;
-                    applyDebtDelta(currentDeudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    currentDespCli += a_cantidad; // Devolución llenas disminuyó deuda cliente, revertir: sumar
-                    applyDebtDelta(currentDeudaCliente, payload.clienteId, a_cantidad);
-                }
-            } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
-                applyDebtDelta(currentDeudaProductor, payload.productorOrigenId, a_cantidad);
-                applyDebtDelta(currentDeudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
-                currentVacias -= a_cantidad;
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
-                currentLlenas += a_cantidad;
-                currentVacias -= a_cantidad;
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenVaciasId, -a_cantidad);
-                updateLlenasBreakdown(payload, a_cantidad, false);
-            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
-                currentLlenas -= a_cantidad;
-                currentVacias += a_cantidad;
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
-                updateLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas') {
-                currentVacias += a_cantidad;
-                applyVaciasDelta(currentVaciasPorAlm, payload.almacenId, a_cantidad);
-            }
-        });
-
-        const finalLlenas = Math.max(0, currentLlenas);
-        const finalVacias = Math.max(0, currentVacias);
-        const finalDespProd = Math.max(0, currentDespProd);
-        const finalDespCli = Math.max(0, currentDespCli);
-        const finalTotal = finalLlenas + finalVacias + finalDespProd + finalDespCli;
-
-        document.getElementById('sem-final-llenas').innerText = finalLlenas.toLocaleString();
-        document.getElementById('sem-final-vacias').innerText = finalVacias.toLocaleString();
-        document.getElementById('sem-final-desp-prod').innerText = finalDespProd.toLocaleString();
-        document.getElementById('sem-final-desp-cli').innerText = finalDespCli.toLocaleString();
-        document.getElementById('sem-final-total').innerText = finalTotal.toLocaleString();
-
-        // Now revert transactions that happened DURING the selected week to get the Starting Balance
-        const duringWeekActivity = allActivity.filter(a => {
-            const d = new Date(a.date || a.fecha);
-            return d >= startDate && d <= endDate;
-        });
-
-        let initialLlenas = finalLlenas;
-        let initialVacias = finalVacias;
-        let initialDespProd = finalDespProd;
-        let initialDespCli = finalDespCli;
-        let initialVaciasPorAlm = { ...currentVaciasPorAlm };
-        let initialLlenasPorProducto = JSON.parse(JSON.stringify(currentLlenasPorProducto));
-        let initialDeudaProductor = { ...currentDeudaProductor };
-        let initialDeudaCliente = { ...currentDeudaCliente };
-
-        // Helper for initial states iteration
-        const updateInitialLlenasBreakdown = (payload = {}, a_cantidad = 0, revert = false) => {
-            if (payload.productoId || payload.productoIdActual || payload.productoIdNuevo) {
-                const pid = payload.productoId || payload.productoIdActual || payload.productoIdNuevo;
-                applyLlenasDelta(initialLlenasPorProducto, pid, revert ? -a_cantidad : a_cantidad);
-            } else if (payload.lotes) {
-                payload.lotes.forEach(l => applyLlenasDelta(initialLlenasPorProducto, l.productoId, revert ? -l.cantidad : l.cantidad));
-            } else if (payload.detalles) {
-                payload.detalles.forEach(d => applyLlenasDelta(initialLlenasPorProducto, d.productoId, revert ? -d.cantidad : d.cantidad));
-            }
-        };
-
-        duringWeekActivity.forEach(a => {
-            const payload = a.rawPayload || {};
-            const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
-            const match = qtyStr.match(/\d+/);
-            const a_cantidad = match ? parseInt(match[0], 10) : 0;
-
-            if (a.operacion === 'Recepción') {
-                initialLlenas -= a_cantidad;
-                initialDespProd += a_cantidad;
-                updateInitialLlenasBreakdown(payload, a_cantidad, true);
-                applyDebtDelta(initialDeudaProductor, payload.productorId, a_cantidad);
-            } else if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
-                initialLlenas += a_cantidad;
-                initialDespCli -= a_cantidad;
-                updateInitialLlenasBreakdown(payload, a_cantidad, false);
-                applyDebtDelta(initialDeudaCliente, payload.clienteId, -a_cantidad);
-            } else if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías') {
-                initialVacias += a_cantidad;
-                initialDespProd -= a_cantidad;
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
-                applyDebtDelta(initialDeudaProductor, payload.productorId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Vacías')) {
-                initialVacias -= a_cantidad;
-                if (payload.tipoOrigen === 'productor') {
-                    initialDespProd += a_cantidad;
-                    applyDebtDelta(initialDeudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    initialDespCli += a_cantidad;
-                    applyDebtDelta(initialDeudaCliente, payload.clienteId, a_cantidad);
-                }
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
-                initialLlenas -= a_cantidad;
-                updateInitialLlenasBreakdown(payload, a_cantidad, true);
-                if (payload.tipoOrigen === 'productor') {
-                    initialDespProd += a_cantidad;
-                    applyDebtDelta(initialDeudaProductor, payload.productorId, a_cantidad);
-                } else {
-                    initialDespCli += a_cantidad;
-                    applyDebtDelta(initialDeudaCliente, payload.clienteId, a_cantidad);
-                }
-            } else if (a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia entre Fincas') {
-                applyDebtDelta(initialDeudaProductor, payload.productorOrigenId, a_cantidad);
-                applyDebtDelta(initialDeudaProductor, payload.productorDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas') {
-                initialVacias -= a_cantidad;
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenDestinoId, -a_cantidad);
-            } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
-                initialLlenas += a_cantidad;
-                initialVacias -= a_cantidad;
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenVaciasId, -a_cantidad);
-                updateInitialLlenasBreakdown(payload, a_cantidad, false);
-            } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás') {
-                initialLlenas -= a_cantidad;
-                initialVacias += a_cantidad;
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenOrigenId, a_cantidad);
-                updateInitialLlenasBreakdown(payload, a_cantidad, true);
-            } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas') {
-                initialVacias += a_cantidad;
-                applyVaciasDelta(initialVaciasPorAlm, payload.almacenId, a_cantidad);
-            }
-        });
-
-        initialLlenas = Math.max(0, initialLlenas);
-        initialVacias = Math.max(0, initialVacias);
-        initialDespProd = Math.max(0, initialDespProd);
-        initialDespCli = Math.max(0, initialDespCli);
-        const initialTotal = initialLlenas + initialVacias + initialDespProd + initialDespCli;
-
-        document.getElementById('sem-inicial-llenas').innerText = initialLlenas.toLocaleString();
-        document.getElementById('sem-inicial-vacias').innerText = initialVacias.toLocaleString();
-        document.getElementById('sem-inicial-desp-prod').innerText = initialDespProd.toLocaleString();
-        document.getElementById('sem-inicial-desp-cli').innerText = initialDespCli.toLocaleString();
-        document.getElementById('sem-inicial-total').innerText = initialTotal.toLocaleString();
-
-        // Export state internally so the modal can pick it up
-        this._lastWeeklyBalances = {
-            inicial: {
-                totalLlenas: initialLlenas,
-                totalVacias: initialVacias,
-                totalDespProd: initialDespProd,
-                totalDespCli: initialDespCli,
-                llenasPorProducto: initialLlenasPorProducto,
-                vaciasPorAlmacen: initialVaciasPorAlm,
-                deudaProductor: initialDeudaProductor,
-                deudaCliente: initialDeudaCliente
-            },
-            final: {
-                totalLlenas: finalLlenas,
-                totalVacias: finalVacias,
-                totalDespProd: finalDespProd,
-                totalDespCli: finalDespCli,
-                llenasPorProducto: currentLlenasPorProducto,
-                vaciasPorAlmacen: currentVaciasPorAlm,
-                deudaProductor: currentDeudaProductor,
-                deudaCliente: currentDeudaCliente
-            }
-        };
+        // Exportar para modales de detalles
+        this._lastWeeklyBalances = { inicial: initialBalances, final: finalBalances };
     },
 
-    renderWeeklyCharts(startDate, endDate) {
+    async renderWeeklyCharts(startDate, endDate) {
+        // Aseguramos que el cálculo de balances (que actualiza los totales) termine primero
+        await this.calculateWeeklyBalances(startDate, endDate);
+
         const txContainer = document.getElementById('sem-despacho-diario-container');
-
         if (!txContainer) return;
-
         txContainer.innerHTML = '';
 
-        const allActivity = window.appStore.getActividad(10000);
+        // Usamos la información cargada en el almacén (que ya es profunda si se llamó a calculateWeeklyBalances)
+        const allActivity = window.appStore.actividadCache;
         const duringWeek = allActivity.filter(a => {
             const d = new Date(a.date || a.fecha);
             return d >= startDate && d <= endDate;
@@ -1167,10 +1135,18 @@ const Charts = {
             } : { llenas: 0, vacias: 0 };
         };
 
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
-                // Fetch virtually all transaction history safely (cap at 20,000 to be safe on memory)
-                const todas = window.appStore.getActividad(30000);
+                // Fetch virtually all transaction history safely
+                const allFullHistory = await window.appStore.loadFullActivity();
+                const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+                
+                const allMap = new Map();
+                [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+                
+                const todas = Array.from(allMap.values());
+                todas.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+
                 const start = new Date(desdeVal + 'T00:00:00');
                 const end = new Date(hastaVal + 'T23:59:59.999');
 
@@ -1182,145 +1158,42 @@ const Charts = {
                 const producto = productos.find(x => x.id === productoId);
                 const nombreProd = producto ? producto.nombre : '';
 
-                const filtradas = todas.filter(a => {
-                    // Normalize date
-                    let dt = new Date(a.date);
-                    if (isNaN(dt.getTime()) && a.fecha) dt = new Date(a.fecha);
+                // --- NUEVA LÓGICA FORWARD ---
+                let runningLlenas = 0;
+                let runningVacias = 0;
+                let balanceInicialLlenas = 0;
+                let balanceInicialVacias = 0;
+                const rows = [];
 
-                    if (dt < start || dt > end) return false;
-
-                    const payload = a.rawPayload || {};
-
-                    // Desp. Cliente: always include if it has rawPayload — the render
-                    // loop will show only items matching the selected warehouse.
-                    if ((a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') && a.rawPayload) {
-                        // Still apply the product filter if active
-                        if (productoId) {
-                            if (!payload.detalles || !Array.isArray(payload.detalles)) return true; // show without product filter
-                            return payload.detalles.some(d => d.productoId === productoId);
-                        }
-                        return true;
+                todas.forEach(a => {
+                    if (a.anulado || a.eliminado) return;
+                    
+                    const dt = new Date(a.date || a.fecha);
+                    const imp = calcularImpactoActividad(a, almacenId, productoId);
+                    
+                    // Si es antes del rango, solo acumulamos al balance inicial
+                    if (dt < start) {
+                        runningLlenas += imp.llenas;
+                        runningVacias += imp.vacias;
+                        return;
+                    }
+                    
+                    // Si estamos en el primer registro del rango, guardamos el balance inicial "oficial"
+                    if (rows.length === 0 && dt >= start) {
+                        balanceInicialLlenas = runningLlenas;
+                        balanceInicialVacias = runningVacias;
                     }
 
-                    let afectoAlmacen = false;
+                    // Si es después del rango, paramos
+                    if (dt > end) return;
 
-                    // Direct checks
-                    if (payload.almacenOrigenId === almacenId || payload.almacenDestinoId === almacenId || payload.almacenId === almacenId || payload.almacenVaciasId === almacenId) {
-                        afectoAlmacen = true;
-                    }
+                    // Procesar movimiento dentro del rango
+                    if (imp.llenas !== 0 || imp.vacias !== 0) {
+                        runningLlenas += imp.llenas;
+                        runningVacias += imp.vacias;
 
-                    // Fallback para datos antiguos (Búsqueda por texto en detalle)
-                    if (!afectoAlmacen && nombreAlm && a.detalle && a.detalle.toLowerCase().includes(nombreAlm.toLowerCase())) {
-                        afectoAlmacen = true;
-                    }
-
-                    // Deep checks in arrays (lotes - Recepción uses this)
-                    if (!afectoAlmacen && payload.lotes && Array.isArray(payload.lotes)) {
-                        if (payload.lotes.some(l => l.almacenId === almacenId || l.almacenDestinoId === almacenId)) afectoAlmacen = true;
-                    }
-
-                    // Deep checks in arrays (detalles - other ops)
-                    if (!afectoAlmacen && payload.detalles && Array.isArray(payload.detalles)) {
-                        if (payload.detalles.some(d =>
-                            d.almacenOrigenId === almacenId ||
-                            d.almacenId === almacenId ||
-                            d.almacenDestinoId === almacenId
-                        )) afectoAlmacen = true;
-                    }
-
-                    if (!afectoAlmacen) return false;
-
-                    // Product filter (optional)
-                    if (productoId) {
-                        let afectoProducto = false;
-                        if (payload.productoId === productoId || payload.productoIdActual === productoId || payload.productoIdNuevo === productoId) {
-                            afectoProducto = true;
-                        }
-
-                        // Fallback para producto en texto
-                        if (!afectoProducto && nombreProd && a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase())) {
-                            afectoProducto = true;
-                        }
-
-                        if (!afectoProducto && payload.lotes && Array.isArray(payload.lotes)) {
-                            if (payload.lotes.some(l => l.productoId === productoId && (l.almacenId === almacenId || l.almacenDestinoId === almacenId))) afectoProducto = true;
-                        }
-                        if (!afectoProducto && payload.detalles && Array.isArray(payload.detalles)) {
-                            if (payload.detalles.some(d => d.productoId === productoId && (d.almacenOrigenId === almacenId || d.almacenId === almacenId || d.almacenDestinoId === almacenId))) afectoProducto = true;
-                        }
-                        return afectoProducto;
-                    }
-
-                    return true;
-                });
-
-                filtradas.sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
-
-                if (filtradas.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
-                } else {
-                    // --- CÁLCULO DEL BALANCE INICIAL (STARTING BALANCE) ---
-                    // Estrategia: Balance Inicial = Balance Actual - Suma de Deltas(Desde START hasta HOY)
-
-                    const invPorAlm = window.appStore.getInventarioPorAlmacen();
-                    let balanceActualLlenas = 0;
-                    let balanceActualVacias = 0;
-
-                    if (invPorAlm[almacenId]) {
-                        if (productoId) {
-                            if (productoId === 'vacias') {
-                                balanceActualVacias = invPorAlm[almacenId]['vacias'] || 0;
-                            } else {
-                                balanceActualLlenas = invPorAlm[almacenId][productoId] || 0;
-                            }
-                        } else {
-                            // Sumar todas
-                            Object.entries(invPorAlm[almacenId]).forEach(([pid, val]) => {
-                                if (pid === 'vacias') balanceActualVacias += (parseInt(val) || 0);
-                                else balanceActualLlenas += (parseInt(val) || 0);
-                            });
-                        }
-                    }
-
-                    // Calcular suma de movimientos desde la fecha de inicio del reporte hasta hoy
-                    const actividadesDesdeStart = todas.filter(a => {
-                        let dt = new Date(a.date);
-                        if (isNaN(dt.getTime()) && a.fecha) dt = new Date(a.fecha);
-                        return dt >= start;
-                    });
-
-                    let deltaTotalDesdeStartLlenas = 0;
-                    let deltaTotalDesdeStartVacias = 0;
-
-                    actividadesDesdeStart.forEach(a => {
-                        const imp = calcularImpactoActividad(a, almacenId, productoId);
-                        deltaTotalDesdeStartLlenas += imp.llenas;
-                        deltaTotalDesdeStartVacias += imp.vacias;
-                    });
-
-                    // El balance con el que inicia el primer registro del reporte
-                    let balAcumLlenas = balanceActualLlenas - deltaTotalDesdeStartLlenas;
-                    let balAcumVacias = balanceActualVacias - deltaTotalDesdeStartVacias;
-
-                    // Procesar de más antiguo a más reciente para calcular balance inline.
-                    const filtAscendente = [...filtradas].reverse();
-                    const rows = [];
-
-                    filtAscendente.forEach(a => {
-                        const dateObj = new Date(a.date || a.fecha);
-                        const fechaStr = `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
-
-                        const imp = calcularImpactoActividad(a, almacenId, productoId);
-
-                        // Si hay filtro de producto y el delta es 0, verificar si realmente la actividad tiene que ver
-                        if (productoId && imp.llenas === 0 && imp.vacias === 0) {
-                            // Podría ser una actividad del almacén pero de otro producto. 
-                            return;
-                        }
-
-                        balAcumLlenas += imp.llenas;
-                        balAcumVacias += imp.vacias;
-
+                        const fechaStr = `${dt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+                        
                         let descCantidad = [];
                         if (imp.llenas !== 0) {
                             const lColor = imp.llenas < 0 ? 'text-danger' : 'text-success';
@@ -1330,38 +1203,29 @@ const Charts = {
                             const vColor = imp.vacias < 0 ? 'text-danger' : 'text-success';
                             descCantidad.push(`<span class="${vColor}">${imp.vacias > 0 ? '+' : ''}${imp.vacias} vc</span>`);
                         }
-                        if (descCantidad.length === 0) descCantidad.push('0');
-
                         const cantHtml = descCantidad.join(' | ');
 
-                        const balLColor = balAcumLlenas >= 0 ? 'text-success' : 'text-danger';
-                        const balLHtml = `<span class="font-bold font-mono ${balLColor}">${balAcumLlenas.toLocaleString()}</span>`;
-
-                        const balVColor = balAcumVacias >= 0 ? 'text-success' : 'text-danger';
-                        const balVHtml = `<span class="font-bold font-mono ${balVColor}">${balAcumVacias.toLocaleString()}</span>`;
+                        const balLColor = runningLlenas >= 0 ? 'text-success' : 'text-danger';
+                        const balVColor = runningVacias >= 0 ? 'text-success' : 'text-danger';
 
                         rows.push(`
-                        <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
-                            <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${fechaStr}</td>
-                            <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || '-'}</td>
-                            <td class="py-2.5 px-4 font-medium text-white">${a.operacion}</td>
-                            <td class="py-2.5 px-4 text-text-secondary italic text-xs leading-tight" title="${a.detalle}">${a.detalle}</td>
-                            <td class="py-2.5 px-4 text-right font-bold whitespace-nowrap text-xs">${cantHtml}</td>
-                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balLHtml}</td>
-                            <td class="py-2.5 px-4 text-right whitespace-nowrap">${balVHtml}</td>
-                        </tr>
+                            <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
+                                <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${fechaStr}</td>
+                                <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || '-'}</td>
+                                <td class="py-2.5 px-4 font-medium text-white">${a.operacion}</td>
+                                <td class="py-2.5 px-4 text-text-secondary italic text-xs leading-tight" title="${a.detalle}">${a.detalle}</td>
+                                <td class="py-2.5 px-4 text-right font-bold whitespace-nowrap text-xs">${cantHtml}</td>
+                                <td class="py-2.5 px-4 text-right whitespace-nowrap"><span class="font-bold font-mono ${balLColor}">${runningLlenas.toLocaleString()}</span></td>
+                                <td class="py-2.5 px-4 text-right whitespace-nowrap"><span class="font-bold font-mono ${balVColor}">${runningVacias.toLocaleString()}</span></td>
+                            </tr>
                         `);
-                    });
-
-
-                    // Mostrar de más reciente a más antiguo (invertir el array)
-                    const html = rows.reverse().join('');
-
-                    if (html === '') {
-                        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos de ese producto en este almacén para el rango actual.</td></tr>`;
-                    } else {
-                        tbody.innerHTML = html;
                     }
+                });
+
+                if (rows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
+                } else {
+                    tbody.innerHTML = rows.reverse().join('');
                 }
             } catch (err) {
                 console.error(err);
@@ -1574,17 +1438,63 @@ Charts.renderCanastasPorCobrar = function () {
     }
 
     // Función principal que llena la tabla de movimientos
-    const cargarMovimientos = (usarFiltroFecha) => {
+    const cargarMovimientos = async (usarFiltroFecha) => {
         const prodId = select.value;
         if (!prodId) return;
 
         const productor = productores.find(p => p.id === prodId);
         const nombreProd = productor ? productor.nombre : '';
-        const deudaTotal = productor ? (productor.canastasPrestadas || 0) : 0;
+        
+        // 1. Cargar historial completo
+        const allFullHistory = await window.appStore.loadFullActivity();
+        const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        const allMap = new Map();
+        [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+        const todasActividades = Array.from(allMap.values());
+        todasActividades.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
 
-        balanceDisplay.innerText = deudaTotal.toLocaleString();
+        // --- LÓGICA FORWARD PARA DEUDA ---
+        let runningDebt = 0;
+        const balancePorId = {};
+        const rangeRows = [];
 
-        if (deudaTotal > 0) {
+        const start = (usarFiltroFecha && inputDesde.value) ? new Date(inputDesde.value + 'T00:00:00') : null;
+        const end = (usarFiltroFecha && inputHasta.value) ? new Date(inputHasta.value + 'T23:59:59.999') : null;
+
+        todasActividades.forEach(a => {
+            if (a.anulado || a.eliminado) return;
+
+            const payload = a.rawPayload || {};
+            let match = payload.productorId === prodId || payload.productorOrigenId === prodId || payload.productorDestinoId === prodId;
+            if (!match && nombreProd) match = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
+            
+            if (!match) return;
+
+            const mCantidad = parseInt(payload.cantidad || a.cantidad) || 0;
+            const op = a.operacion;
+            let delta = 0;
+
+            if (op === 'Desp. Vacías' || op === 'Despacho Canastas Vacías') delta = mCantidad;
+            else if (op === 'Recepción') delta = -mCantidad;
+            else if (op === 'Devolución' && payload.tipoOrigen === 'productor') delta = -mCantidad;
+            else if (op === 'Transf. Fincas') {
+                if (payload.productorOrigenId === prodId) delta = -mCantidad;
+                else delta = mCantidad;
+            }
+
+            runningDebt += delta;
+            balancePorId[a.id] = runningDebt;
+
+            const dt = new Date(a.date || a.fecha);
+            const isInRange = (!start || dt >= start) && (!end || dt <= end);
+            if (isInRange) {
+                rangeRows.push({ a, delta, balance: runningDebt, dt });
+            }
+        });
+
+        // Actualizar el balance actual en el UI (el real final acumulado)
+        balanceDisplay.innerText = runningDebt.toLocaleString();
+        if (runningDebt > 0) {
             balanceDisplay.classList.remove('text-success');
             balanceDisplay.classList.add('text-danger');
         } else {
@@ -1592,114 +1502,26 @@ Charts.renderCanastasPorCobrar = function () {
             balanceDisplay.classList.add('text-success');
         }
 
-        const todasActividades = window.appStore.getActividad(30000);
-
-        let historialProd = todasActividades.filter(a => {
-            const payload = a.rawPayload || {};
-            let involucraProductor = payload.productorId === prodId ||
-                payload.productorOrigenId === prodId ||
-                payload.productorDestinoId === prodId;
-
-            // Fallback para datos antiguos sin rawPayload completo
-            if (!involucraProductor && nombreProd) {
-                involucraProductor = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
-            }
-
-            if (!involucraProductor) return false;
-
-            // Aplicar filtro de fecha si fue solicitado
-            if (usarFiltroFecha && inputDesde && inputHasta && inputDesde.value && inputHasta.value) {
-                const start = new Date(inputDesde.value + 'T00:00:00');
-                const end = new Date(inputHasta.value + 'T23:59:59.999');
-                const dt = new Date(a.date || a.fecha);
-                if (dt < start || dt > end) return false;
-            }
-
-            return true;
-        });
-
-        // Ordenar por fecha más reciente primero
-        historialProd.sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
-
-        if (historialProd.length === 0) {
-            const msg = usarFiltroFecha && inputDesde.value
-                ? 'No se encontraron movimientos en el rango de fechas seleccionado.'
-                : 'No se encontraron movimientos.';
+        if (rangeRows.length === 0) {
+            const msg = usarFiltroFecha ? 'No se encontraron movimientos en el rango de fechas.' : 'No se encontraron movimientos.';
             tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-text-secondary italic">${msg}</td></tr>`;
             return;
         }
 
-        // --- NUEVA LÓGICA DE BALANCE ANCLADO (Backwards calculation) ---
-        // 1. Obtener TODO el historial sin filtros para calcular el balance real exacto
-        const historialCompletoCalculo = todasActividades.filter(a => {
-            const payload = a.rawPayload || {};
-            let involucraP = payload.productorId === prodId ||
-                payload.productorOrigenId === prodId ||
-                payload.productorDestinoId === prodId;
-
-            if (!involucraP && nombreProd) {
-                involucraP = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
-            }
-
-            return involucraP;
-        }).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha)); // Del más nuevo al más antiguo
-
-        let balanceMovil = deudaTotal;
-        const balancePorId = {};
-
-        historialCompletoCalculo.forEach(a => {
-            // Guardamos el balance QUE HABÍA después de este movimiento
-            balancePorId[a.id] = balanceMovil;
-
-            const payload = a.rawPayload || {};
-            const mCantidad = parseInt(payload.cantidad || a.cantidad) || 0;
-
-            // Como vamos hacia atrás en el tiempo, revertimos el efecto de la operación
-            if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho Canastas Vacías') {
-                balanceMovil -= mCantidad; // En el pasado había menos deuda
-            } else if (a.operacion === 'Recepción') {
-                balanceMovil += mCantidad; // En el pasado había más deuda
-            } else if (a.operacion === 'Devolución' && payload.tipoOrigen === 'productor') {
-                balanceMovil += mCantidad; // En el pasado había más deuda
-            } else if (a.operacion === 'Transf. Fincas') {
-                if (payload.productorOrigenId === prodId) {
-                    balanceMovil += mCantidad; // Era origen: soltó deuda, antes tenía más
-                } else {
-                    balanceMovil -= mCantidad; // Era destino: ganó deuda, antes tenía menos
-                }
-            }
-        });
-
         const formatter = new Intl.NumberFormat('es-DO');
         let htmlTbody = '';
 
-        historialProd.forEach(a => {
-            const dateObj = new Date(a.date || a.fecha);
-            const fechaStr = `${dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+        // Mostrar de más reciente a más antiguo
+        [...rangeRows].reverse().forEach(({ a, delta, balance, dt }) => {
+            const fechaStr = `${dt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+            let impactHtml = '';
 
-            let impactHtml = '-';
-            const payload = a.rawPayload || {};
-            const mCantidad = parseInt(payload.cantidad || a.cantidad) || 0;
+            if (delta > 0) impactHtml = `<span class="text-danger font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${formatter.format(delta)} (+ Deuda)</span>`;
+            else if (delta < 0) impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(Math.abs(delta))} (- Deuda)</span>`;
+            else impactHtml = `<span class="text-text-muted font-mono">0 (N/A)</span>`;
 
-            if (a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho Canastas Vacías') {
-                impactHtml = `<span class="text-danger font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (+ Deuda)</span>`;
-            } else if (a.operacion === 'Recepción') {
-                impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (- Deuda)</span>`;
-            } else if (a.operacion === 'Devolución' && payload.tipoOrigen === 'productor') {
-                impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (- Deuda)</span>`;
-            } else if (a.operacion === 'Transf. Fincas') {
-                if (payload.productorOrigenId === prodId) {
-                    impactHtml = `<span class="text-success font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (- Deuda)</span>`;
-                } else {
-                    impactHtml = `<span class="text-danger font-bold uppercase text-xs flex items-center justify-end gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${formatter.format(mCantidad)} (+ Deuda)</span>`;
-                }
-            } else {
-                impactHtml = `<span class="text-text-muted font-mono">${formatter.format(mCantidad)} (N/A)</span>`;
-            }
-
-            const balFila = balancePorId[a.id] ?? 0;
-            const balColor = balFila > 0 ? 'text-danger' : (balFila < 0 ? 'text-success' : 'text-text-muted');
-            const balanceHtml = `<span class="font-bold font-mono ${balColor}">${formatter.format(balFila)}</span>`;
+            const balColor = balance > 0 ? 'text-danger' : (balance < 0 ? 'text-success' : 'text-text-muted');
+            const balanceHtml = `<span class="font-bold font-mono ${balColor}">${formatter.format(balance)}</span>`;
 
             htmlTbody += `
                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm">

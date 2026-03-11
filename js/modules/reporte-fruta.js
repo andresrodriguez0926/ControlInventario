@@ -23,7 +23,7 @@ window.appModules['reporte-fruta'] = () => {
         <div class="animate-fade-in max-w-6xl mx-auto pb-12">
             <h2 class="text-2xl font-bold text-white mb-2 flex items-center gap-2">
                 <i data-lucide="bar-chart-2" class="w-6 h-6 text-primary"></i> 
-                Movimientos por Fruta
+                Movimientos por Fruta (v25)
             </h2>
             <p class="text-text-secondary mb-8">Consulta el flujo completo de entradas y salidas de una fruta específica.</p>
             
@@ -150,7 +150,7 @@ window.appModuleEvents['reporte-fruta'] = () => {
         }
     };
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const selProductoId = document.getElementById('rf-producto').value;
@@ -162,135 +162,96 @@ window.appModuleEvents['reporte-fruta'] = () => {
             return;
         }
 
+        // Indicador de carga
+        const btnSearch = form.querySelector('button[type="submit"]');
+        const originalBtnHTML = btnSearch.innerHTML;
+        btnSearch.disabled = true;
+        btnSearch.innerHTML = `<i class="animate-spin" data-lucide="loader-2"></i> Cargando...`;
+        if (window.lucide) window.lucide.createIcons({ root: btnSearch });
+
         const productoObj = window.appStore.getProductos().find(p => p.id === selProductoId);
         currentProductName = productoObj ? productoObj.nombre : 'Fruta Desconocida';
 
-        // 1. Obtener toda la actividad (amplio espectro)
-        const act = window.appStore.getActividad(20000);
+        // 1. Obtener toda la actividad (Deep Load)
+        const allFullHistory = await window.appStore.loadFullActivity();
+        const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        
+        const allMap = new Map();
+        [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+        
+        const allActivity = Array.from(allMap.values());
+        allActivity.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
 
         // Rango de fechas
-        let dateStart = null;
-        let dateEnd = null;
-        if (dDesde) {
-            dateStart = new Date(dDesde);
-            dateStart.setHours(0, 0, 0, 0);
-        }
-        if (dHasta) {
-            dateEnd = new Date(dHasta);
-            dateEnd.setHours(23, 59, 59, 999);
-        }
+        let dateStart = dDesde ? new Date(dDesde + 'T00:00:00') : null;
+        let dateEnd = dHasta ? new Date(dHasta + 'T23:59:59') : null;
 
         const reportRows = [];
         let tIn = 0;
         let tOut = 0;
+        let runningInventory = 0;
 
-        act.forEach(a => {
+        // 2. Loop Forward para reconstruir inventario real y flujo neto
+        allActivity.forEach(a => {
             if (a.anulado || a.eliminado) return;
 
+            const logDate = new Date(a.date || a.fecha);
             const raw = a.rawPayload || {};
-            let a_cantidad = parseInt(raw.cantidad);
-            if (isNaN(a_cantidad)) {
-                const qtyStr = a.cantidad ? a.cantidad.toString() : '0';
-                const match = qtyStr.match(/\d+/);
-                a_cantidad = match ? parseInt(match[0], 10) : 0;
-            }
+            const qtyStr = (a.cantidad || '0').toString();
+            const match = qtyStr.match(/-?\d+/);
+            const a_cantidad = match ? Math.abs(parseInt(match[0], 10)) : 0;
+            const op = a.operacion;
 
-            // Filtro por fecha
-            const logDate = new Date(a.date);
-            if (dateStart && logDate < dateStart) return;
-            if (dateEnd && logDate > dateEnd) return;
+            let qtyChange = 0;
 
-            let qtyIn = 0;
-            let qtyOut = 0;
-            let isRelated = false;
-
-            // Helper para sumar entradas/salidas si el producto coincide
-            const incrementIfMatch = (pId, amount, isIn) => {
-                let matches = false;
-                if (pId === selProductoId) {
-                    matches = true;
-                } else if (!pId && a.detalle && a.detalle.toLowerCase().includes(currentProductName.toLowerCase())) {
-                    // Fallback para registros muy antiguos ("legacy") sin productoId
-                    matches = true;
-                }
-
-                if (matches) {
-                    if (isIn) qtyIn += amount;
-                    else qtyOut += amount;
-                    isRelated = true;
-                }
+            const checkMatch = (pId) => {
+                if (pId === selProductoId) return true;
+                if (!pId && a.detalle && a.detalle.toLowerCase().includes(currentProductName.toLowerCase())) return true;
+                return false;
             };
 
-            // Helper general para recorrer lotes/detalles
-            const processLlenasForward = (isIn) => {
-                if (raw.lotes) {
-                    raw.lotes.forEach(l => {
-                        incrementIfMatch(l.productoId, parseInt(l.cantidad) || 0, isIn);
-                    });
-                } else if (raw.detalles) {
-                    raw.detalles.forEach(d => {
-                        let pId = d.productoId;
-                        if (!pId && raw.detalles.length === 1) pId = selProductoId; // Fallback optimista
-                        incrementIfMatch(pId, parseInt(d.cantidad) || 0, isIn);
-                    });
-                } else {
-                    const pId = raw.productoId || raw.productoIdActual || raw.productoIdNuevo;
-                    incrementIfMatch(pId, a_cantidad, isIn);
+            // Reglas de negocio (iguales a charts.js)
+            if (op === 'Recepción' || op === 'Recepción de Fruta' || op === 'Devolución' || op === 'Devolución de Canastas' || op === 'Fruta Demás' || op === 'Ingreso Fruta Demás') {
+                const isLlena = (op !== 'Devolución' && op !== 'Devolución de Canastas') || (a.detalle && a.detalle.toLowerCase().includes('llena'));
+                if (isLlena) {
+                    if (raw.lotes) raw.lotes.forEach(l => { if (checkMatch(l.productoId)) qtyChange += (parseInt(l.cantidad) || 0); });
+                    else if (raw.detalles) raw.detalles.forEach(d => { if (checkMatch(d.productoId)) qtyChange += (parseInt(d.cantidad) || 0); });
+                    else if (checkMatch(raw.productoId || raw.productoIdActual || raw.productoIdNuevo)) qtyChange += a_cantidad;
                 }
-            };
-
-            // Reglas de negocio (iguales a inventario-fecha.js pero hacia adelante)
-            // A) Recepciones (Entrada)
-            if (a.operacion.includes('Recepción')) {
-                processLlenasForward(true);
-            }
-            // B) Devoluciones Llenas (Entrada)
-            else if (a.operacion.includes('Devolución') && a.detalle && a.detalle.includes('Llenas')) {
-                processLlenasForward(true);
-            }
-            // C) Despachos (Salida)
-            else if (a.operacion.includes('Desp. Cliente') || a.operacion.includes('Despacho a Cliente')) {
-                processLlenasForward(false);
-            }
-            // D) Decomisos (Salida)
-            else if (a.operacion.includes('Decomiso')) {
-                processLlenasForward(false);
-            }
-            // E) Fruta Demás / Ajustes (Entrada)
-            else if (a.operacion.includes('Fruta Demás') || a.operacion.includes('Ingreso Fruta Demás')) {
-                processLlenasForward(true);
-            }
-            // F) Transferencia Interna (Reclasificación o movimiento)
-            else if (a.operacion.includes('Transf. Interna') || a.operacion.includes('Transferencia entre Almacenes')) {
+            } else if (op === 'Desp. Cliente' || op === 'Despacho a Cliente' || op === 'Decomiso' || op === 'Decomiso de Fruta') {
+                if (raw.lotes) raw.lotes.forEach(l => { if (checkMatch(l.productoId)) qtyChange -= (parseInt(l.cantidad) || 0); });
+                else if (raw.detalles) raw.detalles.forEach(d => { if (checkMatch(d.productoId)) qtyChange -= (parseInt(d.cantidad) || 0); });
+                else if (checkMatch(raw.productoId || raw.productoIdActual || raw.productoIdNuevo)) qtyChange -= a_cantidad;
+            } else if (op === 'Reparación Sistema') {
+                if (checkMatch(raw.productoId)) {
+                    const diff = qtyStr.includes('-') ? -Math.abs(a_cantidad) : Math.abs(a_cantidad);
+                    qtyChange += diff;
+                }
+            } else if (op === 'Transf. Interna' || op === 'Transferencia entre Almacenes') {
                 const pOrig = raw.productoIdActual;
                 const pDest = raw.productoIdNuevo || raw.productoIdActual;
-
-                if (pOrig === selProductoId && pDest !== selProductoId) {
-                    // Sale de la fruta actual
-                    qtyOut += a_cantidad;
-                    isRelated = true;
-                } else if (pOrig !== selProductoId && pDest === selProductoId) {
-                    // Entra como fruta nueva
-                    qtyIn += a_cantidad;
-                    isRelated = true;
-                } else if (pOrig === selProductoId && pDest === selProductoId) {
-                    // Movimiento interno. Mostramos neutral para trazabilidad.
-                    isRelated = true;
-                }
+                const cantL = raw ? (parseInt(raw.cantidad) || 0) : 0;
+                if (pOrig === selProductoId && pDest !== selProductoId) qtyChange -= cantL;
+                else if (pOrig !== selProductoId && pDest === selProductoId) qtyChange += cantL;
             }
 
-            if (isRelated) {
-                tIn += qtyIn;
-                tOut += qtyOut;
+            // Actualizar inventario acumulado (Running Balance)
+            runningInventory += qtyChange;
+
+            // Si está en el rango de fechas, guardar fila
+            const isInRange = (!dateStart || logDate >= dateStart) && (!dateEnd || logDate <= dateEnd);
+            if (isInRange && qtyChange !== 0) {
+                if (qtyChange > 0) tIn += qtyChange;
+                else tOut += Math.abs(qtyChange);
 
                 reportRows.push({
                     doc: a.numeroDocumento || 'S/N',
-                    fecha: dateToYMD(a.date),
-                    fechaCompleta: new Date(a.date).toLocaleString(),
-                    operacion: a.operacion,
-                    detalle: a.detalle,
-                    qtyIn,
-                    qtyOut,
+                    fecha: logDate.toLocaleDateString(),
+                    fechaCompleta: logDate.toLocaleString(),
+                    operacion: op,
+                    detalle: a.detalle || '',
+                    qtyIn: qtyChange > 0 ? qtyChange : 0,
+                    qtyOut: qtyChange < 0 ? Math.abs(qtyChange) : 0,
                     usuario: a.usuario || 'Sistema',
                     origId: a.id
                 });
@@ -299,18 +260,10 @@ window.appModuleEvents['reporte-fruta'] = () => {
 
         // Ordenamos más recientes primero
         reportRows.sort((a, b) => new Date(b.fechaCompleta) - new Date(a.fechaCompleta));
-
         currentData = reportRows;
 
-        // Calculamos el Inventario Real Actual de forma independiente sumando la data oficial del store
-        const invAlmacenes = window.appStore.getInventarioPorAlmacen() || {};
-        let realCurrentInventory = 0;
-        Object.values(invAlmacenes).forEach(alm => {
-            if (alm[selProductoId]) {
-                realCurrentInventory += alm[selProductoId];
-            }
-        });
-        document.getElementById('rf-actual-inv').textContent = realCurrentInventory.toLocaleString();
+        // Mostrar Resultados
+        document.getElementById('rf-actual-inv').textContent = runningInventory.toLocaleString();
 
         // --- Render results ---
         document.getElementById('rf-total-in').textContent = tIn.toLocaleString();
@@ -346,6 +299,13 @@ window.appModuleEvents['reporte-fruta'] = () => {
 
         container.classList.remove('hidden');
         if (window.lucide) window.lucide.createIcons();
+
+        // Restaurar botón
+        btnSearch.disabled = false;
+        btnSearch.innerHTML = originalBtnHTML;
+        if (window.lucide) window.lucide.createIcons({ root: btnSearch });
+
+        window.UI.showToast("Reporte generado correctamente.", "success");
     });
 
     if (btnExport) {

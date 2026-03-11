@@ -96,12 +96,25 @@ class Store {
         });
     }
 
-    // Escucha la colección de Actividad
+    // Escucha la colección de Actividad (Snapshot de los últimos 2000 para la UI rápida)
     listenToActividad() {
-        // Ordenamos por fecha descendente y limitamos a las últimas 5000 en memoria caché del cliente
-        // en Firestore no hay límite, pero no queremos saturar el navegador con 2 millones de registros en la UI
-        this.actividadRef.orderBy('date', 'desc').limit(5000).onSnapshot((snapshot) => {
-            this.actividadCache = snapshot.docs.map(doc => doc.data());
+        this.actividadRef.orderBy('date', 'desc').limit(2000).onSnapshot((snapshot) => {
+            const latest = snapshot.docs.map(doc => doc.data());
+            
+            // Merge into local cache avoiding duplicates, prioritizing existing deep cache
+            const cacheMap = new Map();
+            
+            // 1. Cargamos lo que ya tenemos (que podría ser el historial profundo)
+            this.actividadCache.forEach(a => {
+                if (a.id) cacheMap.set(a.id, a);
+            });
+            
+            // 2. Cargamos lo nuevo del snapshot
+            latest.forEach(a => {
+                if (a.id) cacheMap.set(a.id, a);
+            });
+            
+            this.actividadCache = Array.from(cacheMap.values()).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
 
             this.actividadLoaded = true;
             if (this.isLoaded) {
@@ -110,6 +123,54 @@ class Store {
         }, (error) => {
             console.error("Error escuchando Firebase actividad:", error);
         });
+    }
+
+    // Carga recursiva de TODO el historial para cálculos precisos (Dashboard)
+    async loadFullActivity() {
+        if (this._loadingFullCompleted) return this.actividadCache;
+        if (this._loadingFullInProgress) return this._loadingFullPromise;
+        
+        this._loadingFullInProgress = true;
+        this._loadingFullPromise = (async () => {
+            console.log("[STORE] Iniciando carga de historial completo...");
+            
+            const cacheMap = new Map();
+            this.actividadCache.forEach(a => { if (a.id) cacheMap.set(a.id, a); });
+
+            let lastDoc = null;
+            let hasMore = true;
+            let totalFetched = 0;
+
+            // Paginación de 1000 en 1000 hasta el final
+            while (hasMore) {
+                let query = this.actividadRef.orderBy('date', 'desc').limit(1000);
+                if (lastDoc) query = query.startAfter(lastDoc);
+                
+                const snap = await query.get();
+                if (snap.empty) {
+                    hasMore = false;
+                } else {
+                    snap.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (data.id) cacheMap.set(data.id, data);
+                    });
+                    
+                    totalFetched += snap.size;
+                    lastDoc = snap.docs[snap.docs.length - 1];
+                    
+                    if (snap.size < 1000) hasMore = false;
+                    console.log(`[STORE] Paginación: ${totalFetched} registros recuperados...`);
+                }
+            }
+
+            this.actividadCache = Array.from(cacheMap.values()).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
+            console.log(`[STORE] Carga profunda finalizada: ${this.actividadCache.length} registros totales.`);
+            this._loadingFullCompleted = true;
+            this._loadingFullInProgress = false;
+            return this.actividadCache;
+        })();
+        
+        return this._loadingFullPromise;
     }
 
     // Método Core Transaccional
@@ -151,7 +212,7 @@ class Store {
     getClientes() { return this.data.clientes || []; }
     getUsuarios() { return this.data.usuarios || []; }
 
-    getActividad(limit = 25) {
+    getActividad(limit = 100) {
         return this.actividadCache.slice(0, limit);
     }
 

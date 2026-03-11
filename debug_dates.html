@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dates</title>
+</head>
+<body>
+    <h1>Activity Cache Analysis</h1>
+    <pre id="output">Loading...</pre>
+    <script>
+        setTimeout(() => {
+            const acts = window.appStore.actividadCache;
+            const output = document.getElementById('output');
+            if (!acts || acts.length === 0) {
+                output.innerText = "No activities found in cache.";
+                return;
+            }
+
+            const sorted = [...acts].sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+            const oldest = sorted[0];
+            const newest = sorted[sorted.length - 1];
+
+            output.innerText = `Total cached: ${acts.length}\n` +
+                               `Oldest: ${oldest.date || oldest.fecha} (${oldest.operacion})\n` +
+                               `Newest: ${newest.date || newest.fecha} (${newest.operacion})\n\n` +
+                               `If 'Oldest' is not the very first day of use, data is truncated by the 5000 limit.`;
+        }, 2000);
+    </script>
+    <script src="js/store.js"></script>
+</body>
+</html>

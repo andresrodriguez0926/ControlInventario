@@ -13,7 +13,7 @@ window.appModules['reportes'] = () => {
 
     return `
         <div class="animate-fade-in max-w-6xl mx-auto">
-            <h2 class="text-2xl font-bold text-white mb-2">Reportes Consolidados</h2>
+            <h2 class="text-2xl font-bold text-white mb-2">Reportes Consolidados (v26)</h2>
             <p class="text-text-secondary mb-8">Filtra y visualiza transacciones de recepciones, decomisos y despachos de forma detallada.</p>
             
             <!-- Barra de Herramientas Principal -->
@@ -135,7 +135,7 @@ window.appModuleEvents['reportes'] = () => {
     };
 
     const extractNumber = (str) => {
-        const match = str.match(/(\d+)/);
+        const match = str.match(/(-?\d+)/);
         return match ? parseInt(match[1], 10) : 0;
     };
 
@@ -246,10 +246,17 @@ window.appModuleEvents['reportes'] = () => {
     }
 
     // Formulario de filtrado real
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const act = window.appStore.getActividad(10000); // Hack para obtener todas (o límite muy alto) ya que en store está sin límite directo (el getter devuelve una copia de data.actividad).
+        // 1. Cargar historial completo (Deep Load) para evitar datos incompletos
+        const allFullHistory = await window.appStore.loadFullActivity();
+        const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        
+        const allMap = new Map();
+        [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+        
+        const act = Array.from(allMap.values());
 
         const fTipo = tipoSelect.value;
         const fFecha = document.getElementById('rep-fecha').value;

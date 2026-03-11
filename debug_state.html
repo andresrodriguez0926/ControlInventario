@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug State</title>
+</head>
+<body>
+    <h1>Current Inventory State</h1>
+    <pre id="output">Loading...</pre>
+    <script>
+        setTimeout(() => {
+            const data = window.appStore.data;
+            const output = document.getElementById('output');
+            if (!data || !data.inventario) {
+                output.innerText = "No inventory data found.";
+                return;
+            }
+
+            const inv = data.inventario;
+            const total = (inv.canastasLlenas || 0) + 
+                          (inv.canastasVacias || 0) + 
+                          (inv.despachadasProductor || 0) + 
+                          (inv.despachadasCliente || 0);
+
+            output.innerText = JSON.stringify(inv, null, 2) + 
+                               `\n\nCALCULATED GLOBAL TOTAL: ${total}`;
+        }, 2000);
+    </script>
+    <script src="js/store.js"></script>
+</body>
+</html>
