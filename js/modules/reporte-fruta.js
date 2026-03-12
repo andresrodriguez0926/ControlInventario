@@ -58,12 +58,20 @@ window.appModules['reporte-fruta'] = () => {
 
             <div id="rf-resultados-container" class="hidden animate-fade-in space-y-6">
                 <!-- Summary Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div class="surface-card p-4 border-t-4 border-t-primary flex flex-col justify-center bg-primary/5">
                         <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Suma total de esta fruta que existe físicamente en el sistema AHORA MISMO.">Inventario Actual Real</span>
                         <div class="flex items-end gap-3">
                             <i data-lucide="package" class="w-6 h-6 text-primary/70"></i>
                             <span class="text-2xl font-black text-white" id="rf-actual-inv">0</span>
+                        </div>
+                    </div>
+
+                    <div class="surface-card p-4 border-l-4 border-warning flex flex-col justify-center">
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Inventario acumulado antes de la fecha de inicio seleccionada">Inventario Inicial</span>
+                        <div class="flex items-end gap-3">
+                            <i data-lucide="history" class="w-6 h-6 text-warning/50"></i>
+                            <span class="text-2xl font-black text-white" id="rf-balance-inicial">0</span>
                         </div>
                     </div>
                     
@@ -84,7 +92,7 @@ window.appModules['reporte-fruta'] = () => {
                     </div>
 
                     <div class="surface-card p-4 border-l-4 border-info flex flex-col justify-center">
-                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Diferencia entre Entradas y Salidas durante el rango de fechas">Flujo Neto del Rango</span>
+                        <span class="text-text-secondary text-xs uppercase tracking-wider mb-1" title="Balance proyectado al final del rango (Inicial + Entradas - Salidas)">Inventario Final</span>
                         <div class="flex items-end gap-3">
                             <i data-lucide="scale" class="w-6 h-6 text-info/50"></i>
                             <span class="text-2xl font-black text-info" id="rf-balance">0</span>
@@ -190,6 +198,7 @@ window.appModuleEvents['reporte-fruta'] = () => {
         let tIn = 0;
         let tOut = 0;
         let runningInventory = 0;
+        let balanceInicial = 0;
 
         // 2. Loop Forward para reconstruir inventario real y flujo neto
         allActivity.forEach(a => {
@@ -238,6 +247,11 @@ window.appModuleEvents['reporte-fruta'] = () => {
             // Actualizar inventario acumulado (Running Balance)
             runningInventory += qtyChange;
 
+            // Calcular Balance Inicial (todo lo anterior a dateStart)
+            if (dateStart && logDate < dateStart) {
+                balanceInicial += qtyChange;
+            }
+
             // Si está en el rango de fechas, guardar fila
             const isInRange = (!dateStart || logDate >= dateStart) && (!dateEnd || logDate <= dateEnd);
             if (isInRange && qtyChange !== 0) {
@@ -264,15 +278,16 @@ window.appModuleEvents['reporte-fruta'] = () => {
 
         // Mostrar Resultados
         document.getElementById('rf-actual-inv').textContent = runningInventory.toLocaleString();
+        document.getElementById('rf-balance-inicial').textContent = balanceInicial.toLocaleString();
 
         // --- Render results ---
         document.getElementById('rf-total-in').textContent = tIn.toLocaleString();
         document.getElementById('rf-total-out').textContent = tOut.toLocaleString();
 
-        const balance = tIn - tOut;
+        const balanceFinal = balanceInicial + tIn - tOut;
         const balEl = document.getElementById('rf-balance');
-        balEl.textContent = (balance > 0 ? '+' : '') + balance.toLocaleString();
-        balEl.className = `text-2xl font-black ${balance >= 0 ? 'text-info' : 'text-danger'}`;
+        balEl.textContent = (balanceFinal > 0 ? '+' : '') + balanceFinal.toLocaleString();
+        balEl.className = `text-2xl font-black ${balanceFinal >= 0 ? 'text-info' : 'text-danger'}`;
 
         if (reportRows.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos para esta fruta en el rango seleccionado.</td></tr>`;
