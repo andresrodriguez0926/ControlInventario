@@ -480,13 +480,28 @@ class Store {
         const usrStr = String(usuario).trim().toLowerCase();
         const passStr = String(clave).trim();
 
+        // 1. Verificar usuario en la base de datos local (Catálogo de usuarios)
         const user = this.data.usuarios?.find(u => u.usuario.toLowerCase() === usrStr && u.clave === passStr);
         if (!user) {
-            throw new Error("Usuario o contraseña incorrectos.");
+            throw new Error("Usuario o contraseña incorrectos en el sistema.");
         }
 
-        // Guardar la sesión local (en memoria/caché del navegador)
-        // No almacenamos contraseñas, solo el estado activo
+        // 2. Intentar autenticación real en Firebase para habilitar las reglas de seguridad.
+        // Usamos una convención de correo electrónico basada en el nombre de usuario.
+        // El administrador debe crear estos usuarios en la consola de Firebase.
+        try {
+            const email = usrStr.includes('@') ? usrStr : `${usrStr}@control-inventario.com`;
+            await firebase.auth().signInWithEmailAndPassword(email, passStr);
+        } catch (authError) {
+            console.error("Error de autenticación Firebase:", authError);
+            if (authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
+                throw new Error("Credenciales no autorizadas en el servidor de Firebase. Contacte al administrador.");
+            } else {
+                throw new Error("Error de conexión con el servidor de seguridad: " + authError.message);
+            }
+        }
+
+        // Guardar la sesión local
         const sesion = {
             id: user.id,
             usuario: user.usuario,
@@ -499,6 +514,7 @@ class Store {
     }
 
     logout() {
+        firebase.auth().signOut();
         sessionStorage.removeItem('app_session');
         window.location.reload(); // Recargar la UI para forzar la pantalla de login
     }
