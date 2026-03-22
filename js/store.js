@@ -3,9 +3,6 @@
  * Maneja el almacenamiento y sincronización en tiempo real en la Nube.
  */
 
-// ALERT DE DIAGNOSTICO: Para confirmar que el código nuevo está corriendo
-alert("DIAGNÓSTICO FINAL: He forzado a que la aplicación ignore tu memoria interna (Caché). Si los gráficos se ven ahora al darle OK, el problema era que tu navegador tenía la base de datos corrupta localmente.");
-
 // 1. Configuración de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAlULkKEZZgDLqMbDlg7LxICKtBKBlU8jM",
