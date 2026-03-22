@@ -18,7 +18,13 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // 2.5 Autenticación Anónima (Para asegurar las reglas de Firestore sin usuarios manuales)
-firebase.auth().signInAnonymously().catch(e => console.error("Error Auth Anónimo:", e));
+firebase.auth().signInAnonymously().catch(e => {
+    console.error("Error Auth Anónimo:", e);
+    // Mostrar error visible si no está habilitado en la consola
+    if (window.UI) {
+        window.UI.showToast("DASHBOARD: Error de Autenticación. Asegúrate de habilitar 'Anonymous Auth' en Firebase Console.", "error");
+    }
+});
 
 // 3. Habilitar persistencia offline para que funcione sin internet
 db.enablePersistence().catch(console.error);
