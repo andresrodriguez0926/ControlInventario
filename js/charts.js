@@ -47,8 +47,7 @@ const Charts = {
             this.instances.warehouseChart.destroy();
         }
         ctx.style.display = 'block';
-        const emptyState = ctx.parentElement.querySelector('.empty-chart-state');
-        if (emptyState) emptyState.remove();
+        ctx.closest('.surface-card').querySelectorAll('.empty-chart-state').forEach(el => el.remove());
 
         const almacenes = window.appStore ? window.appStore.getAlmacenes() : [];
         const productos = window.appStore ? window.appStore.getProductos() : [];
@@ -128,8 +127,7 @@ const Charts = {
             this.instances.basketChart.destroy();
         }
         ctx.style.display = 'block';
-        const emptyState = ctx.parentElement.querySelector('.empty-chart-state');
-        if (emptyState) emptyState.remove();
+        ctx.closest('.surface-card').querySelectorAll('.empty-chart-state').forEach(el => el.remove());
 
         const stats = window.appStore ? window.appStore.getStats() : { canastasLlenas: 0, canastasVacias: 0 };
 
