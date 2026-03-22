@@ -139,10 +139,10 @@ class Store {
         });
     }
 
-    // Escucha la colección de Actividad (Snapshot de los últimos 2000 para la UI rápida)
+    // Escucha la colección de Actividad (Snapshot de los últimos 300 para la UI rápida)
     listenToActividad() {
         if (this.unsubscribeActividad) this.unsubscribeActividad();
-        this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(2000).onSnapshot((snapshot) => {
+        this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(300).onSnapshot((snapshot) => {
             const latest = snapshot.docs.map(doc => doc.data());
             
             // Merge into local cache avoiding duplicates, prioritizing existing deep cache
