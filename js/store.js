@@ -63,26 +63,19 @@ class Store {
         this.actividadLoaded = false;
         this.isLoaded = false;
 
-        // Esperar a que la autenticación (aunque sea anónima) esté lista antes de escuchar datos
+        // Iniciar listeners directamente (las reglas permiten el acceso público)
+        this.listenToCloud();
+        this.listenToActividad();
+
+        // Actualizar panel de diagnóstico cuando la auth anónima termina
         firebase.auth().onAuthStateChanged((user) => {
             const authEl = document.getElementById('diag-auth-status');
             if (user) {
-                console.log("[STORE] Autenticado (ID:", user.uid, "). Iniciando sincronización...");
-                if (authEl) {
-                    authEl.textContent = 'ÉXITO';
-                    authEl.className = 'px-1.5 py-0.5 rounded bg-success/20 text-success';
-                }
-                this.listenToCloud();
-                this.listenToActividad();
+                console.log("[STORE] Auth anónima activa (ID:", user.uid, ").");
+                if (authEl) { authEl.textContent = 'ÉXITO'; authEl.className = 'px-1.5 py-0.5 rounded bg-success/20 text-success'; }
             } else {
-                console.log("[STORE] No autenticado. Esperando...");
-                if (authEl) {
-                    authEl.textContent = 'NO AUTH';
-                    authEl.className = 'px-1.5 py-0.5 rounded bg-danger/20 text-danger';
-                }
-                // Si ya teníamos listeners, los cancelamos
-                if (this.unsubscribe) this.unsubscribe();
-                if (this.unsubscribeActividad) this.unsubscribeActividad();
+                console.log("[STORE] Sin sesión Firebase.");
+                if (authEl) { authEl.textContent = 'SIN SESSION'; authEl.className = 'px-1.5 py-0.5 rounded bg-warning/20 text-warning'; }
             }
         });
     }

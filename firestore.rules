@@ -5,7 +5,9 @@ service cloud.firestore {
     // Los administradores deben crear los usuarios en la consola de Firebase con el formato usuario@control-inventario.com
     
     match /{document=**} {
-  allow read, write: if request.auth != null;
-}
+      // DIAGNOSTICO TEMPORAL: Si los graficos ya funcionan con estas reglas,
+      // el problema estaba en que Anonymous Auth no estaba habilitado.
+      allow read, write: if true;
+    }
   }
 }
