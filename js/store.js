@@ -3,6 +3,9 @@
  * Maneja el almacenamiento y sincronización en tiempo real en la Nube.
  */
 
+// ALERT DE DIAGNOSTICO: Para confirmar que el código nuevo está corriendo
+alert("DIAGNÓSTICO: Si ves este mensaje, tu código se actualizó correctamente.");
+
 // 1. Configuración de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAlULkKEZZgDLqMbDlg7LxICKtBKBlU8jM",
