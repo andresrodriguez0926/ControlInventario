@@ -487,8 +487,8 @@ class Store {
         }
 
         // 2. Intentar autenticación real en Firebase para habilitar las reglas de seguridad.
-        // Usamos una convención de correo electrónico basada en el nombre de usuario.
-        // El administrador debe crear estos usuarios en la consola de Firebase.
+        // COMENTADO: El usuario prefiere usar solo los usuarios del sistema local por ahora.
+        /*
         try {
             const email = usrStr.includes('@') ? usrStr : `${usrStr}@control-inventario.com`;
             await firebase.auth().signInWithEmailAndPassword(email, passStr);
@@ -500,6 +500,7 @@ class Store {
                 throw new Error("Error de conexión con el servidor de seguridad: " + authError.message);
             }
         }
+        */
 
         // Guardar la sesión local
         const sesion = {
