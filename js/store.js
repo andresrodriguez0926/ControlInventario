@@ -4,7 +4,7 @@
  */
 
 // ALERT DE DIAGNOSTICO: Para confirmar que el código nuevo está corriendo
-alert("DIAGNÓSTICO: Si ves este mensaje, tu código se actualizó correctamente.");
+alert("DIAGNÓSTICO FINAL: He forzado a que la aplicación ignore tu memoria interna (Caché). Si los gráficos se ven ahora al darle OK, el problema era que tu navegador tenía la base de datos corrupta localmente.");
 
 // 1. Configuración de Firebase
 const firebaseConfig = {
@@ -35,7 +35,8 @@ firebase.auth().signInAnonymously().catch(e => {
 });
 
 // 3. Habilitar persistencia offline para que funcione sin internet
-db.enablePersistence().catch(console.error);
+// TEMPORALMENTE DESHABILITADO PARA DEBUG:
+// db.enablePersistence().catch(console.error);
 
 // 4. Estructura Local Mínima
 const defaultData = {
