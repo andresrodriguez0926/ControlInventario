@@ -20,6 +20,11 @@ const db = firebase.firestore();
 // 2.5 Autenticación Anónima (Para asegurar las reglas de Firestore sin usuarios manuales)
 firebase.auth().signInAnonymously().catch(e => {
     console.error("Error Auth Anónimo:", e);
+    const authEl = document.getElementById('diag-auth-status');
+    if (authEl) {
+        authEl.textContent = 'ERROR AUTH';
+        authEl.className = 'px-1.5 py-0.5 rounded bg-danger/20 text-danger';
+    }
     // Mostrar error visible si no está habilitado en la consola
     if (window.UI) {
         window.UI.showToast("DASHBOARD: Error de Autenticación. Asegúrate de habilitar 'Anonymous Auth' en Firebase Console.", "error");
@@ -60,12 +65,21 @@ class Store {
 
         // Esperar a que la autenticación (aunque sea anónima) esté lista antes de escuchar datos
         firebase.auth().onAuthStateChanged((user) => {
+            const authEl = document.getElementById('diag-auth-status');
             if (user) {
                 console.log("[STORE] Autenticado (ID:", user.uid, "). Iniciando sincronización...");
+                if (authEl) {
+                    authEl.textContent = 'ÉXITO';
+                    authEl.className = 'px-1.5 py-0.5 rounded bg-success/20 text-success';
+                }
                 this.listenToCloud();
                 this.listenToActividad();
             } else {
                 console.log("[STORE] No autenticado. Esperando...");
+                if (authEl) {
+                    authEl.textContent = 'NO AUTH';
+                    authEl.className = 'px-1.5 py-0.5 rounded bg-danger/20 text-danger';
+                }
                 // Si ya teníamos listeners, los cancelamos
                 if (this.unsubscribe) this.unsubscribe();
                 if (this.unsubscribeActividad) this.unsubscribeActividad();
@@ -74,8 +88,14 @@ class Store {
     }
 
     listenToCloud() {
+        const syncEl = document.getElementById('diag-sync-status');
         if (this.unsubscribe) this.unsubscribe();
         this.unsubscribe = this.dbRef.onSnapshot((doc) => {
+            console.log("[STORE] Datos de mainState recibidos.");
+            if (syncEl) {
+                syncEl.textContent = 'CONECTADO';
+                syncEl.className = 'px-1.5 py-0.5 rounded bg-success/20 text-success';
+            }
             if (doc.exists) {
                 this.data = doc.data();
             } else {
@@ -113,6 +133,10 @@ class Store {
             }
         }, (error) => {
             console.error("Error escuchando Firebase mainState:", error);
+            if (syncEl) {
+                syncEl.textContent = 'ERROR SYNC';
+                syncEl.className = 'px-1.5 py-0.5 rounded bg-danger/20 text-danger';
+            }
             // Si es un error de permisos, avisar al usuario
             if (error.code === 'permission-denied') {
                 window.UI.showToast("Acceso Denegado. Asegúrate de habilitar 'Anonymous Auth' en Firebase Console.", "error");
