@@ -42,16 +42,25 @@ const Charts = {
         const ctx = document.getElementById('warehouseChart');
         if (!ctx) return;
 
-        // Limpiar instancia previa
+        // Limpiar instancia previa y restaurar UI
         if (this.instances.warehouseChart) {
             this.instances.warehouseChart.destroy();
         }
+        ctx.style.display = 'block';
+        const emptyState = ctx.parentElement.querySelector('.empty-chart-state');
+        if (emptyState) emptyState.remove();
 
         const almacenes = window.appStore ? window.appStore.getAlmacenes() : [];
         const productos = window.appStore ? window.appStore.getProductos() : [];
         const invAlmacen = window.appStore ? window.appStore.getInventarioPorAlmacen() : {};
 
+        console.log("=== DIAGNÓSTICO CHARTS ===");
+        console.log("ALMACENES:", almacenes);
+        console.log("PRODUCTOS:", productos);
+        console.log("appStore loaded?", window.appStore?.isLoaded);
+
         if (almacenes.length === 0 || productos.length === 0) {
+            console.error("Fallo renderWarehouseChart porque almacenes o productos están vacíos.");
             this.showEmptyState(ctx, 'No hay datos suficientes (Agregue Almacenes y Frutas)');
             return;
         }
@@ -118,6 +127,9 @@ const Charts = {
         if (this.instances.basketChart) {
             this.instances.basketChart.destroy();
         }
+        ctx.style.display = 'block';
+        const emptyState = ctx.parentElement.querySelector('.empty-chart-state');
+        if (emptyState) emptyState.remove();
 
         const stats = window.appStore ? window.appStore.getStats() : { canastasLlenas: 0, canastasVacias: 0 };
 
