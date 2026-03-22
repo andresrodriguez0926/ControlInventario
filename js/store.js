@@ -124,9 +124,8 @@ class Store {
             }
 
             this.isLoaded = true;
-            if (this.actividadLoaded) {
-                window.dispatchEvent(new Event('store:updated'));
-            }
+            // Disparar siempre que se actualicen los datos base para no bloquear la UI
+            window.dispatchEvent(new Event('store:updated'));
         }, (error) => {
             console.error("Error escuchando Firebase mainState:", error);
             if (syncEl) {
@@ -164,9 +163,7 @@ class Store {
             this.actividadCache = Array.from(cacheMap.values()).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
 
             this.actividadLoaded = true;
-            if (this.isLoaded) {
-                window.dispatchEvent(new Event('store:updated'));
-            }
+            window.dispatchEvent(new Event('store:updated'));
         }, (error) => {
             console.error("Error escuchando Firebase actividad:", error);
         });
