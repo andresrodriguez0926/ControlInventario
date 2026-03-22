@@ -39,6 +39,9 @@ const Charts = {
     },
 
     renderWarehouseChart() {
+        // GLOBAL FORCE CLEANUP OF ALL CHART EMPTY STATES
+        document.querySelectorAll('.empty-chart-message').forEach(el => el.remove());
+
         const ctx = document.getElementById('warehouseChart');
         if (!ctx) return;
 
@@ -47,7 +50,7 @@ const Charts = {
             this.instances.warehouseChart.destroy();
         }
         ctx.style.display = 'block';
-        ctx.closest('.surface-card').querySelectorAll('.empty-chart-state').forEach(el => el.remove());
+        ctx.closest('.surface-card').querySelectorAll('.empty-chart-message').forEach(el => el.remove());
 
         const almacenes = window.appStore ? window.appStore.getAlmacenes() : [];
         const productos = window.appStore ? window.appStore.getProductos() : [];
@@ -127,7 +130,7 @@ const Charts = {
             this.instances.basketChart.destroy();
         }
         ctx.style.display = 'block';
-        ctx.closest('.surface-card').querySelectorAll('.empty-chart-state').forEach(el => el.remove());
+        ctx.closest('.surface-card').querySelectorAll('.empty-chart-message').forEach(el => el.remove());
 
         const stats = window.appStore ? window.appStore.getStats() : { canastasLlenas: 0, canastasVacias: 0 };
 

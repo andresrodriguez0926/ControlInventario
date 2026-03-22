@@ -1,0 +1,335 @@
+﻿{
+    "name":  "projects/control-de-inventario-fbc21/databases/(default)/documents/appData/mainState",
+    "fields":  {
+                   "productores":  {
+                                       "arrayValue":  {
+                                                          "values":  [
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         },
+                                                                         {
+                                                                             "mapValue":  "@{fields=}"
+                                                                         }
+                                                                     ]
+                                                      }
+                                   },
+                   "nextProductorId":  {
+                                           "integerValue":  "59"
+                                       },
+                   "productos":  {
+                                     "arrayValue":  {
+                                                        "values":  [
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       }
+                                                                   ]
+                                                    }
+                                 },
+                   "almacenes":  {
+                                     "arrayValue":  {
+                                                        "values":  [
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       },
+                                                                       {
+                                                                           "mapValue":  "@{fields=}"
+                                                                       }
+                                                                   ]
+                                                    }
+                                 },
+                   "configVersion":  {
+                                         "integerValue":  "40"
+                                     },
+                   "inventario":  {
+                                      "mapValue":  {
+                                                       "fields":  {
+                                                                      "porAlmacen":  {
+                                                                                         "mapValue":  "@{fields=}"
+                                                                                     },
+                                                                      "canastasLlenas":  {
+                                                                                             "integerValue":  "9656"
+                                                                                         },
+                                                                      "despachadasProductor":  {
+                                                                                                   "integerValue":  "4358"
+                                                                                               },
+                                                                      "despachadasCliente":  {
+                                                                                                 "integerValue":  "0"
+                                                                                             },
+                                                                      "canastasVacias":  {
+                                                                                             "integerValue":  "18"
+                                                                                         }
+                                                                  }
+                                                   }
+                                  },
+                   "usuarios":  {
+                                    "arrayValue":  {
+                                                       "values":  [
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      },
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      },
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      },
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      },
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      }
+                                                                  ]
+                                                   }
+                                },
+                   "secuenciaDocumento":  {
+                                              "integerValue":  "1189"
+                                          },
+                   "nextClienteId":  {
+                                         "integerValue":  "2"
+                                     },
+                   "clientes":  {
+                                    "arrayValue":  {
+                                                       "values":  [
+                                                                      {
+                                                                          "mapValue":  "@{fields=}"
+                                                                      }
+                                                                  ]
+                                                   }
+                                }
+               },
+    "createTime":  "2026-02-20T23:44:33.204712Z",
+    "updateTime":  "2026-03-21T23:39:16.383530Z"
+}
+
