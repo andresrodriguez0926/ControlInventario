@@ -52,11 +52,23 @@ class Store {
         this.actividadLoaded = false;
         this.isLoaded = false;
 
-        this.listenToCloud();
-        this.listenToActividad();
+        // Esperar a que la autenticación (aunque sea anónima) esté lista antes de escuchar datos
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                console.log("[STORE] Autenticado (ID:", user.uid, "). Iniciando sincronización...");
+                this.listenToCloud();
+                this.listenToActividad();
+            } else {
+                console.log("[STORE] No autenticado. Esperando...");
+                // Si ya teníamos listeners, los cancelamos
+                if (this.unsubscribe) this.unsubscribe();
+                if (this.unsubscribeActividad) this.unsubscribeActividad();
+            }
+        });
     }
 
     listenToCloud() {
+        if (this.unsubscribe) this.unsubscribe();
         this.unsubscribe = this.dbRef.onSnapshot((doc) => {
             if (doc.exists) {
                 this.data = doc.data();
@@ -95,13 +107,19 @@ class Store {
             }
         }, (error) => {
             console.error("Error escuchando Firebase mainState:", error);
-            window.UI.showToast("Error de conexión a la Nube", "error");
+            // Si es un error de permisos, avisar al usuario
+            if (error.code === 'permission-denied') {
+                window.UI.showToast("Acceso Denegado. Asegúrate de habilitar 'Anonymous Auth' en Firebase Console.", "error");
+            } else {
+                window.UI.showToast("Error de conexión a la Nube", "error");
+            }
         });
     }
 
     // Escucha la colección de Actividad (Snapshot de los últimos 2000 para la UI rápida)
     listenToActividad() {
-        this.actividadRef.orderBy('date', 'desc').limit(2000).onSnapshot((snapshot) => {
+        if (this.unsubscribeActividad) this.unsubscribeActividad();
+        this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(2000).onSnapshot((snapshot) => {
             const latest = snapshot.docs.map(doc => doc.data());
             
             // Merge into local cache avoiding duplicates, prioritizing existing deep cache
