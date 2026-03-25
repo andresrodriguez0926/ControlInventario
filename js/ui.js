@@ -52,7 +52,6 @@ const UI = {
         this.pagesContainer = document.getElementById('pages-container');
         this.dynamicContainer = document.getElementById('dynamic-pages-container');
         this.toastContainer = document.getElementById('toast-container');
-        this.btnReset = document.getElementById('reset-data');
 
         // Auth DOM
         this.loginForm = document.getElementById('login-form');
@@ -82,14 +81,7 @@ const UI = {
             });
         });
 
-        // Reset
-        this.btnReset.addEventListener('click', () => {
-            if (confirm('¿Estás seguro de que quieres borrar TODOS los datos? Esta acción no se puede deshacer.')) {
-                window.appStore.reset();
-                this.showToast('Datos limpiados correctamente', 'success');
-                window.location.reload();
-            }
-        });
+        // Event listener para reseteo eliminado por seguridad
 
 
         // Login Submit
@@ -329,7 +321,6 @@ const UI = {
         });
 
         // Hide sensible areas for non-admins (like data reset)
-        if (this.btnReset) this.btnReset.classList.add('hidden');
         if (this.btnRecalculate) this.btnRecalculate.classList.add('hidden');
         if (this.btnBackupGlobal) this.btnBackupGlobal.classList.add('hidden');
     },

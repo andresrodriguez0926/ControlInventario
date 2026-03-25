@@ -1,0 +1,8 @@
+=== EXCELENCIA MATEMATICA ===
+Globales: 7156 125 1864 11054
+Suma Deuda Productores: 1868 vs Global: 1864
+Suma Deuda Clientes: 11054 vs Global: 11054
+
+Clientes encontrados:
+- Supermercado Bravo: 11054
+Recompilation Uploaded HTTP 200

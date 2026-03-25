@@ -1,0 +1,503 @@
+{
+  "productores": [
+    {
+      "id": "mmb4k0kur1trin04ni",
+      "nombre": "PRODUCTOR SALDO INICIAL",
+      "createdAt": "2026-03-25T04:20:39.992Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmb7v1eyp0zcf2rnq7h",
+      "nombre": "Juan platano",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm2302qkaxg40kv9f",
+      "nombre": "Espedi",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 4
+    },
+    {
+      "id": "mlwqhhtr3zoyej6mmrx",
+      "nombre": "YAN CRUZ",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 771
+    },
+    {
+      "id": "mlwqi539g52q8dod82w",
+      "nombre": "FRANCIS POLANCO",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlxa04ywbsjynzdewft",
+      "nombre": "Gabriel Rodriguez",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm23413ofqz68h7gku",
+      "nombre": "Jamelle checo",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 196
+    },
+    {
+      "id": "mm94qltpb0b5hecoakp",
+      "nombre": "Jose Agusto madera",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlvnwm4tp4grovuzsqb",
+      "nombre": "FROILAN MADERA",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm999zrr49dzpxlqyro",
+      "nombre": "Jose Tavarez",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm40qblmutn5qv45eh",
+      "nombre": "Banapi esperanza",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmb8qk1v2gcn5ttk3o9",
+      "nombre": "Carlos tavera",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmaxh5khokfp53f0wsr",
+      "nombre": "Víctor reyes",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlx9ye0z26jevwdxds",
+      "nombre": "Cristian Garcia",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm0vq6fklp705x745t",
+      "nombre": "Víctor reyes",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlwti886inlogfl9qj",
+      "nombre": "RADALME LECHOSA",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlwqim8ejrllybsidy",
+      "nombre": "JOSE RAFAEL SANTAN",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm0vw7y7dkk9lfx8b3n",
+      "nombre": "Edward Herrera",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmdkqbsppqa7xe45dhd",
+      "nombre": "Lisset espinal espinal",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 551
+    },
+    {
+      "id": "mm0wl8tgrt2j7pdcfd",
+      "nombre": "Daniel peña",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mme5ocusvz2mjgyih",
+      "nombre": "Nelson madera",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlwqju20z3roi0v9nbs",
+      "nombre": "JUAN MARIA DOMINGUEZ",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlzi7obuo66nvqe6b7m",
+      "nombre": "ALBERTO MIGUEL GARCIA AGRAMONTE",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmeu6os0jkg2z5yq6po",
+      "nombre": "DEIVY REINOZÓ",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmaxdz261onjrkfhe1",
+      "nombre": "Aristide",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm5h6jwd8wyozk6u59v",
+      "nombre": "Sergio ulloa",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlvmtefq02h7lwzswqy3",
+      "nombre": "RAMON EDILIO ATIZO",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 159
+    },
+    {
+      "id": "mmggp75ba4re0a5y03c",
+      "nombre": "FINCA LA LOMA",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmj6puu43q982pthg62",
+      "nombre": "Alvaro peña",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlwtavm5749rw2b22i8",
+      "nombre": "ANGEL FELIX",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmj6ve64o5lq42skxa",
+      "nombre": "Raffy polanco",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlvmtqxyi83saqcoc0g",
+      "nombre": "JOSE ALBERTO GIL",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlvmu5w3vhrymfsvuua",
+      "nombre": "GEORGE CASTELLANO",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 187
+    },
+    {
+      "id": "mm231n25sj62yzx6rze",
+      "nombre": "Andrés Rodríguez",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm29m2c9s5qiinedan",
+      "nombre": "JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real)",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmnhbk1446vvv38viqk",
+      "nombre": "DOMINGO RODRÍGUEZ",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm22vujorty8purmvfo",
+      "nombre": "Juan Carlos bueno",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmqrin65uy62v03du7p",
+      "nombre": "Jose dominguez",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm5h9dg3d4pd0vwepwl",
+      "nombre": "Manolo",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mms5zx2975ljgidnv2n",
+      "nombre": "Rainier",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmsd8srte2o28lv3z0f",
+      "nombre": "Bernardo nuñez",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm815k3c8viokwhfywa",
+      "nombre": "Carlos uceta",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mlx9pthk2wxbtnot491",
+      "nombre": "Aquiles Rowel Morel",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mmz0pizspjrxleh619",
+      "nombre": "Finca cañeo sandía",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mm8hh82ueipljn2yyt",
+      "nombre": "Yefri santana",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    },
+    {
+      "id": "mn0cvl501mtdoe10sz8",
+      "nombre": "OCHO 690 PRODUCE",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 0
+    }
+  ],
+  "productos": [
+    {
+      "id": "mlvn6m3v4jljiukjpdd",
+      "nombre": "GUINEO MADURO",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvn6tktccmog6t93ej",
+      "nombre": "GUINEO VERDE",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvn6z5eevtvdlurhr",
+      "nombre": "PLATANO MADURO",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvnk987ktfaxs7g8do",
+      "nombre": "PLATANO VERDE",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvnkja4b03xiwc0hh",
+      "nombre": "PLATANO MALLA",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlxodeyd6a0uf6fy9ii",
+      "nombre": "Lechosa",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvnkxjkrju7jlpeze",
+      "nombre": "SANDIA",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    }
+  ],
+  "almacenes": [
+    {
+      "id": "mlvmybjcopppr4b1idl",
+      "nombre": "Almacen mlvmybjcopppr4b1idl",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwneodsksjj2pkcmb",
+      "nombre": "Almacen mlwneodsksjj2pkcmb",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvrtm1im7if67sho1b",
+      "nombre": "Almacen mlvrtm1im7if67sho1b",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwngydii9tu3h2cb48",
+      "nombre": "Almacen mlwngydii9tu3h2cb48",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvru4xnr4yhyrzkfi",
+      "nombre": "Almacen mlvru4xnr4yhyrzkfi",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlvnqiv8iyrmwg0iur",
+      "nombre": "Almacen mlvnqiv8iyrmwg0iur",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnhmmorsp4lczz1qj",
+      "nombre": "Almacen mlwnhmmorsp4lczz1qj",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwngnyo0h33l4p50bx6",
+      "nombre": "Almacen mlwngnyo0h33l4p50bx6",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnfgt0kjfczvuxlr",
+      "nombre": "Almacen mlwnfgt0kjfczvuxlr",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnf53vr7jrh5hr01",
+      "nombre": "Almacen mlwnf53vr7jrh5hr01",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwng60bcv5gfxc77wc",
+      "nombre": "Almacen mlwng60bcv5gfxc77wc",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnh7m8bv6d3gediym",
+      "nombre": "Almacen mlwnh7m8bv6d3gediym",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnheqbtza2jmia8n9",
+      "nombre": "Almacen mlwnheqbtza2jmia8n9",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnex85lqemzakzhb",
+      "nombre": "Almacen mlwnex85lqemzakzhb",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlxa739sbwv2fhtrem",
+      "nombre": "Almacen mlxa739sbwv2fhtrem",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    },
+    {
+      "id": "mlwnfrh5s3dn3epyj2",
+      "nombre": "Almacen mlwnfrh5s3dn3epyj2",
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    }
+  ],
+  "clientes": [
+    {
+      "id": "mlvmsh9om8hk7ppmt1b",
+      "nombre": "Supermercado Bravo",
+      "createdAt": "2026-03-25T04:20:39.993Z",
+      "canastasPrestadas": 11054
+    }
+  ],
+  "configVersion": 50,
+  "secuenciaDocumento": 2000,
+  "nextProductorId": 56,
+  "nextClienteId": 11,
+  "inventario": {
+    "canastasLlenas": 7156,
+    "canastasVacias": 125,
+    "despachadasProductor": 1864,
+    "despachadasCliente": 11054,
+    "porAlmacen": {
+      "mlvmybjcopppr4b1idl": {
+        "vacias": 125,
+        "mlvn6m3v4jljiukjpdd": 0,
+        "mlvn6tktccmog6t93ej": 72,
+        "mlvn6z5eevtvdlurhr": 24,
+        "mlvnk987ktfaxs7g8do": 1038,
+        "mlvnkja4b03xiwc0hh": 154,
+        "mlxodeyd6a0uf6fy9ii": 0,
+        "mlvnkxjkrju7jlpeze": 17
+      },
+      "mlwneodsksjj2pkcmb": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 256,
+        "mlvn6z5eevtvdlurhr": 0,
+        "mlvnk987ktfaxs7g8do": 145
+      },
+      "mlvrtm1im7if67sho1b": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 0
+      },
+      "mlwngydii9tu3h2cb48": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 371
+      },
+      "mlvru4xnr4yhyrzkfi": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 900
+      },
+      "mlvnqiv8iyrmwg0iur": {
+        "vacias": 0,
+        "mlvnk987ktfaxs7g8do": 1127,
+        "mlvn6z5eevtvdlurhr": 466,
+        "mlvn6m3v4jljiukjpdd": 0
+      },
+      "mlwnhmmorsp4lczz1qj": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 350
+      },
+      "mlwngnyo0h33l4p50bx6": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 400
+      },
+      "mlwnfgt0kjfczvuxlr": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 400
+      },
+      "mlwnf53vr7jrh5hr01": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 41
+      },
+      "mlwng60bcv5gfxc77wc": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 400
+      },
+      "mlwnh7m8bv6d3gediym": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 350
+      },
+      "mlwnheqbtza2jmia8n9": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 329
+      },
+      "mlwnex85lqemzakzhb": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 0
+      },
+      "mlxa739sbwv2fhtrem": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 0
+      },
+      "mlwnfrh5s3dn3epyj2": {
+        "vacias": 0,
+        "mlvn6m3v4jljiukjpdd": 316
+      }
+    }
+  },
+  "usuarios": [
+    {
+      "id": "admin_default",
+      "usuario": "admin",
+      "clave": "admin123",
+      "rol": "admin",
+      "modulosBloqueados": [],
+      "createdAt": "2026-03-25T04:20:39.993Z"
+    }
+  ]
+}

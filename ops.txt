@@ -1,0 +1,13 @@
+[
+  "Catálogos",
+  "Compra de Canastas",
+  "Despacho de Vacías",
+  "Recepción de Fruta",
+  "Despacho a Cliente",
+  "Devolución de Canastas",
+  "Ingreso Fruta Demás",
+  "Transferencia entre Almacenes",
+  "Decomiso de Fruta",
+  "Baja de Canastas",
+  "Transferencia entre Fincas"
+]

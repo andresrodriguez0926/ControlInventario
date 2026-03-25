@@ -1,0 +1,290 @@
+{
+  "productores": [
+    {
+      "id": "mmb4k0kur1trin04ni",
+      "nombre": "PRODUCTOR SALDO INICIAL"
+    },
+    {
+      "id": "mmb7v1eyp0zcf2rnq7h",
+      "nombre": "Juan platano"
+    },
+    {
+      "id": "mm2302qkaxg40kv9f",
+      "nombre": "Espedi"
+    },
+    {
+      "id": "mlwqhhtr3zoyej6mmrx",
+      "nombre": "YAN CRUZ"
+    },
+    {
+      "id": "mlwqi539g52q8dod82w",
+      "nombre": "FRANCIS POLANCO"
+    },
+    {
+      "id": "mlxa04ywbsjynzdewft",
+      "nombre": "Gabriel Rodriguez"
+    },
+    {
+      "id": "mm23413ofqz68h7gku",
+      "nombre": "Jamelle checo"
+    },
+    {
+      "id": "mm94qltpb0b5hecoakp",
+      "nombre": "Jose Agusto madera"
+    },
+    {
+      "id": "mlvnwm4tp4grovuzsqb",
+      "nombre": "FROILAN MADERA"
+    },
+    {
+      "id": "mm999zrr49dzpxlqyro",
+      "nombre": "Jose Tavarez"
+    },
+    {
+      "id": "mm40qblmutn5qv45eh",
+      "nombre": "Banapi esperanza"
+    },
+    {
+      "id": "mmb8qk1v2gcn5ttk3o9",
+      "nombre": "Carlos tavera"
+    },
+    {
+      "id": "mmaxh5khokfp53f0wsr",
+      "nombre": "Víctor reyes"
+    },
+    {
+      "id": "mlx9ye0z26jevwdxds",
+      "nombre": "Cristian Garcia"
+    },
+    {
+      "id": "mm0vq6fklp705x745t",
+      "nombre": "Víctor reyes"
+    },
+    {
+      "id": "mlwti886inlogfl9qj",
+      "nombre": "RADALME LECHOSA"
+    },
+    {
+      "id": "mlwqim8ejrllybsidy",
+      "nombre": "JOSE RAFAEL SANTAN"
+    },
+    {
+      "id": "mm0vw7y7dkk9lfx8b3n",
+      "nombre": "Edward Herrera"
+    },
+    {
+      "id": "mmdkqbsppqa7xe45dhd",
+      "nombre": "Lisset espinal espinal"
+    },
+    {
+      "id": "mm0wl8tgrt2j7pdcfd",
+      "nombre": "Daniel peña"
+    },
+    {
+      "id": "mme5ocusvz2mjgyih",
+      "nombre": "Nelson madera"
+    },
+    {
+      "id": "mlwqju20z3roi0v9nbs",
+      "nombre": "JUAN MARIA DOMINGUEZ"
+    },
+    {
+      "id": "mlzi7obuo66nvqe6b7m",
+      "nombre": "ALBERTO MIGUEL GARCIA AGRAMONTE"
+    },
+    {
+      "id": "mmeu6os0jkg2z5yq6po",
+      "nombre": "DEIVY REINOZÓ"
+    },
+    {
+      "id": "mmaxdz261onjrkfhe1",
+      "nombre": "Aristide"
+    },
+    {
+      "id": "mm5h6jwd8wyozk6u59v",
+      "nombre": "Sergio ulloa"
+    },
+    {
+      "id": "mlvmtefq02h7lwzswqy3",
+      "nombre": "RAMON EDILIO ATIZO"
+    },
+    {
+      "id": "mmggp75ba4re0a5y03c",
+      "nombre": "FINCA LA LOMA"
+    },
+    {
+      "id": "mmj6puu43q982pthg62",
+      "nombre": "Alvaro peña"
+    },
+    {
+      "id": "mlwtavm5749rw2b22i8",
+      "nombre": "ANGEL FELIX"
+    },
+    {
+      "id": "mmj6ve64o5lq42skxa",
+      "nombre": "Raffy polanco"
+    },
+    {
+      "id": "mlvmtqxyi83saqcoc0g",
+      "nombre": "JOSE ALBERTO GIL"
+    },
+    {
+      "id": "mlvmu5w3vhrymfsvuua",
+      "nombre": "GEORGE CASTELLANO"
+    },
+    {
+      "id": "mm231n25sj62yzx6rze",
+      "nombre": "Andrés Rodríguez"
+    },
+    {
+      "id": "mm29m2c9s5qiinedan",
+      "nombre": "JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real)"
+    },
+    {
+      "id": "mmnhbk1446vvv38viqk",
+      "nombre": "DOMINGO RODRÍGUEZ"
+    },
+    {
+      "id": "mm22vujorty8purmvfo",
+      "nombre": "Juan Carlos bueno"
+    },
+    {
+      "id": "mmqrin65uy62v03du7p",
+      "nombre": "Jose dominguez"
+    },
+    {
+      "id": "mm5h9dg3d4pd0vwepwl",
+      "nombre": "Manolo"
+    },
+    {
+      "id": "mms5zx2975ljgidnv2n",
+      "nombre": "Rainier"
+    },
+    {
+      "id": "mmsd8srte2o28lv3z0f",
+      "nombre": "Bernardo nuñez"
+    },
+    {
+      "id": "mm815k3c8viokwhfywa",
+      "nombre": "Carlos uceta"
+    },
+    {
+      "id": "mlx9pthk2wxbtnot491",
+      "nombre": "Aquiles Rowel Morel"
+    },
+    {
+      "id": "mmz0pizspjrxleh619",
+      "nombre": "Finca cañeo sandía"
+    },
+    {
+      "id": "mm8hh82ueipljn2yyt",
+      "nombre": "Yefri santana"
+    },
+    {
+      "id": "mn0cvl501mtdoe10sz8",
+      "nombre": "OCHO 690 PRODUCE"
+    }
+  ],
+  "productos": [
+    {
+      "id": "mlvn6m3v4jljiukjpdd",
+      "nombre": "Producto mlvn6m3v4jljiukjpdd"
+    },
+    {
+      "id": "mlvn6tktccmog6t93ej",
+      "nombre": "Producto mlvn6tktccmog6t93ej"
+    },
+    {
+      "id": "mlvn6z5eevtvdlurhr",
+      "nombre": "Producto mlvn6z5eevtvdlurhr"
+    },
+    {
+      "id": "mlvnk987ktfaxs7g8do",
+      "nombre": "Producto mlvnk987ktfaxs7g8do"
+    },
+    {
+      "id": "mlvnkja4b03xiwc0hh",
+      "nombre": "Producto mlvnkja4b03xiwc0hh"
+    },
+    {
+      "id": "mlxodeyd6a0uf6fy9ii",
+      "nombre": "Producto mlxodeyd6a0uf6fy9ii"
+    },
+    {
+      "id": "mlvnkxjkrju7jlpeze",
+      "nombre": "Producto mlvnkxjkrju7jlpeze"
+    }
+  ],
+  "almacenes": [
+    {
+      "id": "mlvmybjcopppr4b1idl",
+      "nombre": "Almacen mlvmybjcopppr4b1idl"
+    },
+    {
+      "id": "mlwneodsksjj2pkcmb",
+      "nombre": "Almacen mlwneodsksjj2pkcmb"
+    },
+    {
+      "id": "mlvrtm1im7if67sho1b",
+      "nombre": "Almacen mlvrtm1im7if67sho1b"
+    },
+    {
+      "id": "mlwngydii9tu3h2cb48",
+      "nombre": "Almacen mlwngydii9tu3h2cb48"
+    },
+    {
+      "id": "mlvru4xnr4yhyrzkfi",
+      "nombre": "Almacen mlvru4xnr4yhyrzkfi"
+    },
+    {
+      "id": "mlvnqiv8iyrmwg0iur",
+      "nombre": "Almacen mlvnqiv8iyrmwg0iur"
+    },
+    {
+      "id": "mlwnhmmorsp4lczz1qj",
+      "nombre": "Almacen mlwnhmmorsp4lczz1qj"
+    },
+    {
+      "id": "mlwngnyo0h33l4p50bx6",
+      "nombre": "Almacen mlwngnyo0h33l4p50bx6"
+    },
+    {
+      "id": "mlwnfgt0kjfczvuxlr",
+      "nombre": "Almacen mlwnfgt0kjfczvuxlr"
+    },
+    {
+      "id": "mlwnf53vr7jrh5hr01",
+      "nombre": "Almacen mlwnf53vr7jrh5hr01"
+    },
+    {
+      "id": "mlwng60bcv5gfxc77wc",
+      "nombre": "Almacen mlwng60bcv5gfxc77wc"
+    },
+    {
+      "id": "mlwnh7m8bv6d3gediym",
+      "nombre": "Almacen mlwnh7m8bv6d3gediym"
+    },
+    {
+      "id": "mlwnheqbtza2jmia8n9",
+      "nombre": "Almacen mlwnheqbtza2jmia8n9"
+    },
+    {
+      "id": "mlwnex85lqemzakzhb",
+      "nombre": "Almacen mlwnex85lqemzakzhb"
+    },
+    {
+      "id": "mlxa739sbwv2fhtrem",
+      "nombre": "Almacen mlxa739sbwv2fhtrem"
+    },
+    {
+      "id": "mlwnfrh5s3dn3epyj2",
+      "nombre": "Almacen mlwnfrh5s3dn3epyj2"
+    }
+  ],
+  "clientes": [
+    {
+      "id": "mlvmsh9om8hk7ppmt1b",
+      "nombre": "Supermercado Bravo"
+    }
+  ]
+}

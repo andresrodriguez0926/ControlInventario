@@ -1,0 +1,704 @@
+De proveedor: SUPERMERCADO BRACO, Recibe: JHAN CARLOS SANCHEZ
+A productor: PRODUCTOR SALDO INICIAL, Retira: JOSE CERDA
+De: PRODUCTOR SALDO INICIAL, Recibe: JHAN CARLOS SANCHES, Prod: Varios (+5)
+De: PRODUCTOR SALDO INICIAL, Recibe: JHAN CARLOS SANCHES, Prod: Lechosa
+A cliente: Supermercado Bravo | Lechosa (162)
+A cliente: Supermercado Bravo | GUINEO MADURO (1590), GUINEO VERDE (1645), PLATANO MADURO (195), PLATANO VERDE (790), PLATANO MALLA (104)
+De: PRODUCTOR SALDO INICIAL, Recibe: JHAN CARLOS SANCHES, Prod: Varios (+17)
+A productor: PRODUCTOR SALDO INICIAL, Retira: JOSE CERDA
+De Cliente: Supermercado Bravo (Vacías)
+A productor: FRANCIS POLANCO, Retira: JOSE CERDA
+A productor: Jose Tavarez , Retira: 250
+A productor: YAN CRUZ , Retira: JOSE CERDA
+A productor: Jose Agusto madera , Retira: JOSE CERDA
+A productor: JOSE RAFAEL SANTAN, Retira: ANDERSON PERALTA
+A productor: RAMON EDILIO ATIZO, Retira: JOSE CERDA
+A productor: YAN CRUZ , Retira: Alberto
+A productor: Jamelle checo , Retira: Angel
+A productor: Aristide , Retira: Eddy
+A productor: Espedi, Retira: Jose cerdad
+A productor: Víctor reyes , Retira: Juan de dios
+A productor: Gabriel Rodriguez , Retira: Juan de idos
+A productor: MATICAS, Retira: Coni
+A productor: FROILAN MADERA, Retira: Anderson
+A productor: Juan platano, Retira: Eddy
+De: Juan platano, Recibe: Jhancarlos, Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Jose Agusto madera , Recibe: Javier, Prod: Varios (+2)
+De: FROILAN MADERA, Recibe: Javier, Prod: PLATANO MALLA
+De: Juan platano, Recibe: Javier, Prod: PLATANO VERDE
+De proveedor: SUPERMERCADO BRACO, Recibe: JHAN CARLOS SANCHEZ
+A productor: Banapi esperanza, Retira: Haitiano
+A productor: Jose Tavarez , Retira: Anderson
+De: Jose Tavarez , Recibe: Javier, Prod: PLATANO VERDE
+De: Banapi esperanza, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Jamelle checo , Recibe: Javier, Prod: Varios (+2)
+A productor: Carlos tavera, Retira: Carlos tavera
+De: Carlos tavera, Recibe: Javier, Prod: Varios (+2)
+A cliente: Supermercado Bravo | PLATANO MADURO (580), PLATANO VERDE (566), PLATANO MALLA (84), GUINEO VERDE (806)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (15)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: Aristide  (Vacías)
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Víctor reyes , Recibe: JHAN CARLOS SANCHES (EDITADO), Prod: PLATANO VERDE
+De Productor: Espedi (Vacías)
+Mueve: Jhancarlos (Misma Fruta)
+Mueve: Jhancarlo (Cambio Fruta)
+Mueve: Jhancarlos (Cambio Fruta)
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - 1 canasta de cambio
+Mueve: Jhancarlos (Misma Fruta)
+Baja autorizada por: JHAN CARLOS SANCHEZ - CUADRE DE INVENTARIO 
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Víctor reyes , Retira: Juan de Dios 
+A productor: RADALME LECHOSA, Retira: Juan de Dios 
+A productor: Daniel peña, Retira: Eddy
+A productor: Edward Herrera , Retira: Eddy
+A productor: Cristian Garcia, Retira: Angel 
+A productor: YAN CRUZ , Retira: Alberto 
+De Productor: FRANCIS POLANCO (Vacías)
+De: Cristian Garcia, Recibe: Javier , Prod: GUINEO VERDE
+De Productor: Víctor reyes  (Vacías)
+A productor: Víctor reyes , Retira: Juan de Dios 
+De: Víctor reyes , Recibe: Javier , Prod: Varios (+2)
+De Productor: Víctor reyes  (Vacías)
+De: Jamelle checo , Recibe: Javier  (EDITADO), Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Cristian Garcia, Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: Cristian Garcia, Retira: Wiki
+De Cliente: Supermercado Bravo (Llenas de PLATANO MADURO)
+A cliente: Supermercado Bravo | PLATANO VERDE (460), PLATANO MADURO (584), PLATANO MALLA (65), GUINEO VERDE (1155)
+Producto: GUINEO MADURO | Motivo: DE REGALO - Bajo peso guineo maduro
+A cliente: Supermercado Bravo | PLATANO MADURO (21)
+Llenadas con: GUINEO MADURO
+Mueve: Jhancarlos (Cambio Fruta)
+Mueve: Jhancarlos (Cambio Fruta)
+De: Cristian Garcia, Recibe: Jhancarlos, Prod: Varios (+3)
+Producto: PLATANO MADURO | Motivo: MAL ESTADO - Platano maduro quemado del 4 
+Producto: PLATANO MADURO | Motivo: DE REGALO - 3 platano maduro natural regalo a pedro
+Mueve: Jhancarlos (Cambio Fruta)
+Mueve: Jhancarlos (Misma Fruta)
+Mueve: Jhancarlos (Cambio Fruta)
+Mueve: Jhancarlo (Cambio Fruta)
+De: RADALME LECHOSA, Recibe: Jhancarlos, Prod: Lechosa
+A cliente: Supermercado Bravo | Lechosa (341)
+De Productor: Jose Agusto madera  (Vacías)
+De Productor: FRANCIS POLANCO (Vacías)
+Mueve: jhan carlos sanchez (Solo Vacías) | Vacías: 8
+Mueve: andres (Solo Vacías) | Vacías: 8
+Mueve: andres  (Solo Vacías) | Vacías: 8
+Producto: GUINEO MADURO | Motivo: BAJO PESO - cuando se pesaron la canastas salieron 8 bajo peso confirmado por jhancarlos
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Daniel peña, Retira: Eddy
+A productor: FRANCIS POLANCO, Retira: Chino 
+A productor: Lisset espinal espinal , Retira: Anderson 
+A productor: JOSE RAFAEL SANTAN, Retira: Jose cerda 
+De Productor: Jamelle checo  (Vacías)
+De Productor: MATICAS (Vacías)
+A productor: YAN CRUZ , Retira: Angel 
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - Quemada del sol guineo hecho en banapi canasta se dejaron abajo en el area de rechaso
+A productor: MATICAS, Retira: Conny
+De proveedor: JHAN CARLOS, Recibe: JAN CARLOS ENCONTRO ESAS CANASTAS 
+A productor: Jamelle checo , Retira: nose se
+A productor: Edward Herrera , Retira: Juan de dios 
+De: Edward Herrera , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Lisset espinal espinal , Recibe: Jhancarlos, Prod: PLATANO VERDE
+Mueve: Jhancarlos (Cambio Fruta)
+Producto: PLATANO VERDE | Motivo: DE REGALO - 6 canasta en racimos para pedro entregado por carlos juan 
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | PLATANO VERDE (688), PLATANO MADURO (1055), GUINEO VERDE (1404)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (21), PLATANO MALLA (115)
+De: Daniel peña, Recibe: Jhancarlos, Prod: Varios (+2)
+De: Lisset espinal espinal , Recibe: Jhancarlos, Prod: PLATANO VERDE
+Mueve: Jhancarlos (Cambio Fruta)
+Mueve: Jhancarlos (Misma Fruta)
+Mueve: Jhancarlos (Cambio Fruta)
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 3 canasta de guineo verde que se maduraron
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 2 malla madura
+Producto: PLATANO VERDE | Motivo: MAL ESTADO -  1 canasts de cambio 1 madura pequeña incompleta
+Mueve: Jhancarlos (Cambio Fruta)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+A productor: FRANCIS POLANCO, Retira: Alberto
+De proveedor: jhan carlos , Recibe: JHAN CARLOS SANCHEZ
+A productor: YAN CRUZ , Retira: Angel
+De Cliente: Supermercado Bravo (Vacías)
+A productor: RADALME LECHOSA, Retira: Chofer nuevo 
+A productor: FRANCIS POLANCO, Retira: Angel 
+A productor: JUAN MARIA DOMINGUEZ, Retira: Anderson 
+A productor: ALBERTO MIGUEL GARCIA AGRAMONTE , Retira: Alberto 
+A productor: FRANCIS POLANCO, Retira: Alberto 
+A productor: DEIVY REINOZÓ, Retira: Juan de Dios 
+A productor: Gabriel Rodriguez , Retira: Juan de Dios 
+A productor: JOSE RAFAEL SANTAN, Retira: Jose cerda 
+A productor: JUAN MARIA DOMINGUEZ, Retira: Juan María 
+A productor: Nelson madera, Retira: Eddy
+De: Nelson madera, Recibe: Javier , Prod: Varios (+3)
+De: JUAN MARIA DOMINGUEZ, Recibe: Javier , Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Javier , Prod: GUINEO VERDE
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | PLATANO VERDE (835), PLATANO MADURO (1500), PLATANO MALLA (49), GUINEO VERDE (1470)
+De: RADALME LECHOSA, Recibe: Jhancarlos, Prod: Lechosa
+A cliente: Supermercado Bravo | Lechosa (315)
+De Productor: RADALME LECHOSA (Vacías)
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: Varios (+2)
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - 1 canasta madura
+Producto: PLATANO MADURO | Motivo: DE REGALO - 1 canasta de regalo a madre de noelia 1 de cambio
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (83)
+Mueve: Jhancarlos (Cambio Fruta)
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: DEIVY REINOZÓ, Recibe: Jhancarlos, Prod: Varios (+3)
+Producto: GUINEO MADURO | Motivo: BAJO PESO - Bajo peso
+De Productor: YAN CRUZ  (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+De proveedor: SUPERMERCADO BRAVO, Recibe: JAVIER
+A productor: Aristide , Retira: Juan de Dios 
+A productor: FINCA LA LOMA , Retira: Anderson 
+A productor: Gabriel Rodriguez , Retira: Anderson 
+A productor: Sergio ulloa, Retira: Olvis jimenezn
+A productor: YAN CRUZ , Retira: José cerda 
+A productor: ALBERTO MIGUEL GARCIA AGRAMONTE , Retira: Angel morales 
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Javier, Prod: GUINEO VERDE
+De: Aristide , Recibe: Javier , Prod: Varios (+2)
+De proveedor: Bravo, Recibe: Javier
+De: JUAN MARIA DOMINGUEZ, Recibe: Javier , Prod: Varios (+2)
+A productor: FRANCIS POLANCO, Retira: Wilky 
+A productor: RAMON EDILIO ATIZO, Retira: Alberto 
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: Varios (+2)
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: Varios (+4)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+2)
+De: JUAN MARIA DOMINGUEZ, Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: JUAN MARIA DOMINGUEZ (Vacías)
+Mueve: Jhancarlos (Cambio Fruta)
+A productor: YAN CRUZ , Retira: Jose cerda
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: Sergio ulloa (Vacías)
+De Productor: FRANCIS POLANCO (Vacías)
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: GUINEO VERDE
+Mueve: Jhancarlos (Misma Fruta)
+De: FINCA LA LOMA , Recibe: Javier , Prod: SANDIA
+De: RAMON EDILIO ATIZO, Recibe: Javier  (EDITADO), Prod: GUINEO VERDE
+De: RAMON EDILIO ATIZO, Recibe: Javier , Prod: GUINEO VERDE
+De Productor: RAMON EDILIO ATIZO (Vacías)
+A cliente: Supermercado Bravo | GUINEO MADURO (1725), GUINEO VERDE (1889), PLATANO VERDE (907), PLATANO MADURO (1150), PLATANO MALLA (81), SANDIA (250)
+Mueve: Javier  (Cambio Fruta)
+Producto: SANDIA | Motivo: BAJO PESO - Bajo peso y mal estado 
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - Madura natural 
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - Mal estado y de cambio 
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - Mal estado 
+Mueve: Javier (Misma Fruta)
+Mueve: Javier (Cambio Fruta)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: FRANCIS POLANCO, Retira: Angel 
+A productor: ANGEL FELIX, Retira: Anderson 
+A productor: Alvaro peña , Retira: Anderson 
+A productor: JOSE RAFAEL SANTAN, Retira: José cerda 
+A productor: Raffy polanco , Retira: Wilky
+A productor: Daniel peña, Retira: Juan de Dios 
+A productor: Aristide , Retira: Olvis 
+A productor: Sergio ulloa, Retira: Olvis 
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Javier , Prod: GUINEO VERDE
+A productor: Raffy polanco , Retira: Wiki
+De: Alvaro peña , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Aristide , Recibe: Jhancarlos, Prod: PLATANO VERDE
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (7)
+De: ANGEL FELIX, Recibe: Jhancarlos, Prod: Varios (+3)
+A productor: Aristide , Retira: Olvis
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+2)
+Mueve: Jhancarlos (Misma Fruta)
+A cliente: Supermercado Bravo | PLATANO VERDE (965), PLATANO MADURO (355)
+A cliente: Supermercado Bravo | GUINEO VERDE (1275)
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: Varios (+2)
+Mueve: Jhancarlos (Cambio Fruta)
+A cliente: Supermercado Bravo | GUINEO MADURO (2)
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - De cambio
+Producto: SANDIA | Motivo: BAJO PESO - 2 canasta bajo peso
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 1 guineo maduro
+De: Jamelle checo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+De Productor: ALBERTO MIGUEL GARCIA AGRAMONTE  (Vacías)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: Varios (+2)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De Productor: Sergio ulloa (Vacías)
+De Productor: Jamelle checo  (Vacías)
+A productor: ANGEL FELIX, Retira: Anderson
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Edward Herrera , Retira: Anderson 
+A productor: Cristian Garcia, Retira: Anderson 
+A productor: Gabriel Rodriguez , Retira: Juan de Dios 
+A productor: YAN CRUZ , Retira: Alberto 
+A productor: JOSE ALBERTO GIL, Retira: Angel 
+A productor: Jamelle checo , Retira: José cerda 
+A productor: Raffy polanco , Retira: José cerda 
+Mueve: Jhancarlos (Misma Fruta)
+A productor: Raffy polanco , Retira: Wilky 
+De: Raffy polanco , Recibe: Javier , Prod: GUINEO VERDE
+De: Edward Herrera , Recibe: Javier , Prod: Varios (+2)
+De: ANGEL FELIX, Recibe: Jhancarlos, Prod: Varios (+2)
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Edward Herrera , Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | PLATANO VERDE (765), PLATANO MADURO (660)
+Mueve: Jhancarlos (Misma Fruta)
+De: Raffy polanco , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Jamelle checo , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | GUINEO VERDE (679)
+Producto: GUINEO VERDE | Motivo: DE REGALO -  1 guineo verde regalo a doña jisela 
+Producto: PLATANO VERDE | Motivo: DE REGALO - 1 platano regalo a doña jisela 1 platano de cambio
+A cliente: Supermercado Bravo | PLATANO MALLA (114)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (28)
+Mueve: Jhancarlos (Misma Fruta)
+Mueve: Jhancarlos (Misma Fruta)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Edward Herrera , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Cristian Garcia, Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: Cristian Garcia (Vacías)
+De Productor: Raffy polanco  (Vacías)
+De Productor: Edward Herrera  (Vacías)
+De Productor: Edward Herrera  (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Víctor reyes , Retira: Juan de Dios 
+A productor: DEIVY REINOZÓ, Retira: Juan de Dios 
+A productor: RADALME LECHOSA, Retira: Anderson 
+A productor: GEORGE CASTELLANO, Retira: Angel morales 
+A productor: Andrés Rodríguez , Retira: Olvis
+A productor: ANGEL FELIX, Retira: Olvis 
+A productor: YAN CRUZ , Retira: Alberto 
+A productor: PRÉSTAMO , Retira: Emanuel peña para matica 
+A productor: ANGEL FELIX, Retira: Cliente 
+A productor: ALBERTO MIGUEL GARCIA AGRAMONTE , Retira: Wilky 
+A productor: GEORGE CASTELLANO, Retira: Wilky 
+A productor: Andrés Rodríguez , Retira: Olvis
+De: Andrés Rodríguez , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Gabriel Rodriguez , Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | GUINEO VERDE (1070), PLATANO VERDE (575), PLATANO MADURO (525)
+Mueve: Jhancarlos (Misma Fruta)
+De: RADALME LECHOSA, Recibe: Jhancarlos, Prod: Lechosa
+A productor: ANGEL FELIX, Retira: Olvis
+De: ANGEL FELIX, Recibe: Jhancarlos, Prod: Varios (+3)
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | Lechosa (416)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (1)
+Mueve: Jhancarlos (Cambio Fruta)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: DEIVY REINOZÓ, Recibe: Jhancarlos, Prod: Varios (+2)
+Producto: PLATANO VERDE | Motivo: BAJO PESO - Platano pequeño bajo peso pjo responsable carlos juan 
+Producto: PLATANO MADURO | Motivo: DE REGALO - 1 regalo a amiga de pedro
+Producto: GUINEO VERDE | Motivo: DE REGALO - 1 guineo verde regalo amiga de pedro
+Llenadas con: PLATANO MALLA
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: DEIVY REINOZÓ (Vacías)
+De Productor: ALBERTO MIGUEL GARCIA AGRAMONTE  (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: JOSE RAFAEL SANTAN, Retira: chofer de Joselo Santana 
+A productor: DOMINGO RODRÍGUEZ , Retira: Juan de Dios 
+A productor: FINCA LA LOMA , Retira: Olvis 
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: Anderson 
+A productor: FRANCIS POLANCO, Retira: Angel 
+A productor: YAN CRUZ , Retira: Alberto 
+De: Víctor reyes , Recibe: Javier, Prod: Varios (+3)
+De: FINCA LA LOMA , Recibe: Javier, Prod: SANDIA
+De: Jamelle checo , Recibe: Javier, Prod: GUINEO VERDE
+A productor: GEORGE CASTELLANO, Retira: Angel
+A cliente: Supermercado Bravo | PLATANO VERDE (638), PLATANO MADURO (664)
+Mueve: Jhancarlos (Cambio Fruta)
+A cliente: Supermercado Bravo | PLATANO MADURO (1), GUINEO VERDE (1242)
+A cliente: Supermercado Bravo | PLATANO MALLA (96)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (32)
+A cliente: Supermercado Bravo | SANDIA (139)
+Producto: SANDIA | Motivo: BAJO PESO - Sandias bajo peso y pequeña
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - 1 canasta de platano de cambios
+De: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Recibe: Jhancarlos, Prod: Varios (+3)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: DOMINGO RODRÍGUEZ , Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: DOMINGO RODRÍGUEZ  (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: RADALME LECHOSA, Retira: Anderson 
+A productor: Juan Carlos bueno, Retira: Juan de dios
+A productor: Nelson madera, Retira: Olvis 
+A productor: FRANCIS POLANCO, Retira: Jose cerda 
+A productor: JOSE RAFAEL SANTAN, Retira: Alberto 
+De Productor: Víctor reyes  (Vacías)
+De Productor: PRÉSTAMO  (Vacías)
+De: Nelson madera, Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Juan Carlos bueno, Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: Juan Carlos bueno (Vacías)
+A productor: RADALME LECHOSA, Retira: Anderson
+De: RADALME LECHOSA, Recibe: Jhancarlos, Prod: Lechosa
+A cliente: Supermercado Bravo | PLATANO MADURO (1315), Lechosa (407), PLATANO VERDE (1045), PLATANO MALLA (103), GUINEO VERDE (1270)
+De: FRANCIS POLANCO, Recibe: Jhancarlos, Prod: Varios (+3)
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 2 canasta madura
+Producto: PLATANO VERDE | Motivo: MAL ESTADO -  1 canasta platano roto y mal estado
+De: Nelson madera, Recibe: Jhancarlos, Prod: Varios (+3)
+Mueve: Jhancarlos (Cambio Fruta)
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 1 malla madura
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (17)
+De Productor: FRANCIS POLANCO (Vacías)
+Mueve: Jhancarlos (Misma Fruta)
+De: Nelson madera, Recibe: Jhancarlos, Prod: Varios (+3)
+De Productor: Nelson madera (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Sergio ulloa, Retira: Olvis 
+A productor: YAN CRUZ , Retira: José cerda 
+A productor: RAMON EDILIO ATIZO, Retira: Angel morales 
+A productor: Daniel peña, Retira: Anderson 
+A productor: Jose Junior, Retira: Anderson 
+A productor: Manolo , Retira: Anderson 
+De Productor: PRÉSTAMO  (Vacías)
+De: Sergio ulloa, Recibe: Javier , Prod: PLATANO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Daniel peña, Recibe: Jhancarlos, Prod: Varios (+2)
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Manolo , Recibe: Jhancarlos, Prod: Varios (+2)
+Mueve: Jhancarlos (Misma Fruta)
+A productor: Sergio ulloa, Retira: Olvis
+De: Sergio ulloa, Recibe: Jhancaros, Prod: PLATANO VERDE
+De: Jose dominguez, Recibe: Jhancarlos, Prod: Varios (+3)
+De Productor: Jose dominguez (Vacías)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Manolo , Recibe: Jhancarlos, Prod: Varios (+3)
+De: JOSE RAFAEL SANTAN, Recibe: Jhancarlos, Prod: GUINEO MADURO
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: Manolo  (Vacías)
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+De Productor: Manolo  (Vacías)
+De Productor: Sergio ulloa (Vacías)
+Mueve: Jhancarlos (Misma Fruta)
+De: Daniel peña, Recibe: Jhancarlos, Prod: Varios (+3)
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: Varios (+3)
+A cliente: Supermercado Bravo | PLATANO VERDE (950), PLATANO MADURO (1250), PLATANO MALLA (98), GUINEO VERDE (1802)
+Producto: PLATANO VERDE | Motivo: BAJO PESO - 15 canasta bajo peso 1 de cambios
+Llenadas con: PLATANO MALLA
+A productor: Rainier, Retira: Anderosn
+De: Rainier, Recibe: Jhancarlos, Prod: PLATANO VERDE
+Mueve: Jhancarlos (Cambio Fruta)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (49)
+Producto: PLATANO MADURO | Motivo: MAL ESTADO - Platano maduro mal estado
+A productor: Bernardo nuñez, Retira: Bernardo
+De: Bernardo nuñez, Recibe: Jhancarlos, Prod: Varios (+2)
+Mueve: Jhancarlos (Misma Fruta)
+De Productor: Daniel peña (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Daniel peña, Retira: Juan de Dios 
+A productor: Carlos uceta, Retira: Juan de Dios 
+A productor: FRANCIS POLANCO, Retira: Angel morales 
+A productor: Alvaro peña , Retira: Olvis 
+A productor: Aquiles Rowel Morel, Retira: Olvis 
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: Anderson 
+A productor: Jose Tavarez , Retira: 675
+A productor: RAMON EDILIO ATIZO, Retira: José cerda 
+A productor: Espedi, Retira: Chofer nuevo 
+A productor: Espedi, Retira: Julio chofer nuevo 
+De: Espedi, Recibe: Javier , Prod: GUINEO VERDE
+De: Alvaro peña , Recibe: Jhancarlos, Prod: PLATANO VERDE
+A productor: JOSE RAFAEL SANTAN, Retira: Jose cerda
+De: JOSE RAFAEL SANTAN, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Espedi, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Carlos uceta, Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | PLATANO VERDE (1120), PLATANO MADURO (200), PLATANO MALLA (84)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (46)
+De: Aquiles Rowel Morel, Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: Daniel peña, Retira: Juan de dios
+De: Daniel peña, Recibe: Jhancarlos, Prod: Varios (+3)
+De: Espedi, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: FRANCIS POLANCO, Recibe: Javier, Prod: Varios (+2)
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - Malla madura
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - Platano roto y maduro de cambios
+De: Carlos uceta, Recibe: Jhancarlos, Prod: Varios (+3)
+De: FRANCIS POLANCO, Recibe: Jhancarlos, Prod: Varios (+4)
+A cliente: Supermercado Bravo | GUINEO VERDE (170)
+De Productor: FRANCIS POLANCO (Vacías)
+De: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real) (Vacías)
+A cliente: Supermercado Bravo | GUINEO VERDE (1540)
+Mueve: Jhancarlos (Misma Fruta)
+A productor: Jose Tavarez , Retira: Anderson
+De: Jose Tavarez , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+De Productor: Jamelle checo  (Vacías)
+De Productor: Espedi (Vacías)
+A productor: YAN CRUZ , Retira: Angel
+A productor: Carlos tavera, Retira: Carlos
+De: Carlos tavera, Recibe: Javier, Prod: Varios (+2)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Carlos uceta, Retira: Juan de Dios 
+A productor: JOSE ALBERTO GIL, Retira: Alberto 
+A productor: ALBERTO MIGUEL GARCIA AGRAMONTE , Retira: José cerda 
+A productor: GEORGE CASTELLANO, Retira: José cerda 
+A productor: Aristide , Retira: Anderson 
+A productor: Lisset espinal espinal , Retira: Julio 
+A productor: Sergio ulloa, Retira: Olvis 
+De: Sergio ulloa, Recibe: Javier , Prod: Varios (+2)
+De: Sergio ulloa, Recibe: Javier , Prod: Varios (+2)
+De: Carlos uceta, Recibe: Jhancarlos, Prod: Varios (+2)
+De: JOSE ALBERTO GIL, Recibe: Jhancarlos, Prod: Varios (+3)
+De: Aristide , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Lisset espinal espinal , Recibe: Jhancarlis (EDITADO), Prod: PLATANO VERDE
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A productor: Sergio ulloa, Retira: Olvis
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: GUINEO VERDE
+Mueve: Jhancarlos (Cambio Fruta)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: JOSE ALBERTO GIL, Recibe: Jhancarlos, Prod: Varios (+2)
+Producto: GUINEO MADURO | Motivo: BAJO PESO - 46 canasta bajo peso
+A productor: Sergio ulloa, Retira: Olvis
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: PLATANO VERDE
+A cliente: Supermercado Bravo | PLATANO VERDE (1415), PLATANO MALLA (123)
+De Productor: JOSE ALBERTO GIL (Vacías)
+De: Carlos uceta, Recibe: Jhancarlos, Prod: Varios (+3)
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+3)
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | GUINEO VERDE (1350)
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - Malla madura
+Mueve: Jhamcarlos (Cambio Fruta)
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 2 guineo maduro
+Producto: PLATANO MADURO | Motivo: DE REGALO -  1 platano maduro natural a pedro 1 platano verde de cambio
+De Productor: Carlos uceta (Vacías)
+De Productor: Lisset espinal espinal  (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Jamelle checo , Retira: Anderson y chino 
+A productor: RADALME LECHOSA, Retira: Juan de Dios 
+A productor: Aristide , Retira: Olvis 
+A productor: JOSE RAFAEL SANTAN, Retira: José cerda 
+A productor: Cristian Garcia, Retira: Angel morales 
+A productor: Víctor reyes , Retira: Julio 
+A productor: YAN CRUZ , Retira: Alberto 
+A productor: Carlos tavera, Retira: Javier 
+De: Carlos tavera, Recibe: Javier , Prod: PLATANO MALLA
+A productor: Sergio ulloa, Retira: Olvis
+De: Sergio ulloa, Recibe: Javier, Prod: PLATANO VERDE
+De: RADALME LECHOSA, Recibe: Jhancarlos, Prod: Lechosa
+De: Cristian Garcia, Recibe: Jhancarlos, Prod: GUINEO VERDE
+A productor: Cristian Garcia, Retira: Angel
+De: Cristian Garcia, Recibe: Jhancarlos, Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: Aristide , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Víctor reyes , Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | PLATANO VERDE (775), PLATANO MALLA (82), PLATANO MADURO (550)
+A cliente: Supermercado Bravo | PLATANO VERDE (110), GUINEO VERDE (65), GUINEO MADURO (40)
+A cliente: Supermercado Bravo | Lechosa (400)
+A cliente: Supermercado Bravo | GUINEO VERDE (1105)
+De: Aristide , Recibe: Javier, Prod: Varios (+2)
+Producto: PLATANO VERDE | Motivo: BAJO PESO - 10 canasta bajo peso  pasada a malla
+Llenadas con: PLATANO MALLA
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: Víctor reyes  (Vacías)
+De Productor: Cristian Garcia (Vacías)
+Producto: GUINEO VERDE | Motivo: DE REGALO - 1 regalo a doña jisela 
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 3 malla madura
+Producto: PLATANO VERDE | Motivo: DE REGALO - 1 platano verde regalo a doña jisela
+Mueve: Jhancarlos (Solo Vacías) | Vacías: 8
+De Cliente: Supermercado Bravo (Vacías)
+De Cliente: Supermercado Bravo (Llenas de PLATANO MADURO)
+A productor: FRANCIS POLANCO, Retira: Angel 
+A productor: JOSE RAFAEL SANTAN, Retira: Alberto 
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: 400
+A productor: Andrés Rodríguez , Retira: Anderson 
+A productor: Daniel peña, Retira: Olvis 
+A productor: DOMINGO RODRÍGUEZ , Retira: Juan de Dios 
+De Cliente: Supermercado Bravo (Vacías)
+A productor: YAN CRUZ , Retira: José cerda 
+Mueve: Javier  (Cambio Fruta)
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - De cambio 
+A cliente: Supermercado Bravo | PLATANO MADURO (205)
+De: YAN CRUZ , Recibe: Javier , Prod: GUINEO VERDE
+De: YAN CRUZ , Recibe: Javier , Prod: GUINEO VERDE
+De: Jamelle checo , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: Jamelle checo  (Vacías)
+De: FRANCIS POLANCO, Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: FROILAN MADERA, Retira: Julio
+De: FROILAN MADERA, Recibe: Jhancarlos, Prod: Varios (+3)
+De: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Recibe: Jhancarlos, Prod: Varios (+2)
+De: Jamelle checo , Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | PLATANO MADURO (1005), PLATANO VERDE (638), PLATANO MALLA (155), GUINEO VERDE (1201)
+Mueve: Jhancarlos (Cambio Fruta)
+De Productor: RAMON EDILIO ATIZO (Vacías)
+A productor: FRANCIS POLANCO, Retira: Angel
+De: FRANCIS POLANCO, Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (74)
+Mueve: Jhamcarlos (Misma Fruta)
+Mueve: Jhancarlos (Misma Fruta)
+De: Andrés Rodríguez , Recibe: Jhancarlos, Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A productor: Jamelle checo , Retira: Olvis
+De: Jamelle checo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: DOMINGO RODRÍGUEZ , Recibe: Jhancarlos, Prod: Varios (+3)
+De: DOMINGO RODRÍGUEZ , Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: Andrés Rodríguez  (Vacías)
+De Cliente: Supermercado Bravo (Llenas de PLATANO VERDE)
+A cliente: Supermercado Bravo | PLATANO MADURO (10)
+De Cliente: Supermercado Bravo (Llenas de PLATANO VERDE)
+Mueve: ANDRES (Cambio Fruta)
+A cliente: Supermercado Bravo | PLATANO MADURO (770)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Finca cañeo sandía , Retira: Juan de Dios 
+A productor: Yefri santana, Retira: Anderson 
+A productor: JUAN MARIA DOMINGUEZ, Retira: Juan María 
+A productor: FRANCIS POLANCO, Retira: José cerda 
+A productor: JOSE ALBERTO GIL, Retira: José cerda 
+A productor: RADALME LECHOSA, Retira: Julio 
+De: Finca cañeo sandía , Recibe: Javier , Prod: SANDIA
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+De: JUAN MARIA DOMINGUEZ, Recibe: Jhancarlos, Prod: Varios (+2)
+De: JOSE RAFAEL SANTAN, Recibe: Jhancarlos, Prod: Varios (+3)
+A productor: JOSE RAFAEL SANTAN, Retira: Angel
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (1)
+A cliente: Supermercado Bravo | PLATANO VERDE (885), PLATANO MALLA (149)
+A cliente: Supermercado Bravo | SANDIA (397)
+De: RADALME LECHOSA, Recibe: Javier, Prod: Lechosa
+A cliente: Supermercado Bravo | Lechosa (407)
+A productor: Banapi esperanza, Retira: Wiki
+De: Banapi esperanza, Recibe: Jhancarlos, Prod: Varios (+2)
+A cliente: Supermercado Bravo | GUINEO VERDE (1155)
+Mueve: Jhancarlos (Cambio Fruta)
+A cliente: Supermercado Bravo | PLATANO MADURO (1392)
+Mueve: Jhancarlos (Misma Fruta)
+Mueve: Jhancarlos (Cambio Fruta)
+A cliente: Supermercado Bravo | PLATANO MADURO (3)
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - 1 cnasta platano roto y maltratado
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 1 canasta guineo verde que se maduraron
+De: ALBERTO MIGUEL GARCIA AGRAMONTE , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A productor: FRANCIS POLANCO, Retira: Jose cerda
+Mueve: Jhancarlos (Misma Fruta)
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 13 malla madura
+Producto: SANDIA | Motivo: MAL ESTADO - 1 sandias tota
+De: Yefri santana, Recibe: Jhancarlos, Prod: Varios (+3)
+De Productor: RADALME LECHOSA (Vacías)
+De Cliente: Supermercado Bravo (Vacías)
+A productor: Jose Agusto madera , Retira: Julio
+A productor: Edward Herrera , Retira: Anderson 
+A productor: Finca cañeo sandía , Retira: Anderson 
+A productor: RAMON EDILIO ATIZO, Retira: Alberto 
+A productor: YAN CRUZ , Retira: José cerda 
+A productor: Lisset espinal espinal , Retira: Olvis 
+A productor: OCHO 690 PRODUCE , Retira: Juan de Dios 
+A productor: JOSE RAFAEL SANTAN, Retira: Ángel morales 
+De: Finca cañeo sandía , Recibe: Javier , Prod: SANDIA
+Mueve: Javuer (Misma Fruta)
+Mueve: Javier (Cambio Fruta)
+De: Jose Agusto madera , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Edward Herrera , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A productor: Lisset espinal espinal , Retira: Olvis
+De: Lisset espinal espinal , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Jose Agusto madera , Recibe: Jhancarlos, Prod: Varios (+3)
+De: Edward Herrera , Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: RAMON EDILIO ATIZO (Vacías)
+A productor: Aquiles Rowel Morel, Retira: Julio
+A productor: Jamelle checo , Retira: Julio
+De: RAMON EDILIO ATIZO, Recibe: Javier , Prod: GUINEO VERDE
+De: OCHO 690 PRODUCE , Recibe: Jhancarlos , Prod: Varios (+2)
+De: YAN CRUZ , Recibe: Jhancarlos , Prod: GUINEO VERDE
+De: Yefri santana, Recibe: Jhancarlos  (EDITADO), Prod: Varios (+3)
+De: Daniel peña, Recibe: Javier, Prod: PLATANO VERDE
+De: JUAN MARIA DOMINGUEZ, Recibe: Javier , Prod: Varios (+2)
+De: Aquiles Rowel Morel, Recibe: Javier , Prod: PLATANO VERDE
+A cliente: Supermercado Bravo | PLATANO VERDE (861), PLATANO MALLA (73) (ANULADO)
+De: JUAN MARIA DOMINGUEZ, Recibe: Javier, Prod: Varios (+2)
+A productor: Daniel peña, Retira: Julio 
+De: Daniel peña, Recibe: Javier, Prod: Varios (+2)
+A cliente: Supermercado Bravo | GUINEO VERDE (1508), PLATANO VERDE (861), PLATANO MALLA (73), PLATANO MADURO (1150), GUINEO MADURO (1450)
+De Productor: JUAN MARIA DOMINGUEZ (Vacías)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | SANDIA (402)
+Mueve: Javier (Cambio Fruta)
+De Productor: OCHO 690 PRODUCE  (Vacías)
+De Productor: Yefri santana (Vacías)
+De Productor: JOSE RAFAEL SANTAN (Vacías)
+De Productor: FRANCIS POLANCO (Vacías)
+De Productor: YAN CRUZ  (Vacías)
+Producto: GUINEO MADURO | Motivo: MAL ESTADO - De más 
+De Cliente: Supermercado Bravo (Vacías)
+Producto: SANDIA | Motivo: MAL ESTADO - 3 sandias rota en rampa comfirmada por javier
+Producto: PLATANO VERDE | Motivo: MAL ESTADO - 1 de cambios
+A productor: Edward Herrera , Retira: Juan de dios
+A productor: Sergio ulloa, Retira: Juan de Dios 
+De: Edward Herrera , Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: Espedi, Retira: Angel 
+A productor: YAN CRUZ , Retira: Alberto 
+A productor: Finca cañeo sandía , Retira: Julio 
+A productor: Rainier, Retira: Julio 
+A productor: Aristide , Retira: Olvis 
+A productor: FRANCIS POLANCO, Retira: José cerda 
+De: Espedi, Recibe: Javier , Prod: GUINEO VERDE
+A productor: Rainier, Retira: Julio
+De: Rainier, Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: Finca cañeo sandía , Retira: Julio
+De: Finca cañeo sandía , Recibe: Jhancarlos, Prod: SANDIA
+De: RAMON EDILIO ATIZO, Recibe: Jhancarlos, Prod: GUINEO VERDE
+De Productor: Yefri santana (Vacías)
+A cliente: Supermercado Bravo | PLATANO VERDE (825), PLATANO MADURO (200), PLATANO MALLA (87), SANDIA (280)
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+2)
+Mueve: Jhamcarlos (Cambio Fruta)
+Producto: PLATANO VERDE | Motivo: BAJO PESO - 5 cnasta de platano bajo peso fruta quedo del viernes 19
+Llenadas con: PLATANO MALLA
+Mueve: Jhancarlos (Misma Fruta)
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: PLATANO VERDE
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 110 canasta de malla vieja para la fundacion bravo autorizado por pedro pichardo
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: GUINEO VERDE
+A cliente: Supermercado Bravo | GUINEO VERDE (1445)
+De: Espedi, Recibe: Jhancarlos (EDITADO), Prod: GUINEO VERDE
+Producto: SANDIA | Motivo: DE REGALO - 1 canasta de sandias regalos a doña isabel
+Producto: PLATANO VERDE | Motivo: DE REGALO - 1 canasta de platano verde regalo a doña isabel 
+Producto: GUINEO VERDE | Motivo: DE REGALO - 1 guineo verde regalo a isabel 
+Producto: GUINEO VERDE | Motivo: MAL ESTADO - 3 canasta madura 
+De: Aristide , Recibe: Jhancarlos, Prod: Varios (+2)
+De Productor: Edward Herrera  (Vacías)
+A productor: Espedi, Retira: Angel
+A productor: Finca cañeo sandía , Retira: Julio
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: Varios (+2)
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (66)
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: Anderson
+Producto: SANDIA | Motivo: MAL ESTADO - 4 sandias rota en rampa
+De Cliente: Supermercado Bravo (Vacías)
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: Anderson 
+A productor: ANGEL FELIX, Retira: Juan de Dios 
+A productor: Sergio ulloa, Retira: Juan de Dios 
+A productor: Lisset espinal espinal , Retira: Ángel y Olvis 
+A productor: YAN CRUZ , Retira: José cerda 
+De: Finca cañeo sandía , Recibe: Javier , Prod: SANDIA
+De: Alvaro peña , Recibe: Javier , Prod: PLATANO VERDE
+De: YAN CRUZ , Recibe: Jhancarlos, Prod: Varios (+2)
+De: Manolo , Recibe: Jhancarlos, Prod: PLATANO VERDE
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: PLATANO VERDE
+A cliente: Supermercado Bravo | PLATANO VERDE (631), PLATANO MALLA (190), PLATANO MADURO (700), GUINEO VERDE (1086), SANDIA (487)
+Producto: PLATANO MALLA | Motivo: MAL ESTADO - 3 malla madura
+De: Lisset espinal espinal , Recibe: Jhancarlos, Prod: Varios (+2)
+A productor: Sergio ulloa, Retira: Juan de fios
+De: Sergio ulloa, Recibe: Jhancarlos, Prod: PLATANO VERDE
+Producto: PLATANO VERDE | Motivo: DE REGALO - 1 platano verde regalo a doña jisela
+Producto: GUINEO VERDE | Motivo: DE REGALO - 1 guineo verde regalo a doña jisela 
+Llenadas con: GUINEO MADURO
+A cliente: Supermercado Bravo | GUINEO MADURO (44)
+Producto: SANDIA | Motivo: BAJO PESO - 5 canasta bajo peso 
+De: ANGEL FELIX, Recibe: Jhancarlos, Prod: Varios (+3)
+De Productor: ANGEL FELIX (Vacías)
+Mueve: Jhancarlos (Cambio Fruta)
+A productor: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Retira: Anderson
+De: JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real), Recibe: Jhancarlos, Prod: Varios (+3)

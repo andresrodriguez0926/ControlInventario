@@ -93,19 +93,25 @@ class Store {
             if (doc.exists) {
                 this.data = doc.data();
             } else {
-                // Primera vez, inicializar documento en Firebase
-                this.data = structuredClone(defaultData);
-                // Crear usuario admin por defecto si está vacío
-                if (!this.data.usuarios) this.data.usuarios = [];
-                this.data.usuarios.push({
-                    id: this.generateId(),
-                    usuario: 'admin',
-                    clave: 'admin123',
-                    rol: 'admin',
-                    modulosBloqueados: [],
-                    createdAt: new Date().toISOString()
-                });
-                this.dbRef.set(this.data);
+                // EMERGENCIA: Prevenir Auto-Borrado accidental si el documento no existe!
+                console.error("ALERTA CRÍTICA: El documento principal 'mainState' no existe en Firebase.");
+                if (this.actividadCache && this.actividadCache.length > 50) {
+                     window.UI?.showToast("¡ALERTA CRÍTICA! La base de datos principal ha desaparecido, pero hay historial. EL SISTEMA SE DETUVO PARA PROTEGER LOS DATOS.", "error");
+                     return; // NO sobreescribir con datos en blanco
+                } else {
+                     // Solo inicializa si literalmente no hay historial tampoco (app completamente nueva)
+                     this.data = structuredClone(defaultData);
+                     if (!this.data.usuarios) this.data.usuarios = [];
+                     this.data.usuarios.push({
+                         id: this.generateId(),
+                         usuario: 'admin',
+                         clave: 'admin123',
+                         rol: 'admin',
+                         modulosBloqueados: [],
+                         createdAt: new Date().toISOString()
+                     });
+                     this.dbRef.set(this.data);
+                }
             }
 
             // Migración: Asegurar que exista el arreglo de usuarios si los datos vienen de una versión anterior
@@ -499,6 +505,40 @@ class Store {
         };
 
         if (rawPayload) {
+            // Auto-inject explicit human-readable names to prevent ID-only data loss
+            if (rawPayload.almacenOrigenId) {
+                const aO = state.almacenes.find(a => a.id === rawPayload.almacenOrigenId);
+                if (aO) rawPayload.almacenOrigenNombre = aO.nombre;
+            }
+            if (rawPayload.almacenDestinoId) {
+                const aD = state.almacenes.find(a => a.id === rawPayload.almacenDestinoId);
+                if (aD) rawPayload.almacenDestinoNombre = aD.nombre;
+            }
+            if (rawPayload.almacenId) {
+                const aI = state.almacenes.find(a => a.id === rawPayload.almacenId);
+                if (aI) rawPayload.almacenNombre = aI.nombre;
+            }
+            if (rawPayload.productoId) {
+                const p = state.productos.find(prod => prod.id === rawPayload.productoId);
+                if (p) rawPayload.productoNombre = p.nombre;
+            }
+            if (rawPayload.lotes) {
+                rawPayload.lotes.forEach(l => {
+                    const lA = state.almacenes.find(a => a.id === l.almacenId);
+                    if (lA) l.almacenNombre = lA.nombre;
+                    const lP = state.productos.find(p => p.id === l.productoId);
+                    if (lP) l.productoNombre = lP.nombre;
+                });
+            }
+            if (rawPayload.detalles) {
+               rawPayload.detalles.forEach(d => {
+                    const dA = state.almacenes.find(a => a.id === d.almacenOrigenId);
+                    if (dA) d.almacenOrigenNombre = dA.nombre;
+                    const dP = state.productos.find(p => p.id === d.productoId);
+                    if (dP) d.productoNombre = dP.nombre;
+               });
+            }
+
             logItem.rawPayload = rawPayload;
         }
 

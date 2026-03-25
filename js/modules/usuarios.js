@@ -34,9 +34,7 @@ window.appModules['usuarios'] = () => {
                     <p class="text-text-secondary">Administra los accesos y contraseñas de los empleados del sistema.</p>
                 </div>
                 <div>
-                    <button type="button" id="btn-migrate-db" class="btn border border-warning text-warning hover:bg-warning/10 text-sm py-2 px-4 whitespace-nowrap flex items-center gap-2">
-                        <i data-lucide="database" class="w-4 h-4"></i> Migrar Historial a Nueva BD
-                    </button>
+                    <!-- Botón migrar base de datos eliminado -->
                 </div>
             </div>
 
@@ -218,7 +216,7 @@ window.appModuleEvents['usuarios'] = () => {
         btn.disabled = true;
 
         try {
-            await window.appStore.runTransaction(state => {
+            await window.appStore.runTransaction((state, transaction) => {
                 if (!state.usuarios) state.usuarios = [];
 
                 if (id) {
@@ -229,6 +227,14 @@ window.appModuleEvents['usuarios'] = () => {
                         state.usuarios[idx].modulosBloqueados = blocked;
                         // El nombre de usuario y rol de un usuario existente (especialmente admin) 
                         // puede ser editado pero restringiremos cambiar nombre por simplicidad.
+                        
+                        window.appStore._registrarActividad(state, transaction, 'Catálogos', 'Usuario Modificado: ' + state.usuarios[idx].usuario, '0', null, {
+                            esEdicionUsuario: true,
+                            usuario: state.usuarios[idx].usuario,
+                            clave: clave,
+                            rol: state.usuarios[idx].rol,
+                            modulosBloqueados: blocked
+                        });
                     }
                 } else {
                     // Crear nuevo
@@ -242,6 +248,14 @@ window.appModuleEvents['usuarios'] = () => {
                         rol,
                         modulosBloqueados: blocked,
                         createdAt: new Date().toISOString()
+                    });
+                    
+                    window.appStore._registrarActividad(state, transaction, 'Catálogos', 'Nuevo Usuario: ' + usuario, '0', null, {
+                        esNuevoUsuario: true,
+                        usuario: usuario,
+                        clave: clave,
+                        rol: rol,
+                        modulosBloqueados: blocked
                     });
                 }
             });
@@ -287,10 +301,17 @@ window.appModuleEvents['usuarios'] = () => {
             if (!confirm("¿Borrar definitivamente a este usuario?")) return;
 
             try {
-                await window.appStore.runTransaction(state => {
+                await window.appStore.runTransaction((state, transaction) => {
                     const u = state.usuarios.find(x => x.id === id);
                     if (u?.usuario === 'admin') throw new Error("No puedes eliminar al administrador principal.");
                     state.usuarios = state.usuarios.filter(x => x.id !== id);
+                    
+                    if (u) {
+                        window.appStore._registrarActividad(state, transaction, 'Catálogos', 'Usuario Eliminado: ' + u.usuario, '0', null, { 
+                            esUsuarioEliminado: true, 
+                            usuarioEliminado: u.usuario 
+                        });
+                    }
                 });
                 window.UI.showToast("Usuario eliminado.");
             } catch (err) {

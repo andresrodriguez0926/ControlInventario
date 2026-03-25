@@ -1487,10 +1487,12 @@ Charts.renderCanastasPorCobrar = function () {
             const op = a.operacion;
             let delta = 0;
 
-            if (op === 'Desp. Vacías' || op === 'Despacho Canastas Vacías') delta = mCantidad;
-            else if (op === 'Recepción') delta = -mCantidad;
-            else if (op === 'Devolución' && payload.tipoOrigen === 'productor') delta = -mCantidad;
-            else if (op === 'Transf. Fincas') {
+            if (op === 'Desp. Vacías' || op === 'Despacho Canastas Vacías' || op === 'Despacho de Vacías') delta = mCantidad;
+            else if (op === 'Recepción' || op === 'Recepción de Fruta') delta = -mCantidad;
+            else if (op === 'Devolución' || op === 'Devolución de Canastas' || op === 'Recepción Canastas') {
+                if (payload.tipoOrigen === 'productor' || (a.detalle && a.detalle.toLowerCase().includes('productor:'))) delta = -mCantidad;
+            }
+            else if (op === 'Transf. Fincas' || op === 'Transferencia de Fincas') {
                 if (payload.productorOrigenId === prodId) delta = -mCantidad;
                 else delta = mCantidad;
             }
@@ -1614,22 +1616,26 @@ window.exportCanastasCobrarToExcel = function () {
             const row = tbody.rows[i];
             if (row.cells.length < 5) continue;
 
+            const opText = row.cells[1].innerText.trim().toLowerCase();
             const impactoText = row.cells[3].innerText.trim();
             const balanceText = row.cells[4].innerText.trim();
 
-            // Robust parsing for Spanish formatting (Thousands: dot, Decimals: comma)
-            // 1. Remove dots (thousands)
-            // 2. Replace comma with dot (decimal)
-            // 3. Remove non-numeric chars except minus sign and decimal dot
-            const cleanImpacto = impactoText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
-            const cleanBalance = balanceText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+            // El formato de la vista web utiliza es-DO (separador de miles con coma, decimal con punto).
+            // Ej: "1,000 (+ DEUDA)"
+            // 1. Removemos TODAS las comas (separadores de miles).
+            // 2. Removemos cualquier caracter que no sea número, punto (decimal) o signo negativo.
+            const cleanImpacto = impactoText.replace(/,/g, '').replace(/[^\d.-]/g, '');
+            const cleanBalance = balanceText.replace(/,/g, '').replace(/[^\d.-]/g, '');
 
             let impactoNum = parseFloat(cleanImpacto) || 0;
             const balanceNum = parseFloat(cleanBalance) || 0;
 
-            // Apply negative sign for debt increases if requested
-            // if texto contains "(+ Deuda)" -> Negative
-            if (impactoText.includes('(+ Deuda)')) {
+            // Fuerte comprobación para negativos:
+            // Todo lo que sea "Recepción" reduce la deuda del productor (él nos entrega fruta)
+            // También si el texto indica explícitamente "(- Deuda)"
+            const isNegative = impactoText.includes('(-') || impactoText.toLowerCase().includes('(- deuda)') || opText.includes('recepci');
+            
+            if (isNegative) {
                 impactoNum = -Math.abs(impactoNum);
             } else {
                 impactoNum = Math.abs(impactoNum);
@@ -1639,8 +1645,8 @@ window.exportCanastasCobrarToExcel = function () {
                 row.cells[0].innerText.trim(),
                 row.cells[1].innerText.trim(),
                 row.cells[2].innerText.trim(),
-                { v: impactoNum, t: 'n' },
-                { v: balanceNum, t: 'n' }
+                { v: impactoNum, t: 'n', z: '#,##0' },
+                { v: balanceNum, t: 'n', z: '#,##0' }
             ]);
         }
 
@@ -1687,9 +1693,9 @@ window.exportReporteInventarioToExcel = function () {
             const cantText = row.cells[4].innerText.trim();
             const balanceText = row.cells[5].innerText.trim();
 
-            // Robust parsing for Spanish formatting (Thousands: dot, Decimals: comma)
-            const cleanCant = cantText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
-            const cleanBalance = balanceText.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+            // El formato de la vista web utiliza es-DO (separador de miles con coma, decimal con punto).
+            const cleanCant = cantText.replace(/,/g, '').replace(/[^\d.-]/g, '');
+            const cleanBalance = balanceText.replace(/,/g, '').replace(/[^\d.-]/g, '');
 
             let cantNum = parseFloat(cleanCant) || 0;
             const balanceNum = parseFloat(cleanBalance) || 0;

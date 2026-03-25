@@ -1,0 +1,6 @@
+=== INVENTARIO FECHA REPORT SIMULATION ===
+Llenas: 7156
+Vacias: 125
+Deuda Prod Tot: 1864
+Deuda Cli Tot: 4887
+Deuda Cliente Breakdown: { mlvmsh9om8hk7ppmt1b: 4887 }
