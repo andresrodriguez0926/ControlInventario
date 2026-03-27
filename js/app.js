@@ -601,6 +601,15 @@ window.verDocumentoOrigen = function (idActividad) {
             addRow('Almacén', getAlmacenName(payload.almacenId));
             addRow('Motivo', payload.descripcion);
             if (payload.fechaBaja) addRow('Fecha Técnica', payload.fechaBaja);
+        } else if (actividad.operacion === 'Devolución' || actividad.operacion === 'Devolución de Canastas' || actividad.operacion === 'Recepción Canastas') {
+            if (payload.tipoOrigen === 'productor' && payload.productorId) {
+                addRow('Productor Orígen', getProductorName(payload.productorId));
+            } else if (payload.tipoOrigen === 'cliente' && payload.clienteNombre) {
+                addRow('Cliente Orígen', payload.clienteNombre);
+            }
+            addRow('Almacén Destino', getAlmacenName(payload.almacenDestinoId) || payload.almacenDestinoNombre);
+            if (payload.fechaRecepcion) addRow('Fecha Técnica', payload.fechaRecepcion);
+            if (payload.esLlena !== undefined) addRow('Estado Canastas', payload.esLlena ? 'Llenas (Rojas)' : 'Vacías (Verdes)');
         } else {
             // Fallback genérico para otros payloads
             Object.entries(payload).forEach(([key, val]) => {

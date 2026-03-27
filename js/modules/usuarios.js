@@ -225,6 +225,7 @@ window.appModuleEvents['usuarios'] = () => {
                     if (idx > -1) {
                         state.usuarios[idx].clave = clave;
                         state.usuarios[idx].modulosBloqueados = blocked;
+                        state.usuarios[idx].rol = rol; // Asignar el nuevo rol editado
                         // El nombre de usuario y rol de un usuario existente (especialmente admin) 
                         // puede ser editado pero restringiremos cambiar nombre por simplicidad.
                         
@@ -232,7 +233,7 @@ window.appModuleEvents['usuarios'] = () => {
                             esEdicionUsuario: true,
                             usuario: state.usuarios[idx].usuario,
                             clave: clave,
-                            rol: state.usuarios[idx].rol,
+                            rol: rol,
                             modulosBloqueados: blocked
                         });
                     }
