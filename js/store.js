@@ -94,24 +94,12 @@ class Store {
                 this.data = doc.data();
             } else {
                 // EMERGENCIA: Prevenir Auto-Borrado accidental si el documento no existe!
-                console.error("ALERTA CRÍTICA: El documento principal 'mainState' no existe en Firebase.");
-                if (this.actividadCache && this.actividadCache.length > 50) {
-                     window.UI?.showToast("¡ALERTA CRÍTICA! La base de datos principal ha desaparecido, pero hay historial. EL SISTEMA SE DETUVO PARA PROTEGER LOS DATOS.", "error");
-                     return; // NO sobreescribir con datos en blanco
-                } else {
-                     // Solo inicializa si literalmente no hay historial tampoco (app completamente nueva)
-                     this.data = structuredClone(defaultData);
-                     if (!this.data.usuarios) this.data.usuarios = [];
-                     this.data.usuarios.push({
-                         id: this.generateId(),
-                         usuario: 'admin',
-                         clave: 'admin123',
-                         rol: 'admin',
-                         modulosBloqueados: [],
-                         createdAt: new Date().toISOString()
-                     });
-                     this.dbRef.set(this.data);
+                console.error("ALERTA CRÍTICA: El documento principal 'mainState' no existe o está inaccesible en Firebase.");
+                if (window.UI) {
+                     window.UI.showToast("¡ALERTA CRÍTICA! La base de datos principal no existe. EL SISTEMA SE DETUVO PARA PROTEGER LOS DATOS.", "error");
                 }
+                // NO sobreescribir con datos en blanco para evitar condiciones de carrera o reinicios no deseados de la base de datos
+                return;
             }
 
             // Migración: Asegurar que exista el arreglo de usuarios si los datos vienen de una versión anterior
@@ -124,7 +112,7 @@ class Store {
                     modulosBloqueados: [],
                     createdAt: new Date().toISOString()
                 }];
-                if (this.isLoaded) this.dbRef.set(this.data); // Save back to cloud on migration if already listening
+                if (this.isLoaded) this.dbRef.set({ usuarios: this.data.usuarios }, { merge: true }); // Salvar seguramente solo este array
             }
 
             this.isLoaded = true;
@@ -229,7 +217,10 @@ class Store {
         try {
             await db.runTransaction(async (transaction) => {
                 const doc = await transaction.get(this.dbRef);
-                let serverData = doc.exists ? doc.data() : structuredClone(defaultData);
+                if (!doc.exists) {
+                    throw new Error("ERROR CRÍTICO: La base de datos no existe en el origen de Firebase. Deteniendo la transacción por seguridad.");
+                }
+                let serverData = doc.data();
 
                 // Verificación de Sincronización de Configuración
                 // Si la operación no es un cambio de configuración, verificamos que la config local sea igual a la del servidor

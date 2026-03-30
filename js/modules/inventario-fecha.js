@@ -161,8 +161,24 @@ window.appModuleEvents['inventario-fecha'] = () => {
         const llenasArr = Object.entries(data.llenasPorAlmacenYProducto || {})
             .filter(([_, prods]) => Object.values(prods).some(q => q > 0));
 
+        const getRank = (name) => {
+            const n = (name || '').toUpperCase();
+            if (n === 'RAMPA') return -2;
+            if (n === 'MADURACION DE PLATANO') return -1;
+            const match = n.match(/\d+/);
+            return match ? parseInt(match[0]) : 999;
+        };
+        const getNombreAlm = (id) => id === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === id)?.nombre || 'Almacén Desc.');
+
+        llenasArr.sort((a, b) => {
+             const rA = getRank(getNombreAlm(a[0]));
+             const rB = getRank(getNombreAlm(b[0]));
+             if (rA === rB) return getNombreAlm(a[0]).localeCompare(getNombreAlm(b[0]));
+             return rA - rB;
+        });
+
         llenasArr.forEach(([almId, prods]) => {
-            const aName = almId === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === almId)?.nombre || 'Almacén Desc.');
+            const aName = getNombreAlm(almId);
             message += ` _${aName}_\n`;
 
             const pArr = Object.entries(prods).filter(([_, q]) => q > 0).sort((a, b) => b[1] - a[1]);
@@ -175,10 +191,16 @@ window.appModuleEvents['inventario-fecha'] = () => {
 
         message += `🟡 *CANASTAS VACÍAS: ${data.totalVacias.toLocaleString()}*\n`;
         const vaciasArr = Object.entries(data.vaciasPorAlmacen || {})
-            .filter(([_, qty]) => qty > 0)
-            .sort((a, b) => b[1] - a[1]);
+            .filter(([_, qty]) => qty > 0);
+        vaciasArr.sort((a, b) => {
+             const rA = getRank(getNombreAlm(a[0]));
+             const rB = getRank(getNombreAlm(b[0]));
+             if (rA === rB) return getNombreAlm(a[0]).localeCompare(getNombreAlm(b[0]));
+             return rA - rB;
+        });
+
         vaciasArr.forEach(([almId, qty]) => {
-            const aName = almId === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === almId)?.nombre || 'Almacén Desc.');
+            const aName = getNombreAlm(almId);
             message += `  • ${aName}: ${qty.toLocaleString()}\n`;
         });
         message += `\n`;
@@ -397,9 +419,25 @@ window.appModuleEvents['inventario-fecha'] = () => {
         const llenasArr = Object.entries(data.llenasPorAlmacenYProducto || {})
             .filter(([_, prods]) => Object.values(prods).some(q => q > 0));
 
+        const getRank = (name) => {
+            const n = (name || '').toUpperCase();
+            if (n === 'RAMPA') return -2;
+            if (n === 'MADURACION DE PLATANO') return -1;
+            const match = n.match(/\d+/);
+            return match ? parseInt(match[0]) : 999;
+        };
+        const getNombreAlm = (id) => id === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === id)?.nombre || 'Almacén Desc.');
+
+        llenasArr.sort((a, b) => {
+             const rA = getRank(getNombreAlm(a[0]));
+             const rB = getRank(getNombreAlm(b[0]));
+             if (rA === rB) return getNombreAlm(a[0]).localeCompare(getNombreAlm(b[0]));
+             return rA - rB;
+        });
+
         if (llenasArr.length > 0) {
             llenasArr.forEach(([almId, prods]) => {
-                const aName = almId === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === almId)?.nombre || 'Almacén Desc.');
+                const aName = getNombreAlm(almId);
                 htmlLlenas += `
                     <div class="bg-surface-light rounded-lg border border-border/50 overflow-hidden mb-3">
                         <div class="bg-[#10b981]/10 border-b border-[#10b981]/20 px-3 py-2 text-sm font-bold text-[#10b981]">
@@ -424,11 +462,18 @@ window.appModuleEvents['inventario-fecha'] = () => {
         const lstVacias = document.getElementById('if-lista-vacias');
         let htmlVacias = '';
         const vaciasArr = Object.entries(data.vaciasPorAlmacen || {})
-            .filter(([_, qty]) => qty > 0)
-            .sort((a, b) => b[1] - a[1]);
+            .filter(([_, qty]) => qty > 0);
+        
+        vaciasArr.sort((a, b) => {
+             const rA = getRank(getNombreAlm(a[0]));
+             const rB = getRank(getNombreAlm(b[0]));
+             if (rA === rB) return getNombreAlm(a[0]).localeCompare(getNombreAlm(b[0]));
+             return rA - rB;
+        });
+
         if (vaciasArr.length > 0) {
             vaciasArr.forEach(([almId, qty]) => {
-                const aName = almId === 'no-especificado' ? 'S/N' : (almacenes.find(a => a.id === almId)?.nombre || 'Almacén Desc.');
+                const aName = getNombreAlm(almId);
                 htmlVacias += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-2 last:pb-0 pt-2 first:pt-0"><span class="text-sm text-text-secondary">${aName}</span><span class="font-bold text-white">${qty.toLocaleString()}</span></div>`;
             });
         } else {

@@ -2,42 +2,378 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Debug Store</title>
+    <title>Emergencia: Restauración del Sistema</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #121212; color: #eee; padding: 2rem; }
+        .btn { padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .log { margin-top: 1rem; padding: 1rem; background: #1e1e1e; border: 1px solid #333; height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+    </style>
 </head>
 <body>
-    <h1>Abra la consola (F12)</h1>
-    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <h1>Restauración Catastrófica del Sistema</h1>
+    <p>Este script utiliza tu sesión autenticada para descargar todo el historial del servidor y recalcular el inventario absoluto, reparando la base de datos dañada.</p>
+    
+    <button id="btn-start" class="btn" disabled>Cargando conexión...</button>
+    <div id="log" class="log">Esperando inicialización de Firebase...</div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="js/store.js"></script>
+    
     <script>
+        const btn = document.getElementById('btn-start');
+        const logEl = document.getElementById('log');
+        
+        function log(msg) {
+            console.log(msg);
+            logEl.textContent += msg + '\n';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
         setTimeout(() => {
             if(!window.appStore) window.appStore = new Store();
-            setTimeout(() => {
-               const acts = window.appStore.getActividad(10000);
-               const opsMap = {};
-               acts.forEach(a => {
-                   opsMap[a.operacion] = (opsMap[a.operacion]||0) + 1;
-               });
-               console.log('Operaciones registradas en Actividad: ', opsMap);
-
-               // Let's run calculateWeeklyBalances locally
-               // Assuming charts.js logic
-               const rangeA = { start: new Date('2026-03-02T00:00:00.000Z'), end: new Date('2026-03-08T23:59:59.999Z') };
-               
-               let testStats = window.appStore.getStats();
-               let cl = testStats.canastasLlenas;
-               
-               console.log('Balance actual llenas (antes de reversar):', cl);
-
-               const recepciones = acts.filter(a => a.operacion.includes('Recepción'));
-               console.log('Total Recepciones en BD:', recepciones.length);
-               recepciones.slice(0, 50).forEach(r => {
-                   console.log(`Rec: ${r.date || r.fecha} | Qty: ${r.cantidad}`);
-               });
-               
-            }, 4000);
+            
+            // Wait for auth to be ready
+            firebase.auth().onAuthStateChanged((user) => {
+                if (user) {
+                    log("Autenticado como: " + user.uid);
+                    btn.disabled = false;
+                    btn.textContent = "¡INICIAR RESTAURACIÓN AHORA!";
+                } else {
+                    log("Aún no tienes sesión activa. Abre el sistema en otra pestaña para iniciar sesión y luego recarga esta página.");
+                }
+            });
         }, 1000);
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                log('--- INICIANDO PROCESO DE RECUPERACIÓN ---');
+                log('1. Descargando TODOS los registros de actividad (esto tomará unos segundos)...');
+                await window.appStore.loadFullActivity();
+                const logs = window.appStore.getActividad(20000).sort((a,b) => new Date(a.date) - new Date(b.date));
+                log(`Descargados ${logs.length} registros oficiales desde la Nube.`);
+
+                log('2. Cargando catálogos base incrustados para evitar bloqueos CORS...');
+                const state = JSON.parse(`{
+  "productores": [
+    { "id": "mmb4k0kur1trin04ni", "nombre": "PRODUCTOR SALDO INICIAL", "createdAt": "2026-03-25T04:20:39.992Z", "canastasPrestadas": 0 },
+    { "id": "mmb7v1eyp0zcf2rnq7h", "nombre": "Juan platano", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm2302qkaxg40kv9f", "nombre": "Espedi", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 4 },
+    { "id": "mlwqhhtr3zoyej6mmrx", "nombre": "YAN CRUZ", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 771 },
+    { "id": "mlwqi539g52q8dod82w", "nombre": "FRANCIS POLANCO", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlxa04ywbsjynzdewft", "nombre": "Gabriel Rodriguez", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm23413ofqz68h7gku", "nombre": "Jamelle checo", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 196 },
+    { "id": "mm94qltpb0b5hecoakp", "nombre": "Jose Agusto madera", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlvnwm4tp4grovuzsqb", "nombre": "FROILAN MADERA", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm999zrr49dzpxlqyro", "nombre": "Jose Tavarez", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm40qblmutn5qv45eh", "nombre": "Banapi esperanza", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmb8qk1v2gcn5ttk3o9", "nombre": "Carlos tavera", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmaxh5khokfp53f0wsr", "nombre": "Víctor reyes", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlx9ye0z26jevwdxds", "nombre": "Cristian Garcia", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm0vq6fklp705x745t", "nombre": "Víctor reyes", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlwti886inlogfl9qj", "nombre": "RADALME LECHOSA", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlwqim8ejrllybsidy", "nombre": "JOSE RAFAEL SANTAN", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm0vw7y7dkk9lfx8b3n", "nombre": "Edward Herrera", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmdkqbsppqa7xe45dhd", "nombre": "Lisset espinal espinal", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 551 },
+    { "id": "mm0wl8tgrt2j7pdcfd", "nombre": "Daniel peña", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mme5ocusvz2mjgyih", "nombre": "Nelson madera", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlwqju20z3roi0v9nbs", "nombre": "JUAN MARIA DOMINGUEZ", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlzi7obuo66nvqe6b7m", "nombre": "ALBERTO MIGUEL GARCIA AGRAMONTE", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmeu6os0jkg2z5yq6po", "nombre": "DEIVY REINOZÓ", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmaxdz261onjrkfhe1", "nombre": "Aristide", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm5h6jwd8wyozk6u59v", "nombre": "Sergio ulloa", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlvmtefq02h7lwzswqy3", "nombre": "RAMON EDILIO ATIZO", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 159 },
+    { "id": "mmggp75ba4re0a5y03c", "nombre": "FINCA LA LOMA", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmj6puu43q982pthg62", "nombre": "Alvaro peña", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlwtavm5749rw2b22i8", "nombre": "ANGEL FELIX", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmj6ve64o5lq42skxa", "nombre": "Raffy polanco", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlvmtqxyi83saqcoc0g", "nombre": "JOSE ALBERTO GIL", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlvmu5w3vhrymfsvuua", "nombre": "GEORGE CASTELLANO", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 187 },
+    { "id": "mm231n25sj62yzx6rze", "nombre": "Andrés Rodríguez", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm29m2c9s5qiinedan", "nombre": "JOSE DALBERIS DE LA CRUZ HENRIQUEZ  (Porto Real)", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmnhbk1446vvv38viqk", "nombre": "DOMINGO RODRÍGUEZ", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm22vujorty8purmvfo", "nombre": "Juan Carlos bueno", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmqrin65uy62v03du7p", "nombre": "Jose dominguez", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm5h9dg3d4pd0vwepwl", "nombre": "Manolo", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mms5zx2975ljgidnv2n", "nombre": "Rainier", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmsd8srte2o28lv3z0f", "nombre": "Bernardo nuñez", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm815k3c8viokwhfywa", "nombre": "Carlos uceta", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mlx9pthk2wxbtnot491", "nombre": "Aquiles Rowel Morel", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mmz0pizspjrxleh619", "nombre": "Finca cañeo sandía", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mm8hh82ueipljn2yyt", "nombre": "Yefri santana", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 },
+    { "id": "mn0cvl501mtdoe10sz8", "nombre": "OCHO 690 PRODUCE", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 0 }
+  ],
+  "productos": [
+    { "id": "mlvn6m3v4jljiukjpdd", "nombre": "GUINEO MADURO", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvn6tktccmog6t93ej", "nombre": "GUINEO VERDE", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvn6z5eevtvdlurhr", "nombre": "PLATANO MADURO", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvnk987ktfaxs7g8do", "nombre": "PLATANO VERDE", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvnkja4b03xiwc0hh", "nombre": "PLATANO MALLA", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlxodeyd6a0uf6fy9ii", "nombre": "Lechosa", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvnkxjkrju7jlpeze", "nombre": "SANDIA", "createdAt": "2026-03-25T04:20:39.993Z" }
+  ],
+  "almacenes": [
+    { "id": "mlvmybjcopppr4b1idl", "nombre": "Almacen mlvmybjcopppr4b1idl", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwneodsksjj2pkcmb", "nombre": "Almacen mlwneodsksjj2pkcmb", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvrtm1im7if67sho1b", "nombre": "Almacen mlvrtm1im7if67sho1b", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwngydii9tu3h2cb48", "nombre": "Almacen mlwngydii9tu3h2cb48", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvru4xnr4yhyrzkfi", "nombre": "Almacen mlvru4xnr4yhyrzkfi", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlvnqiv8iyrmwg0iur", "nombre": "Almacen mlvnqiv8iyrmwg0iur", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnhmmorsp4lczz1qj", "nombre": "Almacen mlwnhmmorsp4lczz1qj", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwngnyo0h33l4p50bx6", "nombre": "Almacen mlwngnyo0h33l4p50bx6", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnfgt0kjfczvuxlr", "nombre": "Almacen mlwnfgt0kjfczvuxlr", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnf53vr7jrh5hr01", "nombre": "Almacen mlwnf53vr7jrh5hr01", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwng60bcv5gfxc77wc", "nombre": "Almacen mlwng60bcv5gfxc77wc", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnh7m8bv6d3gediym", "nombre": "Almacen mlwnh7m8bv6d3gediym", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnheqbtza2jmia8n9", "nombre": "Almacen mlwnheqbtza2jmia8n9", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnex85lqemzakzhb", "nombre": "Almacen mlwnex85lqemzakzhb", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlxa739sbwv2fhtrem", "nombre": "Almacen mlxa739sbwv2fhtrem", "createdAt": "2026-03-25T04:20:39.993Z" },
+    { "id": "mlwnfrh5s3dn3epyj2", "nombre": "Almacen mlwnfrh5s3dn3epyj2", "createdAt": "2026-03-25T04:20:39.993Z" }
+  ],
+  "clientes": [
+    { "id": "mlvmsh9om8hk7ppmt1b", "nombre": "Supermercado Bravo", "createdAt": "2026-03-25T04:20:39.993Z", "canastasPrestadas": 11054 }
+  ]
+}`);
+
+                // Limpieza inicial
+                state.inventario = { canastasLlenas: 0, canastasVacias: 0, despachadasProductor: 0, despachadasCliente: 0, porAlmacen: {} };
+                if (!state.almacenes) state.almacenes = [];
+                if (!state.productores) state.productores = [];
+                if (!state.clientes) state.clientes = [];
+                if (!state.usuarios) {
+                    state.usuarios = [{
+                        id: window.appStore.generateId(),
+                        usuario: 'admin',
+                        clave: 'admin123',
+                        rol: 'admin',
+                        modulosBloqueados: [],
+                        createdAt: new Date().toISOString()
+                    }];
+                }
+                
+                state.almacenes.forEach(a => state.inventario.porAlmacen[a.id] = { vacias: 0 });
+                state.productores.forEach(p => p.canastasPrestadas = 0);
+                state.clientes.forEach(c => c.canastasPrestadas = 0);
+
+                // Helpers de reconstrucción
+                function getInv(almId) {
+                    if (!almId) almId = 'no-especificado';
+                    if (!state.inventario.porAlmacen[almId]) {
+                        state.almacenes.push({ id: almId, nombre: 'Almacen ' + almId });
+                        state.inventario.porAlmacen[almId] = { vacias: 0 };
+                    }
+                    return state.inventario.porAlmacen[almId];
+                }
+                
+                function getProd(id, nombreAprox) {
+                    if (!id || id === 'no-especificado') return null;
+                    let p = state.productores.find(p => p.id === id);
+                    if (!p) {
+                        p = { id, nombre: nombreAprox || 'Productor Recuperado', canastasPrestadas: 0, numeroId: state.productores.length + 1 };
+                        state.productores.push(p);
+                    }
+                    return p;
+                }
+                
+                function getCli(id, nombre) {
+                    if ((!id || id === 'no-especificado') && !nombre) return null;
+                    let c = state.clientes.find(c => (id && c.id === id) || (nombre && c.nombre === nombre));
+                    if (!c && nombre) {
+                        c = { id: id || (Date.now() + Math.random().toString()), nombre, canastasPrestadas: 0, numeroId: state.clientes.length + 1 };
+                        state.clientes.push(c);
+                    }
+                    return c;
+                }
+
+                // Restablecer nombres reales de almacenes de acuerdo al reporte del 30 de marzo
+                const expMap = {
+                    'mlvmybjcopppr4b1idl': 'RAMPA',
+                    'mlwneodsksjj2pkcmb': 'FRIZZER 5',
+                    'mlvrtm1im7if67sho1b': 'FRIZZER 4',
+                    'mlwngydii9tu3h2cb48': 'FRIZZER 13',
+                    'mlvru4xnr4yhyrzkfi': 'FRIZZER 2', 
+                    'mlvnqiv8iyrmwg0iur': 'MADURACION DE PLATANO',
+                    'mlwnhmmorsp4lczz1qj': 'FRIZZER 6', 
+                    'mlwngnyo0h33l4p50bx6': 'FRIZZER 12',
+                    'mlwnfgt0kjfczvuxlr': 'FRIZZER 9',
+                    'mlwnf53vr7jrh5hr01': 'FRIZZER 10', 
+                    'mlwng60bcv5gfxc77wc': 'FRIZZER 11',
+                    'mlwnh7m8bv6d3gediym': 'FRIZZER 14',
+                    'mlwnheqbtza2jmia8n9': 'FRIZZER 15',
+                    'mlwnex85lqemzakzhb': 'FRIZZER 7', 
+                    'mlxa739sbwv2fhtrem': 'FRIZZER 16', 
+                    'mlwnfrh5s3dn3epyj2': 'FRIZZER 8' 
+                };
+                state.almacenes.forEach(a => {
+                    if (expMap[a.id]) a.nombre = expMap[a.id];
+                });
+
+                // Ordenar almacenes como el usuario quiere
+                state.almacenes.sort((a, b) => {
+                    const getRank = (name) => {
+                        const n = name.toUpperCase();
+                        if (n === 'RAMPA') return -2;
+                        if (n === 'MADURACION DE PLATANO') return -1;
+                        const match = n.match(/\d+/);
+                        return match ? parseInt(match[0]) : 999;
+                    };
+                    const rankA = getRank(a.nombre);
+                    const rankB = getRank(b.nombre);
+                    if (rankA === rankB) return a.nombre.localeCompare(b.nombre);
+                    return rankA - rankB;
+                });
+
+                // Auto-recuperar usuarios a partir del historial
+                const usuariosEncontrados = new Set();
+                logs.forEach(a => {
+                    if (a.usuario) usuariosEncontrados.add(a.usuario.trim());
+                });
+                
+                const existentesL = new Set(state.usuarios.map(u => u.usuario.trim().toLowerCase()));
+                usuariosEncontrados.forEach(userName => {
+                    if (!existentesL.has(userName.toLowerCase())) {
+                        state.usuarios.push({
+                            id: window.appStore.generateId(),
+                            usuario: userName,
+                            clave: '123456',
+                            rol: 'empleado',
+                            modulosBloqueados: ["decomiso", "clientes", "productores", "almacenes", "productos", "canastas-demas", "dashboard-semanal"],
+                            createdAt: new Date().toISOString()
+                        });
+                        existentesL.add(userName.toLowerCase());
+                    }
+                });
+
+                log('3. Reprocesando matemáticamente todas las transacciones...');
+                
+                logs.forEach(a => {
+                    if (a.anulado) return; 
+                    let payload = a.rawPayload || {};
+                    
+                    const qtyStr = (a.cantidad || '0').toString();
+                    const match = qtyStr.match(/-?\d+/);
+                    const a_cantidad = match ? Math.abs(parseInt(match[0], 10)) : 0;
+                    const op = a.operacion;
+                    
+                    if (op === 'Recepción' || op === 'Recepción de Fruta') {
+                        state.inventario.canastasLlenas += a_cantidad;
+                        if (payload.lotes) {
+                            payload.lotes.forEach(l => {
+                                const i = getInv(l.almacenId || l.almacenDestinoId || payload.almacenId);
+                                i[l.productoId] = (i[l.productoId] || 0) + (parseInt(l.cantidad) || 0);
+                            });
+                        }
+                        state.inventario.despachadasProductor -= a_cantidad;
+                        const p = getProd(payload.productorId);
+                        if (p) p.canastasPrestadas = (p.canastasPrestadas || 0) - a_cantidad;
+                    }
+                    else if (op === 'Desp. Vacías' || op === 'Despacho de Vacías') {
+                        getInv(payload.almacenOrigenId).vacias -= a_cantidad;
+                        state.inventario.canastasVacias -= a_cantidad;
+                        state.inventario.despachadasProductor += a_cantidad;
+                        const p = getProd(payload.productorId);
+                        if (p) p.canastasPrestadas = (p.canastasPrestadas || 0) + a_cantidad;
+                    }
+                    else if (op === 'Transf. Fincas' || op === 'Transferencia entre Fincas') {
+                        const o = getProd(payload.productorOrigenId);
+                        const d = getProd(payload.productorDestinoId);
+                        if (o) o.canastasPrestadas -= a_cantidad;
+                        if (d) d.canastasPrestadas = (d.canastasPrestadas || 0) + a_cantidad;
+                    }
+                    else if (op === 'Desp. Cliente' || op === 'Despacho a Cliente') {
+                        state.inventario.canastasLlenas -= a_cantidad;
+                        state.inventario.despachadasCliente += a_cantidad;
+                        if (payload.detalles) {
+                            payload.detalles.forEach(d => {
+                                getInv(d.almacenOrigenId || d.almacenId)[d.productoId] -= (parseInt(d.cantidad)||0);
+                            });
+                        }
+                        const c = getCli(payload.clienteId, payload.clienteNombre);
+                        if (c) c.canastasPrestadas = (c.canastasPrestadas || 0) + a_cantidad;
+                    }
+                    else if (op === 'Devolución' || op === 'Devolución de Canastas') {
+                        const isLlena = a.detalle && a.detalle.toLowerCase().includes('llena');
+                        const isProd = (payload.tipoOrigen === 'productor');
+                        if (isLlena) {
+                            getInv(payload.almacenDestinoId)[payload.productoId] = (getInv(payload.almacenDestinoId)[payload.productoId] || 0) + a_cantidad;
+                            state.inventario.canastasLlenas += a_cantidad;
+                        } else {
+                            getInv(payload.almacenDestinoId).vacias += a_cantidad;
+                            state.inventario.canastasVacias += a_cantidad;
+                        }
+                        if (isProd) {
+                            const p = getProd(payload.productorId);
+                            if (p) p.canastasPrestadas = (p.canastasPrestadas || 0) - a_cantidad;
+                            state.inventario.despachadasProductor -= a_cantidad;
+                        } else {
+                            const c = getCli(payload.clienteId, payload.clienteNombre);
+                            if (c) c.canastasPrestadas = (c.canastasPrestadas || 0) - a_cantidad;
+                            state.inventario.despachadasCliente -= a_cantidad;
+                        }
+                    }
+                    else if (op === 'Compra' || op === 'Compra Canastas' || op === 'Compra de Canastas') {
+                        getInv(payload.almacenDestinoId).vacias += a_cantidad;
+                        state.inventario.canastasVacias += a_cantidad;
+                    }
+                    else if (op === 'Transf. Interna' || op === 'Transferencia entre Almacenes') {
+                        const cantL = parseInt(payload.cantidad) || 0;
+                        const cantV = parseInt(payload.canastasVacias) || 0;
+                        if (cantL > 0) {
+                            getInv(payload.almacenOrigenId)[payload.productoIdActual] -= cantL;
+                            getInv(payload.almacenDestinoId)[payload.productoIdNuevo || payload.productoIdActual] = (getInv(payload.almacenDestinoId)[payload.productoIdNuevo || payload.productoIdActual] || 0) + cantL;
+                        }
+                        if (cantV > 0 && payload.almacenDestinoVaciasId) {
+                            getInv(payload.almacenOrigenId).vacias -= cantV;
+                            getInv(payload.almacenDestinoVaciasId).vacias += cantV;
+                        }
+                    }
+                    else if (op === 'Decomiso' || op === 'Decomiso de Fruta') {
+                        getInv(payload.almacenOrigenId)[payload.productoId] -= a_cantidad;
+                        state.inventario.canastasLlenas -= a_cantidad;
+                        getInv(payload.almacenVaciasId || payload.almacenOrigenId).vacias += a_cantidad;
+                        state.inventario.canastasVacias += a_cantidad;
+                    }
+                    else if (op === 'Fruta Demás' || op === 'Canastas Demás' || op === 'Ingreso Fruta Demás') {
+                        getInv(payload.almacenOrigenId).vacias -= a_cantidad;
+                        state.inventario.canastasVacias -= a_cantidad;
+                        getInv(payload.almacenDestinoId)[payload.productoId] = (getInv(payload.almacenDestinoId)[payload.productoId] || 0) + a_cantidad;
+                        state.inventario.canastasLlenas += a_cantidad;
+                    }
+                    else if (op === 'Salida Canastas' || op === 'Baja de Canastas') {
+                        getInv(payload.almacenId).vacias -= a_cantidad;
+                        state.inventario.canastasVacias -= a_cantidad;
+                    }
+                    else if (op === 'Reparación Sistema') {
+                        const isNeg = qtyStr.includes('-');
+                        const diff = isNeg ? -Math.abs(a_cantidad) : Math.abs(a_cantidad);
+                        state.inventario.canastasLlenas += diff;
+                        if (payload.balanceNuevo && payload.productoId) {
+                            Object.entries(payload.balanceNuevo).forEach(([almId, cantNueva]) => {
+                                getInv(almId)[payload.productoId] = cantNueva;
+                            });
+                        }
+                    }
+                });
+
+                // Sanity passes
+                state.inventario.despachadasProductor = state.productores.reduce((acc,p)=>acc+(p.canastasPrestadas||0),0);
+                state.inventario.despachadasCliente = state.clientes.reduce((acc,c)=>acc+(c.canastasPrestadas||0),0);
+                state.configVersion = Date.now();
+
+                log(`Resultados Matemáticos:\n  - Canastas Llenas: ${state.inventario.canastasLlenas}\n  - Canastas Vacías: ${state.inventario.canastasVacias}\n  - Clientes: ${state.clientes.length}\n  - Productores: ${state.productores.length}\n  - Almacenes: ${state.almacenes.length}\n  - Usuarios: ${state.usuarios.length}`);
+                
+                log('4. Subiendo actualización definitiva a Firebase (mainState)...');
+                await window.appStore.dbRef.set(state);
+
+                log('¡RESTAURACIÓN COMPLETADA CON ÉXITO! Puedes volver al sistema y recargar.');
+            } catch (e) {
+                log('ERROR DURANTE RESTAURACIÓN: ' + e.message);
+                console.error(e);
+            }
+        });
     </script>
 </body>
 </html>

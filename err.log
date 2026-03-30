@@ -1,0 +1,6 @@
+[1/4] Descargando la actividad oficial LÍNEA...
+Error: Failed to fetch activity: 403
+    at IncomingMessage.<anonymous> (C:\Users\andre\Downloads\inventario de pedropi\ControlInventario\restore_live.js:44:63)
+    at IncomingMessage.emit (node:events:520:35)
+    at endReadableNT (node:internal/streams/readable:1729:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
