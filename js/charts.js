@@ -1181,7 +1181,7 @@ const Charts = {
                 todas.forEach(a => {
                     if (a.anulado || a.eliminado) return;
                     
-                    const dt = new Date(a.date || a.fecha);
+                    const dt = new Date(a.fechaOperacion || a.date || a.fecha);
                     const imp = calcularImpactoActividad(a, almacenId, productoId);
                     
                     // Si es antes del rango, solo acumulamos al balance inicial
@@ -1482,6 +1482,7 @@ Charts.renderCanastasPorCobrar = function () {
             if (!match && nombreProd) match = a.detalle && a.detalle.toLowerCase().includes(nombreProd.toLowerCase());
             
             if (!match) return;
+            if (a.operacion === 'Catálogos' || a.operacion === 'Auditoría' || a.operacion === 'Inicio de Sesión') return;
 
             const mCantidad = parseInt(payload.cantidad || a.cantidad) || 0;
             const op = a.operacion;
@@ -1492,7 +1493,7 @@ Charts.renderCanastasPorCobrar = function () {
             else if (op === 'Devolución' || op === 'Devolución de Canastas' || op === 'Recepción Canastas') {
                 if (payload.tipoOrigen === 'productor' || (a.detalle && a.detalle.toLowerCase().includes('productor:'))) delta = -mCantidad;
             }
-            else if (op === 'Transf. Fincas' || op === 'Transferencia de Fincas') {
+            else if (op === 'Transf. Fincas' || op === 'Transferencia de Fincas' || op === 'Transferencia entre Fincas') {
                 if (payload.productorOrigenId === prodId) delta = -mCantidad;
                 else delta = mCantidad;
             }
@@ -1500,7 +1501,7 @@ Charts.renderCanastasPorCobrar = function () {
             runningDebt += delta;
             balancePorId[a.id] = runningDebt;
 
-            const dt = new Date(a.date || a.fecha);
+            const dt = new Date(a.fechaOperacion || a.date || a.fecha);
             const isInRange = (!start || dt >= start) && (!end || dt <= end);
             if (isInRange) {
                 rangeRows.push({ a, delta, balance: runningDebt, dt });

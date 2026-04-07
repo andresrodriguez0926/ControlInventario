@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Módulos de Operaciones Transaccionales
  */
 
@@ -34,7 +34,7 @@ window.appModules['recepcion'] = () => {
     const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
 
     // Obtener y filtrar historial reciente
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Recepción' || a.operacion === 'Recepción de Fruta').sort((a, b) => new Date((b.rawPayload && b.rawPayload.fechaRecepcion) ? b.rawPayload.fechaRecepcion + 'T12:00:00' : b.date) - new Date((a.rawPayload && a.rawPayload.fechaRecepcion) ? a.rawPayload.fechaRecepcion + 'T12:00:00' : a.date));
 
     return `
         <div class="animate-fade-in max-w-5xl mx-auto">
@@ -54,7 +54,7 @@ window.appModules['recepcion'] = () => {
                         
                         <div class="form-group">
                             <label class="form-label mb-1">Fecha:</label>
-                            <input type="date" id="rec-fecha" class="form-input text-sm py-1" required min="${minDate}" max="${maxDate}" value="${maxDate}">
+                            <input type="date" id="rec-fecha" class="form-input text-sm py-1" required min="${minDate}" max="${maxDate}" value="${maxDate}" onkeydown="return false">
                         </div>
 
                         <div class="form-group">
@@ -166,7 +166,7 @@ window.appModules['recepcion'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaRecepcion) ? new Date(a.rawPayload.fechaRecepcion + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 text-right font-bold text-success">${a.cantidad}</td>
@@ -276,6 +276,24 @@ window.appModuleEvents['recepcion'] = () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // Validación estricta de fecha
+        const dateInput = document.getElementById('rec-fecha');
+        if (dateInput) {
+            const val = dateInput.value;
+            if (!val) {
+                window.UI.showToast('Debe seleccionar una fecha.', 'error');
+                return;
+            }
+            if (dateInput.min && val < dateInput.min) {
+                window.UI.showToast('La fecha seleccionada no puede ser tan antigua. Utilice el calendario.', 'error');
+                return;
+            }
+            if (dateInput.max && val > dateInput.max) {
+                window.UI.showToast('La fecha seleccionada no puede ser superior al límite. Utilice el calendario.', 'error');
+                return;
+            }
+        }
+
         // Recopilar lotes
         const rows = document.querySelectorAll('.rec-lote-row');
         const lotes = [];
@@ -349,7 +367,7 @@ window.appModules['despacho-vacias'] = () => {
     const almacenes = window.appStore.getAlmacenes();
 
     const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Desp. Vacías' || a.operacion === 'Despacho de Vacías').sort((a, b) => new Date((b.rawPayload && b.rawPayload.fechaDespacho) ? b.rawPayload.fechaDespacho + 'T12:00:00' : b.date) - new Date((a.rawPayload && a.rawPayload.fechaDespacho) ? a.rawPayload.fechaDespacho + 'T12:00:00' : a.date));
 
     const today = new Date();
     const offset = today.getTimezoneOffset() * 60000;
@@ -444,7 +462,7 @@ window.appModules['despacho-vacias'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaDespacho) ? new Date(a.rawPayload.fechaDespacho + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 text-right font-bold text-warning">${a.cantidad}</td>
@@ -555,7 +573,7 @@ window.appModuleEvents['despacho-vacias'] = () => {
 window.appModules['transferencia'] = () => {
     const productores = window.appStore.getProductores();
     const opts = generateSelectOptions(productores, 'Seleccione un productor...');
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia Fincas' || a.operacion === 'Transferencia' || a.operacion === 'Transferencia Entre Fincas' || a.operacion === 'Transferencia entre Fincas');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Fincas' || a.operacion === 'Transferencia Fincas' || a.operacion === 'Transferencia' || a.operacion === 'Transferencia Entre Fincas' || a.operacion === 'Transferencia entre Fincas').sort((a, b) => new Date((b.rawPayload && b.rawPayload.fechaTransferencia) ? b.rawPayload.fechaTransferencia + 'T12:00:00' : b.date) - new Date((a.rawPayload && a.rawPayload.fechaTransferencia) ? a.rawPayload.fechaTransferencia + 'T12:00:00' : a.date));
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
             <h2 class="text-2xl font-bold text-white mb-2">Transferencia Entre Fincas</h2>
@@ -644,7 +662,7 @@ window.appModules['transferencia'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaTransferencia) ? new Date(a.rawPayload.fechaTransferencia + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-warning">${a.cantidad}</td>
@@ -756,7 +774,7 @@ window.appModuleEvents['transferencia'] = () => {
 window.appModules['transferencia-interna'] = () => {
     const almacenes = window.appStore.getAlmacenes();
     const productos = window.appStore.getProductos();
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes').sort((a, b) => new Date((b.rawPayload && b.rawPayload.fechaTransferencia) ? b.rawPayload.fechaTransferencia + 'T12:00:00' : b.date) - new Date((a.rawPayload && a.rawPayload.fechaTransferencia) ? a.rawPayload.fechaTransferencia + 'T12:00:00' : a.date));
 
     const optsAlmacen = generateSelectOptions(almacenes, 'Seleccione almacén...');
     const optsProductos = generateSelectOptions(productos, 'Seleccione fruta...');
@@ -909,7 +927,7 @@ window.appModules['transferencia-interna'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaTransferencia) ? new Date(a.rawPayload.fechaTransferencia + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-info">${a.rawPayload?.cantidad !== undefined ? a.rawPayload.cantidad : (a.cantidad || '-')}</td>
@@ -1139,7 +1157,7 @@ window.appModuleEvents['transferencia-interna'] = () => {
 // ==========================================
 window.appModules['compra-canastas'] = () => {
     const almacenes = window.appStore.getAlmacenes();
-    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas');
+    const historial = window.appStore.getActividad(2000).filter(a => a.operacion === 'Compra' || a.operacion === 'Compra Canastas' || a.operacion === 'Compra de Canastas').sort((a, b) => new Date((b.rawPayload && b.rawPayload.fechaCompra) ? b.rawPayload.fechaCompra + 'T12:00:00' : b.date) - new Date((a.rawPayload && a.rawPayload.fechaCompra) ? a.rawPayload.fechaCompra + 'T12:00:00' : a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -1223,7 +1241,7 @@ window.appModules['compra-canastas'] = () => {
             historial.map(a => `
                                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                     <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaCompra) ? new Date(a.rawPayload.fechaCompra + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
                                     <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                     <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                     <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>

@@ -343,13 +343,13 @@ window.exportarRecepcionesExcel = function (startDateStr = '', endDateStr = '') 
         const [year, month, day] = startDateStr.split('-');
         const start = new Date(year, month - 1, day);
         start.setHours(0, 0, 0, 0);
-        actividad = actividad.filter(a => new Date(a.date) >= start);
+        actividad = actividad.filter(a => new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date) >= start);
     }
     if (endDateStr) {
         const [year, month, day] = endDateStr.split('-');
         const end = new Date(year, month - 1, day);
         end.setHours(23, 59, 59, 999);
-        actividad = actividad.filter(a => new Date(a.date) <= end);
+        actividad = actividad.filter(a => new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date) <= end);
     }
 
     if (actividad.length === 0) {
@@ -367,7 +367,7 @@ window.exportarRecepcionesExcel = function (startDateStr = '', endDateStr = '') 
 
     actividad.forEach(a => {
         const doc = a.numeroDocumento || 'S/N';
-        const fecha = new Date(a.date).toLocaleDateString();
+        const fecha = new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date).toLocaleDateString();
 
         let nomProductor = 'Desconocido';
         let personaRecibe = 'Desconocido';

@@ -477,18 +477,14 @@ class Store {
         state.secuenciaDocumento = (state.secuenciaDocumento || 0) + 1;
         const numDocFormateado = "DOC-" + String(state.secuenciaDocumento).padStart(4, '0');
 
-        let actDate = new Date();
-        if (customDate) {
-            // Adjust to keep the current time for sorting purposes but with the selected date
-            const [year, month, day] = customDate.split('-');
-            actDate.setFullYear(year, month - 1, day);
-        }
+        let actDate = new Date(); // Fecha exacta del sistema (registro)
 
         const logId = this.generateId();
         const logItem = {
             id: logId,
             numeroDocumento: numDocFormateado,
-            date: actDate.toISOString(),
+            date: actDate.toISOString(), // Real System Creation Time
+            fechaOperacion: customDate || actDate.toISOString().slice(0, 10), // The logical date user selected
             operacion,
             detalle,
             cantidad,
@@ -901,10 +897,7 @@ class Store {
             actividadObj.rawPayload = rawPayload;
 
             if (nuevoPayload.fechaRecepcion) {
-                const [year, month, day] = nuevoPayload.fechaRecepcion.split('-');
-                let actDate = new Date(actividadObj.date);
-                actDate.setFullYear(year, month - 1, day);
-                actividadObj.date = actDate.toISOString();
+                actividadObj.fechaOperacion = nuevoPayload.fechaRecepcion;
             }
 
             transaction.update(docRef, actividadObj);
@@ -988,10 +981,7 @@ class Store {
             actividadObj.rawPayload = { ...old, ...nuevoPayload };
 
             if (nuevoPayload.fechaDespacho) {
-                const [year, month, day] = nuevoPayload.fechaDespacho.split('-');
-                let actDate = new Date(actividadObj.date);
-                actDate.setFullYear(year, month - 1, day);
-                actividadObj.date = actDate.toISOString();
+                actividadObj.fechaOperacion = nuevoPayload.fechaDespacho;
             }
 
             transaction.update(docRef, actividadObj);
@@ -1165,10 +1155,7 @@ class Store {
             actividadObj.rawPayload = { ...nuevoPayload };
 
             if (nuevoPayload.fecha) {
-                const [year, month, day] = nuevoPayload.fecha.split('-');
-                let actDate = new Date(actividadObj.date);
-                actDate.setFullYear(year, month - 1, day);
-                actividadObj.date = actDate.toISOString();
+                actividadObj.fechaOperacion = nuevoPayload.fecha;
             }
 
             transaction.update(docRef, actividadObj);

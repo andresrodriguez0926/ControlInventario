@@ -1,4 +1,4 @@
-﻿// Continuación de operaciones.js - Agregando las partes faltantes
+// Continuación de operaciones.js - Agregando las partes faltantes
 
 // ==========================================
 // 4. DESPACHO AL CLIENTE
@@ -10,7 +10,7 @@ window.appModules['despacho-cliente'] = () => {
 
     // Solo permitir seleccionar almacenes y productos donde haya existencias
     const invAlmacen = window.appStore.getInventarioPorAlmacen();
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fecha) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fecha) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -232,7 +232,7 @@ window.appModuleEvents['despacho-cliente'] = () => {
                     return `
                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                     <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaDespacho)) || a.date).toLocaleDateString()}</td>
                     <td class="py-2.5 px-4 text-white font-medium">${almacenText}</td>
                     <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                     <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
@@ -485,7 +485,7 @@ window.appModules['recepcion-canastas'] = () => {
     // Opciones para Radio Button
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén destino...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaRecepcion) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -623,7 +623,7 @@ window.appModules['recepcion-canastas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
@@ -821,7 +821,7 @@ window.appModules['decomiso'] = () => {
 
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaDecomiso) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaDecomiso) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -930,7 +930,7 @@ window.appModules['decomiso'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaDecomiso) || a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-danger">${a.cantidad}</td>
@@ -1042,7 +1042,7 @@ window.appModules['canastas-demas'] = () => {
 
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaLlenado) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -1138,7 +1138,7 @@ window.appModules['canastas-demas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
@@ -1251,7 +1251,7 @@ window.appModules['salida-canastas'] = () => {
     const almacenes = window.appStore.getAlmacenes();
     const optsAlmacenes = generateSelectOptions(almacenes, 'Seleccione un almacén...');
 
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas');
+    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Salida Canastas' || a.operacion === 'Baja de Canastas').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaBaja) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaBaja) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -1333,7 +1333,7 @@ window.appModules['salida-canastas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaBaja) || a.date).toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-danger">${a.cantidad}</td>

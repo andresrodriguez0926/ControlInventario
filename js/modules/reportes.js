@@ -267,7 +267,8 @@ window.appModuleEvents['reportes'] = () => {
         let filtered = act.filter(a => {
             // Filtrar Fechas
             if (fFecha) {
-                if (dateToYMD(a.date) !== fFecha) return false;
+                const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date;
+                if (dateToYMD(logicalDateStr) !== fFecha) return false;
             }
 
             // Filtrar Opciones Principales
@@ -343,7 +344,7 @@ window.appModuleEvents['reportes'] = () => {
                 return `
                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                        <td class="py-2.5 px-4 text-text-secondary">${new Date(a.date).toLocaleDateString()}</td>
+                        <td class="py-2.5 px-4 text-text-secondary">${new Date(a.fechaOperacion || (a.rawPayload && (a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date).toLocaleDateString()}</td>
                         <td class="py-2.5 px-4 font-medium text-white">${entidad}</td>
                         <td class="py-2.5 px-4 text-text-secondary">${producto}</td>
                         <td class="py-2.5 px-4 text-text-secondary italic text-xs max-w-xs truncate" title="${a.detalle}">${a.operacion}</td>
