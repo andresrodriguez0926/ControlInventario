@@ -133,10 +133,10 @@ class Store {
         });
     }
 
-    // Escucha la colección de Actividad (Snapshot de los últimos 300 para la UI rápida)
+    // Escucha la colección de Actividad (Snapshot de los últimos 800 para la UI rápida)
     listenToActividad() {
         if (this.unsubscribeActividad) this.unsubscribeActividad();
-        this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(300).onSnapshot((snapshot) => {
+        this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(800).onSnapshot((snapshot) => {
             const latest = snapshot.docs.map(doc => doc.data());
             
             // Merge into local cache avoiding duplicates, prioritizing existing deep cache
@@ -1458,9 +1458,13 @@ class Store {
     }
 
     async applyDataFixes() {
-        const docsFeb27 = ["DOC-0189", "DOC-0190", "DOC-0191", "DOC-0192", "DOC-0194"];
+        const docsFeb27 = ["DOC-0189", "DOC-0192", "DOC-0194"];
         const feb27Date = "2026-02-27";
         const feb27DateTime = "2026-02-27T12:00:00.000Z";
+        
+        const docsApril2 = ["DOC-0190", "DOC-0191"];
+        const april2Date = "2026-04-02";
+        const april2DateTime = "2026-04-02T12:00:00.000Z";
 
         await this.runTransaction((state, transaction) => {
             // 1. Fix date for known documents
@@ -1497,15 +1501,30 @@ class Store {
                         processedCount++;
                     }
 
-                    // NUEVO: Fix fechas documentos 189, 190, 191, 192, 194 al 2026-02-27
+                    // NUEVO: Fix fechas documentos 189, 192, 194 al 2026-02-27
                     if (docsFeb27.includes(act.numeroDocumento)) {
                         act.date = feb27DateTime;
+                        act.fechaOperacion = feb27Date;
                         if (act.rawPayload) {
                             if (act.rawPayload.fechaRecepcion) act.rawPayload.fechaRecepcion = feb27Date;
                             if (act.rawPayload.fechaDespacho) act.rawPayload.fechaDespacho = feb27Date;
                             if (act.rawPayload.fechaTransferencia) act.rawPayload.fechaTransferencia = feb27Date;
                             if (act.rawPayload.fechaCompra) act.rawPayload.fechaCompra = feb27Date;
                             if (act.rawPayload.fecha) act.rawPayload.fecha = feb27Date;
+                        }
+                        processedCount++;
+                    }
+
+                    // PATCH PETICION NUEVA: Mover DOC-0190 y DOC-0191 al 2 de Abril 2026
+                    if (docsApril2.includes(act.numeroDocumento)) {
+                        act.date = april2DateTime;
+                        act.fechaOperacion = april2Date;
+                        if (act.rawPayload) {
+                            if (act.rawPayload.fechaRecepcion) act.rawPayload.fechaRecepcion = april2Date;
+                            if (act.rawPayload.fechaDespacho) act.rawPayload.fechaDespacho = april2Date;
+                            if (act.rawPayload.fechaTransferencia) act.rawPayload.fechaTransferencia = april2Date;
+                            if (act.rawPayload.fechaCompra) act.rawPayload.fechaCompra = april2Date;
+                            if (act.rawPayload.fecha) act.rawPayload.fecha = april2Date;
                         }
                         processedCount++;
                     }
@@ -1593,6 +1612,41 @@ class Store {
                 if (collectionCount > 0) {
                     await batch.commit();
                     console.log(`[DataFix] Updated ${collectionCount} documents in 'actividad' collection.`);
+                }
+            }
+        } catch (e) {
+            console.error("Error updating activity collection dates (Feb27):", e);
+        }
+
+        // PATCH PARA DOCS DE ABRIL 2
+        try {
+            const querySnapshotApril = await db.collection('actividad')
+                .where('numeroDocumento', 'in', docsApril2)
+                .get();
+
+            if (!querySnapshotApril.empty) {
+                const batch = db.batch();
+                let collectionCount = 0;
+                querySnapshotApril.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.date !== april2DateTime) {
+                        const update = { date: april2DateTime, fechaOperacion: april2Date };
+                        if (data.rawPayload) {
+                            const newPayload = { ...data.rawPayload };
+                            if (newPayload.fechaRecepcion) newPayload.fechaRecepcion = april2Date;
+                            if (newPayload.fechaDespacho) newPayload.fechaDespacho = april2Date;
+                            if (newPayload.fechaTransferencia) newPayload.fechaTransferencia = april2Date;
+                            if (newPayload.fechaCompra) newPayload.fechaCompra = april2Date;
+                            if (newPayload.fecha) newPayload.fecha = april2Date;
+                            update.rawPayload = newPayload;
+                        }
+                        batch.update(docSnap.ref, update);
+                        collectionCount++;
+                    }
+                });
+                if (collectionCount > 0) {
+                    await batch.commit();
+                    console.log(`[DataFix] Updated ${collectionCount} documents in 'actividad' collection to April 2nd.`);
                 }
             }
         } catch (e) {

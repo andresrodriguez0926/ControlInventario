@@ -309,7 +309,13 @@ const Charts = {
         });
         
         const allActivity = Array.from(allMap.values());
-        allActivity.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+        allActivity.sort((a, b) => {
+            const logicalA = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dateA = new Date(logicalA.slice(0, 10) + 'T12:00:00');
+            const logicalB = b.fechaOperacion || (b.rawPayload && (b.rawPayload.fecha || b.rawPayload.fechaRecepcion || b.rawPayload.fechaDespacho || b.rawPayload.fechaTransferencia)) || b.date || new Date().toISOString();
+            const dateB = new Date(logicalB.slice(0, 10) + 'T12:00:00');
+            return dateA - dateB;
+        });
 
         console.log(`[CÁLCULO v22] Procesando ${allActivity.length} registros totales.`);
         
@@ -376,7 +382,8 @@ const Charts = {
         allActivity.forEach(a => {
             if (a.anulado) return;
 
-            const date = new Date(a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const date = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             
             if (!initialBalances && date >= startDate) {
                 initialBalances = {
@@ -552,7 +559,8 @@ const Charts = {
         // Usamos la información cargada en el almacén (que ya es profunda si se llamó a calculateWeeklyBalances)
         const allActivity = window.appStore.actividadCache;
         const duringWeek = allActivity.filter(a => {
-            const d = new Date(a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const d = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             return d >= startDate && d <= endDate;
         });
 
@@ -564,8 +572,12 @@ const Charts = {
         let totalTx = 0;
 
         duringWeek.forEach(a => {
-            const dateObj = new Date(a.date || a.fecha);
+            if (a.anulado || a.eliminado) return;
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dateObj = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+            if (a.anulado || a.eliminado) return;
 
             if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
                 if (!txDataByDay[dayKey]) {
@@ -688,7 +700,7 @@ const Charts = {
 
                 let rowsHtml = '';
                 productos.forEach(p => {
-                    if (dayData.prods[p.id] > 0) {
+                    if (dayData.prods[p.id] !== 0 && dayData.prods[p.id] !== undefined) {
                         const cantHtml = formatter.format(dayData.prods[p.id]);
                         rowsHtml += `
                             <div class="flex justify-between py-1 border-b border-[#a1d9f4] last:border-0 text-sm bg-white text-black px-2">
@@ -717,7 +729,7 @@ const Charts = {
                     </div>
                     <!-- Column Headers -->
                     <div class="flex justify-between font-bold text-black border-b border-black py-1 px-2 text-sm bg-[#c8f0fc]">
-                        <span>Etiquetas de fila ▼</span>
+                        <span>PRODUCTOS</span>
                         <span>Suma de CANASTAS</span>
                     </div>
                     <!-- Data Rows -->
@@ -753,7 +765,8 @@ const Charts = {
         const totals = {};
 
         allActivity.forEach(a => {
-            const d = new Date(a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const d = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             if (d >= startDate && d <= endDate) {
                 if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
                     if (a.rawPayload) {
@@ -1158,7 +1171,13 @@ const Charts = {
                 [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
                 
                 const todas = Array.from(allMap.values());
-                todas.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+                todas.sort((a, b) => {
+            const logicalA = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dateA = new Date(logicalA.slice(0, 10) + 'T12:00:00');
+            const logicalB = b.fechaOperacion || (b.rawPayload && (b.rawPayload.fecha || b.rawPayload.fechaRecepcion || b.rawPayload.fechaDespacho || b.rawPayload.fechaTransferencia)) || b.date || new Date().toISOString();
+            const dateB = new Date(logicalB.slice(0, 10) + 'T12:00:00');
+            return dateA - dateB;
+        });
 
                 const start = new Date(desdeVal + 'T00:00:00');
                 const end = new Date(hastaVal + 'T23:59:59.999');
@@ -1181,7 +1200,8 @@ const Charts = {
                 todas.forEach(a => {
                     if (a.anulado || a.eliminado) return;
                     
-                    const dt = new Date(a.fechaOperacion || a.date || a.fecha);
+                    const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+                const dt = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
                     const imp = calcularImpactoActividad(a, almacenId, productoId);
                     
                     // Si es antes del rango, solo acumulamos al balance inicial
@@ -1464,7 +1484,13 @@ Charts.renderCanastasPorCobrar = function () {
         const allMap = new Map();
         [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
         const todasActividades = Array.from(allMap.values());
-        todasActividades.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+        todasActividades.sort((a, b) => {
+            const logicalA = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dateA = new Date(logicalA.slice(0, 10) + 'T12:00:00');
+            const logicalB = b.fechaOperacion || (b.rawPayload && (b.rawPayload.fecha || b.rawPayload.fechaRecepcion || b.rawPayload.fechaDespacho || b.rawPayload.fechaTransferencia)) || b.date || new Date().toISOString();
+            const dateB = new Date(logicalB.slice(0, 10) + 'T12:00:00');
+            return dateA - dateB;
+        });
 
         // --- LÓGICA FORWARD PARA DEUDA ---
         let runningDebt = 0;
@@ -1501,7 +1527,8 @@ Charts.renderCanastasPorCobrar = function () {
             runningDebt += delta;
             balancePorId[a.id] = runningDebt;
 
-            const dt = new Date(a.fechaOperacion || a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dt = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             const isInRange = (!start || dt >= start) && (!end || dt <= end);
             if (isInRange) {
                 rangeRows.push({ a, delta, balance: runningDebt, dt });
