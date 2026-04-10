@@ -204,7 +204,8 @@ window.appModuleEvents['reporte-fruta'] = () => {
         allActivity.forEach(a => {
             if (a.anulado || a.eliminado) return;
 
-            const logDate = new Date(a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const logDate = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             const raw = a.rawPayload || {};
             const qtyStr = (a.cantidad || '0').toString();
             const match = qtyStr.match(/-?\d+/);
@@ -260,6 +261,7 @@ window.appModuleEvents['reporte-fruta'] = () => {
 
                 reportRows.push({
                     doc: a.numeroDocumento || 'S/N',
+                    fechaIso: logicalDateStr.slice(0, 10),
                     fecha: logDate.toLocaleDateString(),
                     fechaCompleta: logDate.toLocaleString(),
                     operacion: op,
@@ -335,9 +337,12 @@ window.appModuleEvents['reporte-fruta'] = () => {
             csvContent += "ID Documento,Fecha,Operacion,Detalle,Entradas (+),Salidas (-),Usuario\n";
 
             currentData.forEach(r => {
+                const dParts = r.fechaIso ? r.fechaIso.split('-') : [];
+                const safeFileDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : r.fechaCompleta.replace(/,/g, '');
+                
                 const row = [
                     r.doc,
-                    r.fechaCompleta.replace(/,/g, ''),
+                    safeFileDate,
                     `"${r.operacion}"`,
                     `"${r.detalle.replace(/"/g, '""')}"`,
                     r.qtyIn,

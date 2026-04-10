@@ -232,7 +232,7 @@ window.appModuleEvents['despacho-cliente'] = () => {
                     return `
                 <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                     <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaDespacho)) || a.date).toLocaleDateString()}</td>
+                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaDespacho)) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                     <td class="py-2.5 px-4 text-white font-medium">${almacenText}</td>
                     <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                     <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>

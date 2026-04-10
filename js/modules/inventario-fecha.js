@@ -220,7 +220,11 @@ window.appModuleEvents['inventario-fecha'] = () => {
             .filter(([_, qty]) => qty !== 0)
             .sort((a, b) => b[1] - a[1]);
         dCliArr.forEach(([uid, qty]) => {
-            const uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || `Inactivo`);
+            let uName = uid === 'no-especificado' ? 'S/N' : uid;
+            if (uid !== 'no-especificado') {
+                const cObj = clientes.find(c => c.id === uid);
+                if (cObj) uName = cObj.nombre;
+            }
             message += `  • ${uName}: ${qty.toLocaleString()}\n`;
         });
         message += `\n`;
@@ -256,7 +260,13 @@ window.appModuleEvents['inventario-fecha'] = () => {
         [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
         
         const allActivity = Array.from(allMap.values());
-        allActivity.sort((a, b) => new Date(a.date || a.fecha) - new Date(b.date || b.fecha));
+        allActivity.sort((a, b) => {
+            const logicalA = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const dateA = new Date(logicalA.slice(0, 10) + 'T12:00:00');
+            const logicalB = b.fechaOperacion || (b.rawPayload && (b.rawPayload.fecha || b.rawPayload.fechaRecepcion || b.rawPayload.fechaDespacho || b.rawPayload.fechaTransferencia)) || b.date || new Date().toISOString();
+            const dateB = new Date(logicalB.slice(0, 10) + 'T12:00:00');
+            return dateA - dateB;
+        });
 
         console.log(`[CÁLCULO IF v24] Procesando ${allActivity.filter(a => new Date(a.date || a.fecha) <= targetDate).length} registros hasta la fecha.`);
 
@@ -299,7 +309,8 @@ window.appModuleEvents['inventario-fecha'] = () => {
         // 3. Loop Forward
         allActivity.forEach(a => {
             if (a.anulado) return;
-            const date = new Date(a.date || a.fecha);
+            const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+            const date = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             if (date > targetDate) return; // Cortamos en la fecha seleccionada
 
             const payload = a.rawPayload || {};
@@ -316,7 +327,12 @@ window.appModuleEvents['inventario-fecha'] = () => {
             else if (op === 'Desp. Cliente' || op === 'Despacho a Cliente') {
                 currentLlenas -= a_cantidad;
                 updateLlenasBreakdown(payload, a_cantidad, false);
-                applyObjDelta(deudaCliente, payload.clienteId, a_cantidad);
+                let cid = payload.clienteId || payload.clienteNombre;
+                if (!cid && a.detalle) {
+                    const match = a.detalle.match(/A cliente:\s*(.*?)\s*\|/);
+                    if (match) cid = match[1].trim();
+                }
+                applyObjDelta(deudaCliente, cid, a_cantidad);
             } 
             else if (op === 'Desp. Vacías' || op === 'Despacho de Vacías') {
                 currentVacias -= a_cantidad;
@@ -333,8 +349,16 @@ window.appModuleEvents['inventario-fecha'] = () => {
                     currentVacias += a_cantidad;
                     applyObjDelta(vaciasPorAlmacen, payload.almacenDestinoId, a_cantidad);
                 }
-                if (isProd) applyObjDelta(deudaProductor, payload.productorId, -a_cantidad);
-                else applyObjDelta(deudaCliente, payload.clienteId, -a_cantidad);
+                if (isProd) {
+                    applyObjDelta(deudaProductor, payload.productorId, -a_cantidad);
+                } else {
+                    let cid = payload.clienteId || payload.clienteNombre;
+                    if (!cid && a.detalle) {
+                        const match = a.detalle.match(/De Cliente:\s*(.*?)\s*\|/);
+                        if (match) cid = match[1].trim();
+                    }
+                    applyObjDelta(deudaCliente, cid, -a_cantidad);
+                }
             } 
             else if (op === 'Transf. Fincas' || op === 'Transferencia entre Fincas') {
                 applyObjDelta(deudaProductor, payload.productorOrigenId, -a_cantidad);
@@ -506,7 +530,11 @@ window.appModuleEvents['inventario-fecha'] = () => {
             .sort((a, b) => b[1] - a[1]);
         if (dCliArr.length > 0) {
             dCliArr.forEach(([uid, qty]) => {
-                const uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || `Inactivo`);
+                let uName = uid === 'no-especificado' ? 'S/N' : uid;
+                if (uid !== 'no-especificado') {
+                    const cObj = clientes.find(c => c.id === uid);
+                    if (cObj) uName = cObj.nombre;
+                }
                 const color = qty < 0 ? 'text-success' : 'text-danger';
                 htmlDCli += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-1.5 last:pb-0 pt-1.5 first:pt-0"><span class="text-sm text-text-secondary truncate pr-2" title="${uName}">${uName}</span><span class="font-bold text-sm ${color}">${qty.toLocaleString()}</span></div>`;
             });

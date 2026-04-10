@@ -211,10 +211,13 @@ window.appModuleEvents['reportes'] = () => {
                 csvContent += "ID,Documento,Fecha,Operacion,Detalle,Cantidad,Usuario\n";
 
                 docs.forEach(a => {
+                    const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+                    const dParts = logicalDateStr.slice(0, 10).split('-');
+                    const safeDateStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`; // DD/MM/YYYY seguro para Excel Latam
                     const row = [
                         a.id || '',
                         a.numeroDocumento || 'S/N',
-                        new Date(a.date).toLocaleString().replace(',', ''),
+                        safeDateStr.replace(',', ''),
                         `"${(a.operacion || '').replace(/"/g, '""')}"`,
                         `"${(a.detalle || '').replace(/"/g, '""')}"`,
                         `"${(a.cantidad || '').replace(/"/g, '""')}"`,
@@ -267,7 +270,7 @@ window.appModuleEvents['reportes'] = () => {
         let filtered = act.filter(a => {
             // Filtrar Fechas
             if (fFecha) {
-                const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date;
+                const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date;
                 if (dateToYMD(logicalDateStr) !== fFecha) return false;
             }
 
@@ -344,7 +347,7 @@ window.appModuleEvents['reportes'] = () => {
                 return `
                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                        <td class="py-2.5 px-4 text-text-secondary">${new Date(a.fechaOperacion || (a.rawPayload && (a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date).toLocaleDateString()}</td>
+                        <td class="py-2.5 px-4 text-text-secondary">${new Date((a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                         <td class="py-2.5 px-4 font-medium text-white">${entidad}</td>
                         <td class="py-2.5 px-4 text-text-secondary">${producto}</td>
                         <td class="py-2.5 px-4 text-text-secondary italic text-xs max-w-xs truncate" title="${a.detalle}">${a.operacion}</td>
