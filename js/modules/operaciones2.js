@@ -623,7 +623,7 @@ window.appModules['recepcion-canastas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
@@ -930,7 +930,7 @@ window.appModules['decomiso'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaDecomiso) || a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaDecomiso) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-danger">${a.cantidad}</td>
@@ -1138,7 +1138,7 @@ window.appModules['canastas-demas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
@@ -1333,7 +1333,7 @@ window.appModules['salida-canastas'] = () => {
             historial.map(a => `
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaBaja) || a.date).toLocaleDateString()}</td>
+                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaBaja) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
                                         <td class="py-2.5 px-4 text-white">${a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
                                         <td class="py-2.5 px-4 font-bold text-danger">${a.cantidad}</td>
