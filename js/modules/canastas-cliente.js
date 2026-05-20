@@ -1,6 +1,9 @@
 /**
  * Módulo: Historial de Canastas por Cliente
- * Lógica contable: Saldo Anterior al Período + Movimientos del Período = Saldo Real
+ * 
+ * Estrategia: Usa cliente.canastasPrestadas como balance ACTUAL autoritativo,
+ * luego trabaja hacia atrás desde los movimientos de actividad para calcular
+ * balances en cualquier período de fecha con exactitud.
  */
 
 window.appModules = window.appModules || {};
@@ -9,13 +12,17 @@ window.appModuleEvents = window.appModuleEvents || {};
 window.CanastasClienteController = {
 
     /**
-     * Extrae todos los movimientos de un cliente desde la actividad.
-     * Retorna arreglo de { fecha, tipo, cantidad, sign }
+     * Extrae todos los movimientos de canastas de un cliente desde la actividad.
      */
     _getMovimientosCliente(actividad, clientes) {
         const mapaClientes = {};
         clientes.forEach(c => {
-            mapaClientes[c.id] = { id: c.id, nombre: c.nombre, movimientos: [] };
+            mapaClientes[c.id] = {
+                id: c.id,
+                nombre: c.nombre,
+                canastasPrestadas: c.canastasPrestadas || 0,
+                movimientos: []
+            };
         });
 
         const parseFecha = (str) => {
@@ -28,11 +35,6 @@ window.CanastasClienteController = {
             return null;
         };
 
-        const getFechaStr = (a, raw) => {
-            const f = a.fechaOperacion || raw.fecha || raw.fechaRecepcion || '';
-            return String(f).substring(0, 10);
-        };
-
         const findOrCreate = (clienteId, clienteNombre) => {
             if (clienteId && mapaClientes[clienteId]) return mapaClientes[clienteId];
             if (clienteNombre) {
@@ -41,7 +43,12 @@ window.CanastasClienteController = {
             }
             const key = 'u_' + (clienteNombre || 'SinNombre').replace(/\s+/g, '_');
             if (!mapaClientes[key]) {
-                mapaClientes[key] = { id: key, nombre: clienteNombre || 'Sin Nombre', movimientos: [] };
+                mapaClientes[key] = {
+                    id: key,
+                    nombre: clienteNombre || 'Sin Nombre',
+                    canastasPrestadas: 0,
+                    movimientos: []
+                };
             }
             return mapaClientes[key];
         };
@@ -52,23 +59,41 @@ window.CanastasClienteController = {
             const operacion = a.operacion || '';
 
             if (operacion === 'Despacho a Cliente') {
-                const fechaStr = getFechaStr(a, raw);
+                const fechaStr = a.fechaOperacion
+                    ? String(a.fechaOperacion).substring(0, 10)
+                    : (raw.fecha ? String(raw.fecha).substring(0, 10) : null);
+                if (!fechaStr) return;
                 const fechaDate = parseFecha(fechaStr);
                 const total = parseInt(raw.total) || 0;
                 if (total <= 0 || !fechaDate) return;
                 const entry = findOrCreate(raw.clienteId, raw.clienteNombre);
-                entry.movimientos.push({ fecha: fechaStr, fechaDate, tipo: 'Entregadas', cantidad: total, sign: +1 });
+                entry.movimientos.push({
+                    fecha: fechaStr,
+                    fechaDate,
+                    tipo: 'Entregadas',
+                    cantidad: total,
+                    sign: +1   // +1 = aumenta lo que debe el cliente
+                });
             }
 
             if (operacion === 'Devolución de Canastas') {
                 if (raw.tipoOrigen !== 'cliente') return;
-                const fechaStr = getFechaStr(a, raw);
+                const fechaStr = a.fechaOperacion
+                    ? String(a.fechaOperacion).substring(0, 10)
+                    : (raw.fechaRecepcion ? String(raw.fechaRecepcion).substring(0, 10) : null);
+                if (!fechaStr) return;
                 const fechaDate = parseFecha(fechaStr);
                 const cantidad = parseInt(raw.cantidad) || 0;
                 if (cantidad <= 0 || !fechaDate) return;
                 const entry = findOrCreate(raw.clienteId, raw.clienteNombre);
                 const tipoLabel = raw.esLlena ? 'Dev. Llenas' : 'Dev. Vacías';
-                entry.movimientos.push({ fecha: fechaStr, fechaDate, tipo: tipoLabel, cantidad, sign: -1 });
+                entry.movimientos.push({
+                    fecha: fechaStr,
+                    fechaDate,
+                    tipo: tipoLabel,
+                    cantidad,
+                    sign: -1   // -1 = disminuye lo que debe el cliente
+                });
             }
         });
 
@@ -76,9 +101,12 @@ window.CanastasClienteController = {
     },
 
     /**
-     * Construye el resumen final para la tabla.
-     * Cuando hay filtro de fecha, calcula el saldo anterior al período para
-     * obtener el balance real al cierre del período.
+     * Construye el resumen con balance correcto.
+     * 
+     * LÓGICA:
+     * - cliente.canastasPrestadas = balance HOY (autoritativo, mantenido por el sistema de transacciones)
+     * - Balance al final del "hasta" = canastasPrestadas + sum(devueltas después del hasta) - sum(entregadas después del hasta)
+     * - Saldo Anterior al "desde" = balance_al_final_del_hasta - entregadasPeriodo + devueltasPeriodo
      */
     buildResumen(filtroClienteId, desde, hasta) {
         const clientes = window.appStore.getClientes();
@@ -90,51 +118,66 @@ window.CanastasClienteController = {
 
         const mapaClientes = this._getMovimientosCliente(actividad, clientes);
 
-        // Calcular para cada cliente:
-        // - saldoAnterior: acumulado de todos los movimientos ANTES del filtro 'desde'
-        // - entregadasPeriodo / devueltasPeriodo: dentro del rango
-        // - pendiente = saldoAnterior + entregadasPeriodo - devueltasPeriodo
         const resultado = Object.values(mapaClientes).map(c => {
-            let saldoAnterior = 0;
-            let entregadasPeriodo = 0;
-            let devueltasPeriodo = 0;
-            const movimientosPeriodo = [];
+            // Balance actual autoritativo del sistema
+            const balanceActual = c.canastasPrestadas;
+
+            // Clasificar movimientos
+            const movsPostHasta = [];
+            const movsPeriodo = [];
+            const movsPreDesde = [];
 
             c.movimientos.forEach(m => {
-                const antes = desdeDate && m.fechaDate < desdeDate;
-                const despues = hastaDate && m.fechaDate > hastaDate;
+                const despuesDeHasta = hastaDate && m.fechaDate > hastaDate;
+                const antesDeDesde = desdeDate && m.fechaDate < desdeDate;
+                const dentroDelPeriodo = !despuesDeHasta && !antesDeDesde;
 
-                if (antes) {
-                    // Movimiento anterior al período → solo suma al saldo anterior
-                    saldoAnterior += m.sign * m.cantidad;
-                } else if (!despues) {
-                    // Dentro del rango (o sin rango)
-                    if (m.sign > 0) entregadasPeriodo += m.cantidad;
-                    else devueltasPeriodo += m.cantidad;
-                    movimientosPeriodo.push(m);
-                }
-                // Movimientos después del rango son ignorados (no afectan el reporte)
+                if (despuesDeHasta) movsPostHasta.push(m);
+                else if (antesDeDesde) movsPreDesde.push(m);
+                else if (dentroDelPeriodo) movsPeriodo.push(m);
             });
 
-            const pendiente = saldoAnterior + entregadasPeriodo - devueltasPeriodo;
+            // Balance al cierre del período "hasta"
+            // Revertimos los movimientos que ocurrieron DESPUÉS del "hasta"
+            let balanceAlCierrePeriodo = balanceActual;
+            movsPostHasta.forEach(m => {
+                // Para revertir: si fue entregada (sign=+1) hay que restar; si fue devuelta (sign=-1) hay que sumar
+                balanceAlCierrePeriodo -= m.sign * m.cantidad;
+            });
+
+            // Si no hay filtro de hasta, el balance al cierre = balanceActual
+            if (!hastaDate) balanceAlCierrePeriodo = balanceActual;
+
+            // Movimientos dentro del período
+            const entregadasPeriodo = movsPeriodo
+                .filter(m => m.sign > 0)
+                .reduce((s, m) => s + m.cantidad, 0);
+            const devueltasPeriodo = movsPeriodo
+                .filter(m => m.sign < 0)
+                .reduce((s, m) => s + m.cantidad, 0);
+
+            // Saldo al inicio del período (antes de "desde")
+            // = balance al cierre - lo que entró durante el período + lo que salió durante el período
+            const saldoAnterior = balanceAlCierrePeriodo - entregadasPeriodo + devueltasPeriodo;
+
+            // El pendiente real al cierre del período es balanceAlCierrePeriodo
+            const pendiente = balanceAlCierrePeriodo;
 
             return {
                 id: c.id,
                 nombre: c.nombre,
-                saldoAnterior,
+                balanceActual,
+                saldoAnterior: hayFiltroFecha ? saldoAnterior : null,
                 entregadasPeriodo,
                 devueltasPeriodo,
                 pendiente,
-                movimientos: movimientosPeriodo,
+                movimientos: movsPeriodo,
                 hayFiltroFecha,
-                // Totales absolutos (para cuando no hay filtro)
-                entregadasTotal: entregadasPeriodo + (saldoAnterior > 0 ? saldoAnterior : 0),
-                devueltasTotal: devueltasPeriodo + (saldoAnterior < 0 ? -saldoAnterior : 0),
             };
         }).filter(c => {
             if (filtroClienteId && filtroClienteId !== 'TODOS') return c.id === filtroClienteId;
-            // Solo mostrar clientes con algún movimiento
-            return c.entregadasPeriodo > 0 || c.devueltasPeriodo > 0 || c.saldoAnterior !== 0;
+            // Mostrar clientes con deuda actual o con movimientos en el período
+            return c.balanceActual !== 0 || c.entregadasPeriodo > 0 || c.devueltasPeriodo > 0;
         });
 
         resultado.sort((a, b) => {
@@ -151,26 +194,25 @@ window.CanastasClienteController = {
         if (!container) return;
 
         const hayFiltroFecha = !!(desde || hasta);
-        let sumaSaldoAnterior = 0, sumaEntregadas = 0, sumaDevueltas = 0, sumaPendiente = 0;
+        let sumaEntregadas = 0, sumaDevueltas = 0, sumaPendiente = 0, sumaSaldoAnterior = 0;
 
         const filas = data.map(c => {
-            sumaSaldoAnterior += c.saldoAnterior;
             sumaEntregadas += c.entregadasPeriodo;
             sumaDevueltas += c.devueltasPeriodo;
             sumaPendiente += c.pendiente;
+            if (c.saldoAnterior !== null) sumaSaldoAnterior += c.saldoAnterior;
 
-            const pctDevuelto = (c.saldoAnterior + c.entregadasPeriodo) > 0
-                ? Math.round((c.devueltasPeriodo / (c.saldoAnterior + c.entregadasPeriodo)) * 100)
-                : 0;
+            const pendColor = c.pendiente <= 0 ? '#10b981' : c.pendiente > 500 ? '#ef4444' : '#f59e0b';
+            const totalBase = (c.saldoAnterior !== null ? c.saldoAnterior : 0) + c.entregadasPeriodo;
+            const pctDevuelto = totalBase > 0
+                ? Math.round((c.devueltasPeriodo / totalBase) * 100) : 0;
             const barWidth = Math.min(Math.max(pctDevuelto, 0), 100);
-            const pendColor = c.pendiente <= 0 ? '#10b981' : c.pendiente > 200 ? '#ef4444' : '#f59e0b';
 
-            // Ordenar movimientos del período de más nuevo a más viejo para el detalle
+            // Movimientos en orden cronológico para calcular saldo corrido
             const movsAsc = c.movimientos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+            let saldoCorrido = c.saldoAnterior !== null ? c.saldoAnterior : 0;
 
-            // Calcular saldo corrido partiendo del saldo anterior
-            let saldoCorrido = c.saldoAnterior;
-            const filasMovimiento = movsAsc.map(m => {
+            const filasMovs = movsAsc.map(m => {
                 saldoCorrido += m.sign * m.cantidad;
                 const saldoColor = saldoCorrido > 0 ? '#f59e0b' : '#10b981';
                 const tipoStyle = m.sign > 0
@@ -189,13 +231,13 @@ window.CanastasClienteController = {
                             ${saldoCorrido.toLocaleString()}
                         </td>
                     </tr>`;
-            }).reverse().join(''); // mostrar de más reciente a más antiguo
+            }).reverse().join(''); // más reciente arriba
 
             const idSafe = c.id.replace(/[^a-zA-Z0-9]/g, '_');
+            const colCount = hayFiltroFecha ? 6 : 5;
 
-            // Fila de saldo anterior (solo cuando hay filtro de fecha)
-            const filaSaldoAnterior = (hayFiltroFecha && c.saldoAnterior !== 0) ? `
-                <tr style="background:rgba(99,102,241,0.08); border-bottom:2px solid rgba(99,102,241,0.3); font-size:13px;">
+            const filaSaldoAnt = (hayFiltroFecha && c.saldoAnterior !== null && c.saldoAnterior !== 0) ? `
+                <tr style="background:rgba(99,102,241,0.08); border-bottom:2px solid rgba(99,102,241,0.25); font-size:13px;">
                     <td style="padding:8px 16px; color:#818cf8; font-weight:600;">Antes de ${desde}</td>
                     <td style="padding:8px 16px;">
                         <span style="padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; background:rgba(99,102,241,0.2);color:#818cf8;">Saldo Anterior</span>
@@ -207,7 +249,6 @@ window.CanastasClienteController = {
                 </tr>` : '';
 
             return `
-                <!-- FILA PRINCIPAL -->
                 <tr class="canasta-row-main" data-target="detalle-${idSafe}"
                     style="border-bottom:1px solid rgba(255,255,255,0.08); cursor:pointer; transition:background 0.15s;">
                     <td style="padding:12px 16px;">
@@ -218,7 +259,7 @@ window.CanastasClienteController = {
                             <span style="font-weight:600; color:white;">${c.nombre}</span>
                         </div>
                     </td>
-                    ${hayFiltroFecha ? `<td style="padding:12px 16px; text-align:right; color:${c.saldoAnterior > 0 ? '#f59e0b' : '#10b981'}; font-weight:bold;">${c.saldoAnterior.toLocaleString()}</td>` : ''}
+                    ${hayFiltroFecha ? `<td style="padding:12px 16px; text-align:right; color:${(c.saldoAnterior||0) > 0 ? '#f59e0b' : '#10b981'}; font-weight:bold;">${(c.saldoAnterior||0).toLocaleString()}</td>` : ''}
                     <td style="padding:12px 16px; text-align:right; color:#f87171; font-weight:bold;">${c.entregadasPeriodo.toLocaleString()}</td>
                     <td style="padding:12px 16px; text-align:right; color:#34d399; font-weight:bold;">${c.devueltasPeriodo.toLocaleString()}</td>
                     <td style="padding:12px 16px; text-align:right; font-weight:bold; font-size:18px; color:${pendColor}">${c.pendiente.toLocaleString()}</td>
@@ -231,9 +272,8 @@ window.CanastasClienteController = {
                         </div>
                     </td>
                 </tr>
-                <!-- FILA DETALLE EXPANDIBLE -->
                 <tr id="detalle-${idSafe}" style="display:none;">
-                    <td colspan="${hayFiltroFecha ? 6 : 5}" style="padding:0; background:rgba(255,255,255,0.015);">
+                    <td colspan="${colCount}" style="padding:0; background:rgba(255,255,255,0.015);">
                         <div style="border-top:1px solid rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.06);">
                             <table style="width:100%; border-collapse:collapse;">
                                 <thead>
@@ -245,10 +285,10 @@ window.CanastasClienteController = {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${filaSaldoAnterior}
+                                    ${filaSaldoAnt}
                                     ${c.movimientos.length === 0
-                    ? `<tr><td colspan="4" style="padding:16px; text-align:center; color:#6b7280;">Sin movimientos en este período.</td></tr>`
-                    : filasMovimiento}
+                        ? `<tr><td colspan="4" style="padding:16px; text-align:center; color:#6b7280;">Sin movimientos en este período.</td></tr>`
+                        : filasMovs}
                                 </tbody>
                             </table>
                         </div>
@@ -256,38 +296,37 @@ window.CanastasClienteController = {
                 </tr>`;
         }).join('');
 
-        const headerSaldoAnterior = hayFiltroFecha
-            ? `<th style="padding:12px 16px; text-align:right; font-weight:600; color:#818cf8;">Saldo Anterior</th>`
-            : '';
-        const footerSaldoAnterior = hayFiltroFecha
-            ? `<td style="padding:12px 16px; text-align:right; color:#818cf8; font-weight:bold;">${sumaSaldoAnterior.toLocaleString()}</td>`
-            : '';
+        const colCount = hayFiltroFecha ? 6 : 5;
+        const headerSaldo = hayFiltroFecha
+            ? `<th style="padding:12px 16px; text-align:right; font-weight:600; color:#818cf8;">Saldo Anterior</th>` : '';
+        const footerSaldo = hayFiltroFecha
+            ? `<td style="padding:12px 16px; text-align:right; color:#818cf8; font-weight:bold;">${sumaSaldoAnterior.toLocaleString()}</td>` : '';
 
         container.innerHTML = `
             ${hayFiltroFecha ? `
-            <div style="margin-bottom:12px; padding:10px 16px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:8px; font-size:13px; color:#818cf8; display:flex; align-items:center; gap:8px;">
+            <div style="margin-bottom:12px; padding:10px 16px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:8px; font-size:13px; color:#818cf8; display:flex; gap:8px; align-items:center;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>El <strong>Saldo Anterior</strong> incluye todos los movimientos previos a la fecha de inicio del filtro. <strong>Pendiente = Saldo Anterior + Entregadas − Devueltas</strong>.</span>
+                <span><strong>Pendiente</strong> = balance real al cierre de <strong>${hasta || 'hoy'}</strong>, anclado al saldo autoritativo del sistema.</span>
             </div>` : ''}
             <div style="border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
                 <table style="width:100%; border-collapse:collapse; font-family:inherit;">
                     <thead>
                         <tr style="background:rgba(255,255,255,0.05); font-size:11px; text-transform:uppercase; color:#6b7280; border-bottom:1px solid rgba(255,255,255,0.08);">
                             <th style="padding:12px 16px; text-align:left; font-weight:600;">Cliente</th>
-                            ${headerSaldoAnterior}
-                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#f87171;">Entregadas</th>
-                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#34d399;">Devueltas</th>
-                            <th style="padding:12px 16px; text-align:right; font-weight:600;">Pendiente</th>
+                            ${headerSaldo}
+                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#f87171;">Entregadas${hayFiltroFecha ? ' (Período)' : ''}</th>
+                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#34d399;">Devueltas${hayFiltroFecha ? ' (Período)' : ''}</th>
+                            <th style="padding:12px 16px; text-align:right; font-weight:600;">Pendiente${hayFiltroFecha ? ` al ${hasta}` : ' (Actual)'}</th>
                             <th style="padding:12px 16px; text-align:left; font-weight:600;">% Devuelto</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filas || `<tr><td colspan="${hayFiltroFecha ? 6 : 5}" style="padding:40px; text-align:center; color:#6b7280; font-style:italic;">No hay movimientos con los filtros aplicados.</td></tr>`}
+                        ${filas || `<tr><td colspan="${colCount}" style="padding:40px; text-align:center; color:#6b7280;">Sin movimientos con los filtros aplicados.</td></tr>`}
                     </tbody>
                     <tfoot>
-                        <tr style="background:rgba(255,255,255,0.04); border-top:2px solid rgba(255,255,255,0.1); font-weight:bold; font-size:13px;">
+                        <tr style="background:rgba(255,255,255,0.04); border-top:2px solid rgba(255,255,255,0.1); font-weight:bold;">
                             <td style="padding:12px 16px; color:#9ca3af; text-transform:uppercase; font-size:11px;">TOTAL</td>
-                            ${footerSaldoAnterior}
+                            ${footerSaldo}
                             <td style="padding:12px 16px; text-align:right; color:#f87171;">${sumaEntregadas.toLocaleString()}</td>
                             <td style="padding:12px 16px; text-align:right; color:#34d399;">${sumaDevueltas.toLocaleString()}</td>
                             <td style="padding:12px 16px; text-align:right; font-size:18px; color:${sumaPendiente > 0 ? '#f59e0b' : '#10b981'}">${sumaPendiente.toLocaleString()}</td>
@@ -297,7 +336,7 @@ window.CanastasClienteController = {
                 </table>
             </div>`;
 
-        // Eventos de expansión
+        // Eventos expansión
         container.querySelectorAll('.canasta-row-main').forEach(row => {
             row.addEventListener('mouseenter', () => row.style.background = 'rgba(255,255,255,0.03)');
             row.addEventListener('mouseleave', () => row.style.background = '');
@@ -322,7 +361,7 @@ window.appModules['canastas-cliente'] = () => {
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-white">Historial de Canastas por Cliente</h2>
-                    <p class="text-text-secondary text-sm">Haz clic en un cliente para ver el detalle con fechas. El balance incluye el saldo arrastrado anterior al período.</p>
+                    <p class="text-text-secondary text-sm">Haz clic en un cliente para ver el detalle. El balance está anclado al saldo real del sistema.</p>
                 </div>
             </div>
             <div class="surface-card p-4 mb-6 flex flex-col md:flex-row gap-4 items-end border border-border">
