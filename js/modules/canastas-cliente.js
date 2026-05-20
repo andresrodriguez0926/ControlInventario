@@ -1,6 +1,7 @@
 /**
  * Módulo: Historial de Canastas por Cliente
  * Muestra las canastas entregadas, devueltas y pendientes de cada cliente.
+ * Tabla expandible con detalle de cada movimiento.
  */
 
 window.appModules = window.appModules || {};
@@ -16,15 +17,13 @@ window.CanastasClienteController = {
      */
     buildResumen(filtroClienteId, desde, hasta) {
         const clientes = window.appStore.getClientes();
-        const actividad = window.appStore.getActividad(5000); // Traer todo el historial
+        const actividad = window.appStore.getActividad(9999);
 
-        // Parsear fechas de filtro
         const desdeDate = desde ? new Date(desde + 'T00:00:00') : null;
         const hastaDate = hasta ? new Date(hasta + 'T23:59:59') : null;
 
-        // Construir mapa: clienteId -> { nombre, entregadas, devueltas }
+        // Mapa clienteId -> datos
         const mapaClientes = {};
-
         clientes.forEach(c => {
             mapaClientes[c.id] = {
                 id: c.id,
@@ -35,48 +34,42 @@ window.CanastasClienteController = {
             };
         });
 
+        const parseFecha = (str) => {
+            if (!str) return null;
+            const s = String(str).substring(0, 10);
+            const parts = s.split('-');
+            if (parts.length === 3) {
+                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            }
+            return null;
+        };
+
         actividad.forEach(a => {
             const raw = a.rawPayload;
             if (!raw) return;
-
-            // Obtener fecha del movimiento
-            let fechaStr = raw.fecha || a.fechaOperacion || '';
-            let fechaDate = null;
-            if (fechaStr) {
-                // Parsear como local (evitar UTC offset)
-                if (fechaStr.length >= 10) {
-                    const parts = fechaStr.substring(0, 10).split('-');
-                    if (parts.length === 3) {
-                        fechaDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                    }
-                }
-                if (!fechaDate) fechaDate = new Date(fechaStr);
-            }
-
-            // Aplicar filtro de fechas
-            if (fechaDate) {
-                if (desdeDate && fechaDate < desdeDate) return;
-                if (hastaDate && fechaDate > hastaDate) return;
-            }
-
             const tipo = a.tipo || '';
 
-            // --- DESPACHO A CLIENTE (entregadas) ---
+            // ======= DESPACHO A CLIENTE =======
             if (tipo === 'Despacho a Cliente') {
+                // La fecha de despacho es raw.fecha (YYYY-MM-DDT12:00:00)
+                const fechaStr = raw.fecha ? String(raw.fecha).substring(0, 10) : (a.fechaOperacion ? String(a.fechaOperacion).substring(0, 10) : null);
+                const fechaDate = parseFecha(fechaStr);
+
+                if (desdeDate && fechaDate && fechaDate < desdeDate) return;
+                if (hastaDate && fechaDate && fechaDate > hastaDate) return;
+
                 const clienteId = raw.clienteId;
                 const clienteNombre = raw.clienteNombre;
                 const total = parseInt(raw.total) || 0;
                 if (total <= 0) return;
 
-                let entry = clienteId ? mapaClientes[clienteId] : null;
+                let entry = clienteId && mapaClientes[clienteId] ? mapaClientes[clienteId] : null;
                 if (!entry && clienteNombre) {
-                    // Buscar por nombre
                     const found = clientes.find(c => c.nombre === clienteNombre);
                     if (found) entry = mapaClientes[found.id];
                 }
                 if (!entry) {
-                    // Cliente no en catálogo, agregar dinámicamente
-                    const key = 'unknown_' + (clienteNombre || 'SinNombre');
+                    const key = 'u_' + (clienteNombre || 'SinNombre').replace(/\s+/g, '_');
                     if (!mapaClientes[key]) {
                         mapaClientes[key] = { id: key, nombre: clienteNombre || 'Sin Nombre', entregadas: 0, devueltas: 0, movimientos: [] };
                     }
@@ -85,7 +78,7 @@ window.CanastasClienteController = {
 
                 entry.entregadas += total;
                 entry.movimientos.push({
-                    fecha: fechaStr ? fechaStr.substring(0, 10) : '—',
+                    fecha: fechaStr || '—',
                     tipo: 'Entregadas',
                     cantidad: total,
                     sign: +1,
@@ -93,33 +86,40 @@ window.CanastasClienteController = {
                 });
             }
 
-            // --- DEVOLUCIÓN CANASTAS (devueltas) ---
-            if (tipo === 'Devolución Canastas' || tipo === 'Recepción Canastas' || tipo === 'Devolución Canastas Llenas') {
-                const entidadTipo = raw.entidadTipo || raw.tipo || '';
-                if (entidadTipo !== 'cliente' && entidadTipo !== 'Cliente') return;
+            // ======= DEVOLUCIÓN DE CANASTAS (solo cliente) =======
+            if (tipo === 'Devolución de Canastas') {
+                if (raw.tipoOrigen !== 'cliente') return; // Solo clientes
 
-                const clienteId = raw.entidadId || raw.clienteId;
-                const clienteNombre = raw.entidadNombre || raw.clienteNombre;
+                // La fecha es raw.fechaRecepcion
+                const fechaStr = raw.fechaRecepcion ? String(raw.fechaRecepcion).substring(0, 10) : (a.fechaOperacion ? String(a.fechaOperacion).substring(0, 10) : null);
+                const fechaDate = parseFecha(fechaStr);
+
+                if (desdeDate && fechaDate && fechaDate < desdeDate) return;
+                if (hastaDate && fechaDate && fechaDate > hastaDate) return;
+
+                const clienteId = raw.clienteId;
+                const clienteNombre = raw.clienteNombre;
                 const cantidad = parseInt(raw.cantidad) || 0;
                 if (cantidad <= 0) return;
 
-                let entry = clienteId ? mapaClientes[clienteId] : null;
+                let entry = clienteId && mapaClientes[clienteId] ? mapaClientes[clienteId] : null;
                 if (!entry && clienteNombre) {
                     const found = clientes.find(c => c.nombre === clienteNombre);
                     if (found) entry = mapaClientes[found.id];
                 }
                 if (!entry) {
-                    const key = 'unknown_' + (clienteNombre || 'SinNombre');
+                    const key = 'u_' + (clienteNombre || 'SinNombre').replace(/\s+/g, '_');
                     if (!mapaClientes[key]) {
                         mapaClientes[key] = { id: key, nombre: clienteNombre || 'Sin Nombre', entregadas: 0, devueltas: 0, movimientos: [] };
                     }
                     entry = mapaClientes[key];
                 }
 
+                const tipoLabel = raw.esLlena ? 'Dev. Llenas' : 'Dev. Vacías';
                 entry.devueltas += cantidad;
                 entry.movimientos.push({
-                    fecha: fechaStr ? fechaStr.substring(0, 10) : '—',
-                    tipo: 'Devueltas',
+                    fecha: fechaStr || '—',
+                    tipo: tipoLabel,
                     cantidad: cantidad,
                     sign: -1,
                     claseColor: 'text-success'
@@ -127,167 +127,176 @@ window.CanastasClienteController = {
             }
         });
 
-        // Filtrar por cliente si aplica
+        // Filtrar por cliente seleccionado
         let resultado = Object.values(mapaClientes).filter(c => {
             if (filtroClienteId && filtroClienteId !== 'TODOS') return c.id === filtroClienteId;
-            return true;
+            return c.entregadas > 0 || c.devueltas > 0;
         });
 
-        // Ordenar: primero los que tienen deuda, luego alfabético
+        // Ordenar: primero mayor deuda, luego alfabético
         resultado.sort((a, b) => {
-            const deudaA = a.entregadas - a.devueltas;
-            const deudaB = b.entregadas - b.devueltas;
-            if (deudaB !== deudaA) return deudaB - deudaA;
+            const dA = a.entregadas - a.devueltas;
+            const dB = b.entregadas - b.devueltas;
+            if (dB !== dA) return dB - dA;
             return a.nombre.localeCompare(b.nombre);
         });
 
         return resultado;
     },
 
-    renderTablaResumen(filtroClienteId, desde, hasta) {
+    renderTabla(filtroClienteId, desde, hasta) {
         const data = this.buildResumen(filtroClienteId, desde, hasta);
-        const tbody = document.getElementById('canastas-cliente-tbody');
-        const totalRow = document.getElementById('canastas-cliente-total-row');
-        if (!tbody) return;
+        const container = document.getElementById('canastas-tabla-container');
+        if (!container) return;
 
-        tbody.innerHTML = '';
         let sumaEntregadas = 0, sumaDevueltas = 0;
 
-        data.forEach(c => {
+        const filas = data.map(c => {
             const pendiente = c.entregadas - c.devueltas;
-            if (c.entregadas === 0 && c.devueltas === 0) return; // Omitir clientes sin movimiento
-
             sumaEntregadas += c.entregadas;
             sumaDevueltas += c.devueltas;
 
             const pctDev = c.entregadas > 0 ? Math.round((c.devueltas / c.entregadas) * 100) : 0;
-            const pctColor = pendiente <= 0 ? 'text-success' : (pendiente > 50 ? 'text-danger' : 'text-warning');
             const barWidth = Math.min(pctDev, 100);
+            const pendColor = pendiente <= 0 ? 'text-success' : (pendiente > 100 ? 'text-danger' : 'text-warning');
 
-            const tr = document.createElement('tr');
-            tr.className = 'border-b border-border hover:bg-surface-light transition-colors cursor-pointer';
-            tr.setAttribute('data-cliente-id', c.id);
-            tr.innerHTML = `
-                <td class="py-3 px-4 font-semibold text-white">${c.nombre}</td>
-                <td class="py-3 px-4 text-right text-danger font-bold">${c.entregadas.toLocaleString()}</td>
-                <td class="py-3 px-4 text-right text-success font-bold">${c.devueltas.toLocaleString()}</td>
-                <td class="py-3 px-4 text-right ${pctColor} font-bold text-lg">${pendiente.toLocaleString()}</td>
-                <td class="py-3 px-4 min-w-[120px]">
-                    <div class="flex items-center gap-2">
-                        <div class="flex-1 bg-surface-light rounded-full h-2 overflow-hidden">
-                            <div class="h-2 rounded-full ${pendiente <= 0 ? 'bg-success' : 'bg-warning'}" style="width:${barWidth}%"></div>
+            // Ordenar movimientos por fecha desc
+            const movs = c.movimientos.slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+            // Calcular saldo corrido (cronológico ascendente)
+            const movsAsc = c.movimientos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+            const saldosAsc = [];
+            let saldo = 0;
+            movsAsc.forEach(m => {
+                saldo += m.sign * m.cantidad;
+                saldosAsc.push(saldo);
+            });
+            // Mapeo: índice en desc -> saldo
+            const saldoMap = {};
+            movs.forEach((m, iDesc) => {
+                const iAsc = movsAsc.findIndex((x, ix) => x === m && !saldoMap['used_' + ix]);
+                // Simple mapping: find matching item
+            });
+
+            // Construir tabla de movimientos
+            let saldoCorrido = 0;
+            const filaDetalle = movsAsc.map(m => {
+                saldoCorrido += m.sign * m.cantidad;
+                const saldoColor = saldoCorrido > 0 ? 'color:#f59e0b' : 'color:#10b981';
+                const tipoStyle = m.tipo === 'Entregadas'
+                    ? 'background:rgba(239,68,68,0.15);color:#f87171;'
+                    : 'background:rgba(16,185,129,0.15);color:#34d399;';
+                return `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px;">
+                        <td style="padding:8px 16px; color:#9ca3af;">${m.fecha}</td>
+                        <td style="padding:8px 16px;">
+                            <span style="padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; ${tipoStyle}">${m.tipo}</span>
+                        </td>
+                        <td style="padding:8px 16px; text-align:right; font-weight:bold; ${m.tipo === 'Entregadas' ? 'color:#f87171' : 'color:#34d399'}">
+                            ${m.tipo === 'Entregadas' ? '+' : '-'}${m.cantidad.toLocaleString()}
+                        </td>
+                        <td style="padding:8px 16px; text-align:right; font-weight:bold; ${saldoColor}">
+                            ${saldoCorrido.toLocaleString()}
+                        </td>
+                    </tr>`;
+            }).reverse().join(''); // mostrar de más reciente a más antiguo
+
+            const idSafe = c.id.replace(/[^a-zA-Z0-9]/g, '_');
+
+            return `
+                <!-- FILA PRINCIPAL (expandible) -->
+                <tr class="canasta-row-main border-b border-border hover:bg-surface-light transition-colors cursor-pointer"
+                    data-target="detalle-${idSafe}"
+                    style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                    <td style="padding:12px 16px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="display:inline-block; width:20px; transition:transform 0.2s;" class="expand-icon-${idSafe}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                            </span>
+                            <span style="font-weight:600; color:white;">${c.nombre}</span>
                         </div>
-                        <span class="text-xs text-text-secondary w-10 text-right">${pctDev}%</span>
-                    </div>
-                </td>
-                <td class="py-3 px-4 text-center">
-                    <button class="btn-ver-detalle-canastas text-info hover:text-info-light text-xs flex items-center gap-1 mx-auto" data-cliente-id="${c.id}">
-                        <i data-lucide="list" class="w-3.5 h-3.5"></i> Ver detalle
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+                    </td>
+                    <td style="padding:12px 16px; text-align:right; color:#f87171; font-weight:bold;">${c.entregadas.toLocaleString()}</td>
+                    <td style="padding:12px 16px; text-align:right; color:#34d399; font-weight:bold;">${c.devueltas.toLocaleString()}</td>
+                    <td style="padding:12px 16px; text-align:right; font-weight:bold; font-size:18px; ${pendiente <= 0 ? 'color:#34d399' : pendiente > 100 ? 'color:#f87171' : 'color:#f59e0b'}">${pendiente.toLocaleString()}</td>
+                    <td style="padding:12px 16px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="flex:1; background:rgba(255,255,255,0.08); border-radius:9999px; height:6px; overflow:hidden;">
+                                <div style="width:${barWidth}%; height:6px; border-radius:9999px; background:${pendiente <= 0 ? '#10b981' : '#f59e0b'};"></div>
+                            </div>
+                            <span style="font-size:12px; color:#9ca3af; min-width:32px; text-align:right;">${pctDev}%</span>
+                        </div>
+                    </td>
+                </tr>
+                <!-- FILA EXPANDIBLE -->
+                <tr id="detalle-${idSafe}" style="display:none;">
+                    <td colspan="5" style="padding:0; background:rgba(255,255,255,0.02);">
+                        <div style="border-top:1px solid rgba(255,255,255,0.06); border-bottom:1px solid rgba(255,255,255,0.06);">
+                            <table style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:rgba(255,255,255,0.04); font-size:11px; text-transform:uppercase; color:#6b7280;">
+                                        <th style="padding:8px 16px; text-align:left; font-weight:600;">Fecha</th>
+                                        <th style="padding:8px 16px; text-align:left; font-weight:600;">Tipo</th>
+                                        <th style="padding:8px 16px; text-align:right; font-weight:600;">Cantidad</th>
+                                        <th style="padding:8px 16px; text-align:right; font-weight:600;">Saldo Canastas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${movs.length === 0
+                    ? `<tr><td colspan="4" style="padding:16px; text-align:center; color:#6b7280;">Sin movimientos</td></tr>`
+                    : filaDetalle}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>`;
+        }).join('');
 
-        // Totals row
         const sumaPendiente = sumaEntregadas - sumaDevueltas;
-        if (totalRow) {
-            totalRow.innerHTML = `
-                <td class="py-3 px-4 font-bold text-text-secondary uppercase text-xs">TOTAL</td>
-                <td class="py-3 px-4 text-right text-danger font-bold">${sumaEntregadas.toLocaleString()}</td>
-                <td class="py-3 px-4 text-right text-success font-bold">${sumaDevueltas.toLocaleString()}</td>
-                <td class="py-3 px-4 text-right ${sumaPendiente > 0 ? 'text-warning' : 'text-success'} font-bold text-lg">${sumaPendiente.toLocaleString()}</td>
-                <td colspan="2"></td>
-            `;
-        }
+        const sumaPctDev = sumaEntregadas > 0 ? Math.round((sumaDevueltas / sumaEntregadas) * 100) : 0;
 
-        if (window.lucide) window.lucide.createIcons({ nodes: Array.from(tbody.querySelectorAll('[data-lucide]')) });
-    },
-
-    renderDetalle(clienteId, desde, hasta) {
-        const data = this.buildResumen(clienteId, desde, hasta);
-        const entry = data.find(c => c.id === clienteId);
-        const modal = document.getElementById('canastas-detalle-modal');
-        const contenido = document.getElementById('canastas-detalle-contenido');
-        const titulo = document.getElementById('canastas-detalle-titulo');
-        if (!modal || !contenido || !entry) return;
-
-        titulo.textContent = `Historial de Canastas — ${entry.nombre}`;
-
-        // Ordenar movimientos por fecha desc
-        const movs = entry.movimientos.slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
-
-        const pendiente = entry.entregadas - entry.devueltas;
-        const pctDev = entry.entregadas > 0 ? Math.round((entry.devueltas / entry.entregadas) * 100) : 0;
-
-        contenido.innerHTML = `
-            <!-- Tarjetas de resumen -->
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="surface-card p-4 text-center border border-danger/20">
-                    <p class="text-xs text-text-secondary mb-1 uppercase">Entregadas</p>
-                    <p class="text-3xl font-bold text-danger">${entry.entregadas.toLocaleString()}</p>
-                </div>
-                <div class="surface-card p-4 text-center border border-success/20">
-                    <p class="text-xs text-text-secondary mb-1 uppercase">Devueltas</p>
-                    <p class="text-3xl font-bold text-success">${entry.devueltas.toLocaleString()}</p>
-                </div>
-                <div class="surface-card p-4 text-center border ${pendiente > 0 ? 'border-warning/20' : 'border-success/20'}">
-                    <p class="text-xs text-text-secondary mb-1 uppercase">Pendiente</p>
-                    <p class="text-3xl font-bold ${pendiente > 0 ? 'text-warning' : 'text-success'}">${pendiente.toLocaleString()}</p>
-                    <p class="text-xs text-text-secondary mt-1">${pctDev}% devuelto</p>
-                </div>
-            </div>
-
-            <!-- Tabla de movimientos -->
-            <div class="overflow-x-auto border border-border rounded-lg bg-surface">
-                <table class="w-full text-left">
+        container.innerHTML = `
+            <div style="border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
+                <table style="width:100%; border-collapse:collapse; font-family:inherit;">
                     <thead>
-                        <tr class="bg-surface-light text-text-secondary text-xs uppercase tracking-wider border-b border-border">
-                            <th class="py-3 px-4">Fecha</th>
-                            <th class="py-3 px-4">Tipo</th>
-                            <th class="py-3 px-4 text-right">Cantidad</th>
-                            <th class="py-3 px-4 text-right">Saldo Parcial</th>
+                        <tr style="background:rgba(255,255,255,0.05); font-size:11px; text-transform:uppercase; color:#6b7280; border-bottom:1px solid rgba(255,255,255,0.08);">
+                            <th style="padding:12px 16px; text-align:left; font-weight:600;">Cliente</th>
+                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#f87171;">Entregadas</th>
+                            <th style="padding:12px 16px; text-align:right; font-weight:600; color:#34d399;">Devueltas</th>
+                            <th style="padding:12px 16px; text-align:right; font-weight:600;">Pendiente</th>
+                            <th style="padding:12px 16px; text-align:left; font-weight:600;">% Devuelto</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${movs.length === 0
-                ? `<tr><td colspan="4" class="py-8 text-center text-text-secondary">Sin movimientos registrados.</td></tr>`
-                : (() => {
-                    let saldoAcum = 0;
-                    // Calcular saldo cronológico (de más viejo a más nuevo)
-                    const ordenAsc = movs.slice().reverse();
-                    const saldosMap = {};
-                    let running = 0;
-                    ordenAsc.forEach((m, i) => {
-                        running += m.sign * m.cantidad;
-                        saldosMap[i] = running;
-                    });
-                    // Ahora renderizar en desc con los saldos correctos
-                    return movs.map((m, i) => {
-                        // saldo en desc = saldo al final de la lista - acumulado hasta la posicion inversa
-                        const idxAsc = movs.length - 1 - i;
-                        const saldo = saldosMap[idxAsc];
-                        const saldoColor = saldo > 0 ? 'text-warning' : 'text-success';
-                        const tipoColor = m.tipo === 'Entregadas' ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success';
-                        return `
-                            <tr class="border-b border-border hover:bg-surface-light transition-colors">
-                                <td class="py-3 px-4 text-text-secondary text-sm">${m.fecha}</td>
-                                <td class="py-3 px-4">
-                                    <span class="text-xs px-2 py-1 rounded-full font-semibold ${tipoColor}">${m.tipo}</span>
-                                </td>
-                                <td class="py-3 px-4 text-right font-bold ${m.claseColor}">${m.tipo === 'Entregadas' ? '+' : '-'}${m.cantidad.toLocaleString()}</td>
-                                <td class="py-3 px-4 text-right font-bold ${saldoColor}">${saldo.toLocaleString()}</td>
-                            </tr>`;
-                    }).join('');
-                })()
-            }
+                        ${filas || `<tr><td colspan="5" style="padding:40px; text-align:center; color:#6b7280; font-style:italic;">No hay movimientos con los filtros aplicados.</td></tr>`}
                     </tbody>
+                    <tfoot>
+                        <tr style="background:rgba(255,255,255,0.04); border-top:2px solid rgba(255,255,255,0.1); font-weight:bold; font-size:13px;">
+                            <td style="padding:12px 16px; color:#9ca3af; text-transform:uppercase; font-size:11px;">TOTAL</td>
+                            <td style="padding:12px 16px; text-align:right; color:#f87171;">${sumaEntregadas.toLocaleString()}</td>
+                            <td style="padding:12px 16px; text-align:right; color:#34d399;">${sumaDevueltas.toLocaleString()}</td>
+                            <td style="padding:12px 16px; text-align:right; font-size:18px; ${sumaPendiente > 0 ? 'color:#f59e0b' : 'color:#34d399'}">${sumaPendiente.toLocaleString()}</td>
+                            <td style="padding:12px 16px; color:#9ca3af; font-size:11px;">${sumaPctDev}% devuelto global</td>
+                        </tr>
+                    </tfoot>
                 </table>
-            </div>
-        `;
+            </div>`;
 
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        // Registrar eventos de expansión
+        container.querySelectorAll('.canasta-row-main').forEach(row => {
+            row.addEventListener('click', () => {
+                const targetId = row.getAttribute('data-target');
+                const detalleRow = document.getElementById(targetId);
+                if (!detalleRow) return;
+
+                const isOpen = detalleRow.style.display !== 'none';
+                detalleRow.style.display = isOpen ? 'none' : 'table-row';
+
+                // Rotar icono
+                const iconEl = row.querySelector('[class^="expand-icon"]');
+                if (iconEl) iconEl.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+            });
+        });
     }
 };
 
@@ -300,7 +309,7 @@ window.appModules['canastas-cliente'] = () => {
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-white">Historial de Canastas por Cliente</h2>
-                    <p class="text-text-secondary text-sm">Control de canastas entregadas, devueltas y pendientes por cobrar.</p>
+                    <p class="text-text-secondary text-sm">Control de canastas entregadas, devueltas y pendientes. Haz clic en un cliente para ver el detalle.</p>
                 </div>
             </div>
 
@@ -333,45 +342,9 @@ window.appModules['canastas-cliente'] = () => {
                 </div>
             </div>
 
-            <!-- Tabla principal -->
-            <div class="surface-card overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="bg-surface-light text-text-secondary text-xs uppercase tracking-wider border-b border-border">
-                                <th class="py-3 px-4 font-semibold">Cliente</th>
-                                <th class="py-3 px-4 font-semibold text-right">Entregadas</th>
-                                <th class="py-3 px-4 font-semibold text-right">Devueltas</th>
-                                <th class="py-3 px-4 font-semibold text-right">Pendiente</th>
-                                <th class="py-3 px-4 font-semibold">% Devuelto</th>
-                                <th class="py-3 px-4 font-semibold text-center">Detalle</th>
-                            </tr>
-                        </thead>
-                        <tbody id="canastas-cliente-tbody">
-                            <tr>
-                                <td colspan="6" class="py-10 text-center text-text-secondary italic">Cargando historial...</td>
-                            </tr>
-                        </tbody>
-                        <tfoot>
-                            <tr id="canastas-cliente-total-row" class="bg-surface-light border-t-2 border-border text-sm">
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal Detalle -->
-        <div id="canastas-detalle-modal" class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4 backdrop-blur-sm">
-            <div class="surface-card w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-border">
-                <div class="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
-                    <h3 id="canastas-detalle-titulo" class="text-lg font-bold text-white"></h3>
-                    <button id="btn-cerrar-canastas-modal" class="w-8 h-8 rounded-full bg-surface hover:bg-danger/20 text-text-secondary hover:text-danger flex items-center justify-center transition-colors">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                </div>
-                <div id="canastas-detalle-contenido" class="overflow-y-auto p-6 flex-1">
-                </div>
+            <!-- Tabla principal (dinámica) -->
+            <div id="canastas-tabla-container">
+                <div class="surface-card p-12 text-center text-text-secondary">Cargando...</div>
             </div>
         </div>
     `;
@@ -379,51 +352,26 @@ window.appModules['canastas-cliente'] = () => {
 
 // ===== EVENTOS DEL MÓDULO =====
 window.appModuleEvents['canastas-cliente'] = () => {
-    // Cargar tabla inicial (sin filtros)
-    window.CanastasClienteController.renderTablaResumen(null, null, null);
+    // Carga inicial (todos los clientes, sin filtro de fecha)
+    window.CanastasClienteController.renderTabla(null, null, null);
 
-    // Botón filtrar
+    // Botón Filtrar
     document.getElementById('btn-filtrar-canastas')?.addEventListener('click', () => {
         const clienteId = document.getElementById('canastas-filtro-cliente').value;
         const desde = document.getElementById('canastas-filtro-desde').value;
         const hasta = document.getElementById('canastas-filtro-hasta').value;
-        window.CanastasClienteController.renderTablaResumen(
+        window.CanastasClienteController.renderTabla(
             clienteId === 'TODOS' ? null : clienteId,
             desde || null,
             hasta || null
         );
     });
 
-    // Botón limpiar
+    // Botón Limpiar
     document.getElementById('btn-limpiar-filtro-canastas')?.addEventListener('click', () => {
         document.getElementById('canastas-filtro-cliente').value = 'TODOS';
         document.getElementById('canastas-filtro-desde').value = '';
         document.getElementById('canastas-filtro-hasta').value = '';
-        window.CanastasClienteController.renderTablaResumen(null, null, null);
-    });
-
-    // Botón ver detalle (event delegation)
-    document.getElementById('canastas-cliente-tbody')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.btn-ver-detalle-canastas');
-        if (!btn) return;
-        const clienteId = btn.getAttribute('data-cliente-id');
-        const desde = document.getElementById('canastas-filtro-desde').value;
-        const hasta = document.getElementById('canastas-filtro-hasta').value;
-        window.CanastasClienteController.renderDetalle(clienteId, desde || null, hasta || null);
-    });
-
-    // Cerrar modal
-    document.getElementById('btn-cerrar-canastas-modal')?.addEventListener('click', () => {
-        const modal = document.getElementById('canastas-detalle-modal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    });
-
-    // Cerrar modal al hacer clic fuera
-    document.getElementById('canastas-detalle-modal')?.addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) {
-            e.currentTarget.classList.add('hidden');
-            e.currentTarget.classList.remove('flex');
-        }
+        window.CanastasClienteController.renderTabla(null, null, null);
     });
 };
