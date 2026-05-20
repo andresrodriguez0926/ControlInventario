@@ -17,7 +17,8 @@ window.CanastasClienteController = {
      */
     buildResumen(filtroClienteId, desde, hasta) {
         const clientes = window.appStore.getClientes();
-        const actividad = window.appStore.getActividad(9999);
+        // Use actividadCache directly for full access to all records
+        const actividad = window.appStore.actividadCache || [];
 
         const desdeDate = desde ? new Date(desde + 'T00:00:00') : null;
         const hastaDate = hasta ? new Date(hasta + 'T23:59:59') : null;
@@ -47,12 +48,15 @@ window.CanastasClienteController = {
         actividad.forEach(a => {
             const raw = a.rawPayload;
             if (!raw) return;
-            const tipo = a.tipo || '';
+            // NOTE: The field is 'operacion', NOT 'tipo'
+            const operacion = a.operacion || '';
 
             // ======= DESPACHO A CLIENTE =======
-            if (tipo === 'Despacho a Cliente') {
-                // La fecha de despacho es raw.fecha (YYYY-MM-DDT12:00:00)
-                const fechaStr = raw.fecha ? String(raw.fecha).substring(0, 10) : (a.fechaOperacion ? String(a.fechaOperacion).substring(0, 10) : null);
+            if (operacion === 'Despacho a Cliente') {
+                // Date: fechaOperacion holds the user-selected date (YYYY-MM-DD)
+                const fechaStr = a.fechaOperacion
+                    ? String(a.fechaOperacion).substring(0, 10)
+                    : (raw.fecha ? String(raw.fecha).substring(0, 10) : null);
                 const fechaDate = parseFecha(fechaStr);
 
                 if (desdeDate && fechaDate && fechaDate < desdeDate) return;
@@ -87,11 +91,13 @@ window.CanastasClienteController = {
             }
 
             // ======= DEVOLUCIÓN DE CANASTAS (solo cliente) =======
-            if (tipo === 'Devolución de Canastas') {
-                if (raw.tipoOrigen !== 'cliente') return; // Solo clientes
+            if (operacion === 'Devolución de Canastas') {
+                if (raw.tipoOrigen !== 'cliente') return;
 
-                // La fecha es raw.fechaRecepcion
-                const fechaStr = raw.fechaRecepcion ? String(raw.fechaRecepcion).substring(0, 10) : (a.fechaOperacion ? String(a.fechaOperacion).substring(0, 10) : null);
+                // Date: fechaOperacion holds the user-selected date
+                const fechaStr = a.fechaOperacion
+                    ? String(a.fechaOperacion).substring(0, 10)
+                    : (raw.fechaRecepcion ? String(raw.fechaRecepcion).substring(0, 10) : null);
                 const fechaDate = parseFecha(fechaStr);
 
                 if (desdeDate && fechaDate && fechaDate < desdeDate) return;
