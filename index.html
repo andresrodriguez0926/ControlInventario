@@ -138,6 +138,18 @@
                         Dashboard Semanal
                     </a>
 
+                    <a href="#pedidos-clientes"
+                        class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-info-light hover:text-info hover:bg-info/10">
+                        <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                        Pedidos de Clientes
+                    </a>
+
+                    <a href="#canastas-cliente"
+                        class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-success-light hover:text-success hover:bg-success/10">
+                        <i data-lucide="shopping-basket" class="w-4 h-4"></i>
+                        Canastas por Cliente
+                    </a>
+
                     <div class="text-xs font-semibold text-text-secondary mb-2 mt-6 uppercase tracking-wider px-2">
                         Inventario</div>
                     <a href="#recepcion"
@@ -635,6 +647,16 @@
                     </div>
                 </div>
 
+                <!-- Pedidos de Clientes Page -->
+                <div id="page-pedidos-clientes" class="page-view hidden animate-fade-in">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Canastas por Cliente Page -->
+                <div id="page-canastas-cliente" class="page-view hidden animate-fade-in">
+                    <!-- Injected by JS -->
+                </div>
+
                 <!-- Dashboard Page -->
                 <div id="page-dashboard" class="page-view active animate-fade-in">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -1108,12 +1130,15 @@
     <script src="js/modules/catalogos.js?v=30"></script>
     <script src="js/modules/operaciones.js?v=30"></script>
     <script src="js/modules/operaciones2.js?v=30"></script>
+    <script src="js/modules/pedidos-clientes.js?v=30"></script>
     <script src="js/modules/usuarios.js?v=30"></script>
     <script src="js/modules/reportes.js?v=30"></script>
     <script src="js/modules/inventario-fecha.js?v=30"></script>
     <script src="js/modules/maduracion.js?v=30"></script>
     <script src="js/modules/reporte-fruta.js?v=30"></script>
+    <script src="js/modules/canastas-cliente.js?v=1"></script>
     <script src="js/modules/auditoria.js?v=30"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="js/app.js?v=30"></script>
     <script src="js/pwa.js?v=30"></script>
 

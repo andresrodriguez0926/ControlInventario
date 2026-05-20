@@ -617,24 +617,38 @@ window.appModules['productos'] = () => {
                             Nueva Fruta / Producto
                         </h3>
                         <form id="form-producto" class="space-y-4">
-                            <div class="form-group mb-6">
+                            <input type="hidden" id="prodfrut-id" value="">
+                            <div class="form-group mb-4">
                                 <label class="form-label mb-1 block">Nombre / Variedad de Fruta</label>
                                 <input type="text" id="prodfrut-nombre" class="form-input" required placeholder="Ej: Aguacate Hass">
                             </div>
-                            <button type="submit" class="btn btn-primary w-full" style="background-color: var(--accent-success); border-color: var(--accent-success)">
+                            <div class="form-group mb-4">
+                                <label class="form-label mb-1 block" title="Ej: ¿Cuántas libras o unidades trae una canasta?">Especificación por Canasta (Cantidad)</label>
+                                <input type="number" id="prodfrut-factor" class="form-input" min="1" step="any" placeholder="Ej: 20">
+                            </div>
+                            <div class="form-group mb-6">
+                                <label class="form-label mb-1 block">Unidad de Medida</label>
+                                <select id="prodfrut-unidad" class="form-input">
+                                    <option value="libras">Libras</option>
+                                    <option value="unidades">Unidades</option>
+                                </select>
+                            </div>
+                            <button type="submit" id="prodfrut-submit-btn" class="btn btn-primary w-full" style="background-color: var(--accent-success); border-color: var(--accent-success)">
                                 Registrar Fruta
+                            </button>
+                            <button type="button" id="prodfrut-cancel-btn" class="btn hidden w-full text-text-secondary hover:text-white mt-2">
+                                Cancelar Edición
                             </button>
                         </form>
                     </div>
                 </div>
 
-                <!-- Lista (Grid simple) -->
+                <!-- Lista (Grid) -->
                 <div class="lg:col-span-2">
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         ${productos.length === 0
             ? `<div class="col-span-full surface-card p-12 text-center text-text-secondary">No hay tipos de fruta registrados.</div>`
             : productos.map((p, i) => {
-                // Pseudo-randomized colors based on index for variety
                 const colorClasses = [
                     'text-green-400 bg-green-400/10 border-green-400/20',
                     'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
@@ -642,13 +656,27 @@ window.appModules['productos'] = () => {
                     'text-purple-400 bg-purple-400/10 border-purple-400/20'
                 ];
                 const colorClass = colorClasses[i % colorClasses.length];
+                const espec = (p.factorConversion) ? `${p.factorConversion} ${p.unidadMedida || 'unidades'} / Canasta` : 'Sin especificar';
 
                 return `
-                                <div class="surface-card p-4 flex flex-col items-center justify-center text-center group border hover:border-text-secondary/50 transition-colors">
-                                    <div class="w-16 h-16 rounded-full flex items-center justify-center mb-3 ${colorClass} group-hover:scale-110 transition-transform">
-                                        <i data-lucide="apple" class="w-8 h-8"></i>
+                                <div class="surface-card p-4 flex flex-col relative border hover:border-text-secondary/50 transition-colors">
+                                    <div class="absolute top-2 right-2 flex gap-1">
+                                        <button type="button" class="btn-edit-prodfrut w-8 h-8 rounded-full bg-surface border border-border hover:bg-primary/20 text-text-secondary hover:text-primary flex items-center justify-center transition-colors" data-id="${p.id}" title="Editar">
+                                            <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                        </button>
+                                        <button type="button" class="btn-delete-prodfrut w-8 h-8 rounded-full bg-surface border border-border hover:bg-danger/20 text-text-secondary hover:text-danger flex items-center justify-center transition-colors" data-id="${p.id}" title="Eliminar">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
                                     </div>
-                                    <h4 class="text-base font-semibold text-white">${p.nombre}</h4>
+                                    <div class="flex items-center gap-3 mb-2 mt-4">
+                                        <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${colorClass}">
+                                            <i data-lucide="apple" class="w-6 h-6"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-base font-semibold text-white">${p.nombre}</h4>
+                                            <p class="text-xs text-text-secondary">${espec}</p>
+                                        </div>
+                                    </div>
                                 </div>
                                 `;
             }).join('')
@@ -664,18 +692,76 @@ window.appModuleEvents['productos'] = () => {
     const form = document.getElementById('form-producto');
     if (!form) return;
 
+    // Handle Edit Clicks
+    document.querySelectorAll('.btn-edit-prodfrut').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const productos = window.appStore.getProductos();
+            const producto = productos.find(p => p.id === id);
+            if (!producto) return;
+
+            document.getElementById('prodfrut-id').value = producto.id;
+            document.getElementById('prodfrut-nombre').value = producto.nombre || '';
+            document.getElementById('prodfrut-factor').value = producto.factorConversion || '';
+            document.getElementById('prodfrut-unidad').value = producto.unidadMedida || 'libras';
+
+            document.getElementById('prodfrut-submit-btn').innerHTML = 'Actualizar Fruta';
+            document.getElementById('prodfrut-cancel-btn').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+
+    // Handle Cancel Edit
+    const cancelBtn = document.getElementById('prodfrut-cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            form.reset();
+            document.getElementById('prodfrut-id').value = '';
+            document.getElementById('prodfrut-submit-btn').innerHTML = 'Registrar Fruta';
+            cancelBtn.classList.add('hidden');
+        });
+    }
+
+    // Handle Delete Clicks
+    document.querySelectorAll('.btn-delete-prodfrut').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            if (confirm("¿Está seguro de que desea eliminar esta fruta? (Sólo si no tiene existencias)")) {
+                const icon = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i>';
+                try {
+                    await window.appStore.deleteProducto(id);
+                    window.UI.showToast("Fruta eliminada con éxito.");
+                    window.UI.renderModuleContainer('productos');
+                } catch (error) {
+                    window.UI.showToast(error.message, 'error');
+                    btn.innerHTML = icon;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }
+        });
+    });
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn = form.querySelector('button[type="submit"]');
+        const btn = document.getElementById('prodfrut-submit-btn');
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Registrando...';
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Guardando...';
         btn.disabled = true;
 
         try {
+            const id = document.getElementById('prodfrut-id').value;
             const nombre = document.getElementById('prodfrut-nombre').value;
+            const factorConversion = parseFloat(document.getElementById('prodfrut-factor').value) || null;
+            const unidadMedida = document.getElementById('prodfrut-unidad').value;
 
-            await window.appStore.addProducto({ nombre });
-            window.UI.showToast(`Producto "${nombre}" registrado en catálogo.`);
+            if (id) {
+                await window.appStore.updateProducto(id, { nombre, factorConversion, unidadMedida });
+                window.UI.showToast(`Producto "${nombre}" actualizado.`);
+            } else {
+                await window.appStore.addProducto({ nombre, factorConversion, unidadMedida });
+                window.UI.showToast(`Producto "${nombre}" registrado.`);
+            }
             window.UI.renderModuleContainer('productos');
         } catch (error) {
             window.UI.showToast("Error al guardar: " + error.message, 'error');

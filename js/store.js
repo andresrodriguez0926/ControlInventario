@@ -41,6 +41,7 @@ const defaultData = {
     almacenes: [],
     productos: [],
     clientes: [],
+    pedidos: [],
     inventario: {
         canastasLlenas: 0,
         canastasVacias: 0,
@@ -249,6 +250,7 @@ class Store {
     getAlmacenes() { return this.data.almacenes || []; }
     getProductos() { return this.data.productos || []; }
     getClientes() { return this.data.clientes || []; }
+    getPedidos() { return this.data.pedidos || []; }
     getUsuarios() { return this.data.usuarios || []; }
 
     getActividad(limit = 100) {
@@ -684,6 +686,40 @@ class Store {
         }, true);
     }
 
+    async addPedido(pedido) {
+        await this.runTransaction((state, transaction) => {
+            pedido.id = this.generateId();
+            pedido.createdAt = new Date().toISOString();
+            if (!state.pedidos) state.pedidos = [];
+            state.pedidos.push(pedido);
+            
+            const cliente = state.clientes.find(c => c.id === pedido.clienteId);
+            const clienteName = cliente ? cliente.nombre : 'Desconocido';
+            
+            this._incrementConfigVersion(state);
+            
+            // Generate detailed payload
+            const rawPayload = { ...pedido, clienteNombre: clienteName };
+            
+            this._registrarActividad(state, transaction, 'Pedido Cliente', `Nuevo pedido de: ${clienteName}`, `Registro`, pedido.fecha, rawPayload);
+        }, true);
+    }
+
+    async deletePedido(id) {
+        await this.runTransaction((state, transaction) => {
+            if (!state.pedidos) return;
+            const pedido = state.pedidos.find(p => p.id === id);
+            if (!pedido) return;
+            
+            const cliente = state.clientes.find(c => c.id === pedido.clienteId);
+            const clienteName = cliente ? cliente.nombre : 'Desconocido';
+
+            state.pedidos = state.pedidos.filter(p => p.id !== id);
+            this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Pedido Cliente', `Eliminación pedido de: ${clienteName}`, 'Baja', pedido.fecha, pedido);
+        }, true);
+    }
+
     async addAlmacen(almacen) {
         await this.runTransaction((state, transaction) => {
             almacen.id = this.generateId();
@@ -746,6 +782,62 @@ class Store {
             state.productos.push(producto);
             this._incrementConfigVersion(state);
             this._registrarActividad(state, transaction, 'Catálogos', `Nuevo Producto: ${producto.nombre}`, 'Registro');
+        }, true);
+    }
+
+    async updateProducto(id, datos) {
+        await this.runTransaction((state, transaction) => {
+            const index = state.productos.findIndex(p => p.id === id);
+            if (index === -1) throw new Error("Producto no encontrado");
+            const oldName = state.productos[index].nombre;
+            state.productos[index] = { ...state.productos[index], ...datos, updatedAt: new Date().toISOString() };
+            this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Actualización Producto: ${oldName}`, 'Cambio');
+        }, true);
+    }
+
+    async deleteProducto(id) {
+        await this.runTransaction((state, transaction) => {
+            const index = state.productos.findIndex(p => p.id === id);
+            if (index === -1) throw new Error("Producto no encontrado");
+            // Check if product is used in inventory
+            let hasMovements = false;
+            for (let almacenId in state.inventario.porAlmacen) {
+                if (state.inventario.porAlmacen[almacenId][id] > 0) {
+                    hasMovements = true;
+                    break;
+                }
+            }
+
+            // Check if there's any historical movement in recepciones
+            if (!hasMovements && state.recepciones) {
+                hasMovements = state.recepciones.some(r => r.lotes && r.lotes.some(l => l.productoId === id));
+            }
+            // Check despachos
+            if (!hasMovements && state.despachos) {
+                hasMovements = state.despachos.some(d => d.detalles && d.detalles.some(det => det.productoId === id));
+            }
+            // Check mermas
+            if (!hasMovements && state.mermas) {
+                hasMovements = state.mermas.some(m => (m.productoId === id) || (m.lotes && m.lotes.some(l => l.productoId === id)));
+            }
+            // Check maduracion
+            if (!hasMovements && state.maduracion) {
+                hasMovements = state.maduracion.some(m => m.lotes && m.lotes.some(l => l.productoId === id));
+            }
+            // Check pedidos
+            if (!hasMovements && state.pedidos) {
+                hasMovements = state.pedidos.some(p => p.detalles && p.detalles.some(det => det.productoId === id));
+            }
+
+            if (hasMovements) {
+                throw new Error("No se puede eliminar la fruta porque tiene movimientos registrados (recepciones, despachos, etc.)");
+            }
+
+            const pName = state.productos[index].nombre;
+            state.productos.splice(index, 1);
+            this._incrementConfigVersion(state);
+            this._registrarActividad(state, transaction, 'Catálogos', `Eliminación Producto: ${pName}`, 'Baja');
         }, true);
     }
 
