@@ -527,6 +527,14 @@ window.appModules['pedidos-clientes'] = () => {
                 <div class="surface-card p-6 border border-primary/20">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                         <h3 class="text-lg font-semibold text-white">Cumplimiento de Pedidos vs Entregas</h3>
+                        <div class="flex gap-2 mt-4 md:mt-0">
+                            <button type="button" id="btn-print-cumplimiento" class="btn bg-surface border border-border hover:bg-surface-light text-text-secondary hover:text-white px-3 py-1.5 text-sm rounded-lg flex items-center gap-2">
+                                <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+                            </button>
+                            <button type="button" id="btn-wa-cumplimiento" class="btn bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 px-3 py-1.5 text-sm rounded-lg flex items-center gap-2 font-semibold">
+                                <i data-lucide="message-circle" class="w-4 h-4"></i> Copiar para WhatsApp
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex flex-col md:flex-row gap-4 mb-6 items-end bg-surface-light p-4 rounded-xl border border-border">
@@ -767,6 +775,89 @@ window.appModuleEvents['pedidos-clientes'] = () => {
     // Generate Report
     document.getElementById('btn-generar-cumplimiento')?.addEventListener('click', () => {
         window.PedidosClientesController.generarReporteCumplimiento();
+    });
+
+    // Print Cumplimiento
+    document.getElementById('btn-print-cumplimiento')?.addEventListener('click', () => {
+        const tableHtml = document.querySelector('#tab-reporte-cumplimiento table').outerHTML;
+        let periodo = "";
+        if (document.getElementById('cumplimiento-tipo-filtro').value === 'semana') {
+            periodo = "Semana: " + document.getElementById('cumplimiento-semana').value;
+        } else {
+            periodo = "Desde: " + document.getElementById('cumplimiento-desde').value + " Hasta: " + document.getElementById('cumplimiento-hasta').value;
+        }
+        
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Reporte de Cumplimiento</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #000; }
+                    h2 { margin-bottom: 5px; }
+                    p { margin-top: 0; color: #555; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+                    th { background-color: #f5f5f5; }
+                    .text-right { text-align: right; }
+                    .text-success { color: #16a34a; font-weight: bold; }
+                    .text-warning { color: #d97706; font-weight: bold; }
+                    .text-danger { color: #dc2626; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <h2>Reporte de Cumplimiento</h2>
+                <p><strong>Periodo:</strong> ${periodo}</p>
+                ${tableHtml}
+                <script>
+                    window.onload = function() { window.print(); window.close(); }
+                </script>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    });
+
+    // WhatsApp Share Cumplimiento
+    document.getElementById('btn-wa-cumplimiento')?.addEventListener('click', async () => {
+        if (typeof html2canvas === 'undefined') {
+            return window.UI.showToast("La librería de captura no está cargada.", "error");
+        }
+        const target = document.querySelector('#tab-reporte-cumplimiento .overflow-x-auto');
+        if (!target || !target.querySelector('tbody').innerHTML.trim()) {
+            return window.UI.showToast("Genere el reporte primero.", "warning");
+        }
+
+        const btn = document.getElementById('btn-wa-cumplimiento');
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin inline-block"></i> Copiando...`;
+        btn.disabled = true;
+
+        try {
+            const canvas = await html2canvas(target, {
+                scale: 2, 
+                backgroundColor: "#1e1e2d" // Theme background
+            });
+            
+            canvas.toBlob(async (blob) => {
+                try {
+                    const item = new ClipboardItem({ "image/png": blob });
+                    await navigator.clipboard.write([item]);
+                    window.UI.showToast("¡Imagen copiada! Pega en WhatsApp (Ctrl+V)", "success");
+                } catch (err) {
+                    window.UI.showToast("El navegador no permite copiar imágenes al portapapeles.", "warning");
+                } finally {
+                    btn.innerHTML = orig;
+                    btn.disabled = false;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }, 'image/png');
+        } catch (err) {
+            window.UI.showToast("Error al generar la imagen.", "error");
+            btn.innerHTML = orig;
+            btn.disabled = false;
+            if (window.lucide) window.lucide.createIcons();
+        }
     });
 
     // Generate WhatsApp
