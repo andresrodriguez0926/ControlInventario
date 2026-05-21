@@ -185,8 +185,9 @@ window.PedidosClientesController = {
 
             if (aDate < fechaInicio || aDate > fechaFin) return;
 
-            const isDespacho = a.operacion.includes('Despacho a Cliente') || a.operacion.includes('Desp. Cliente');
-            const isDevolucion = a.operacion.includes('Devolución');
+            const operacionStr = a.operacion || a.tipo || '';
+            const isDespacho = operacionStr.includes('Despacho a Cliente') || operacionStr.includes('Desp. Cliente');
+            const isDevolucion = operacionStr.includes('Devolución');
 
             if (isDespacho && a.rawPayload && a.rawPayload.detalles) {
                 const matchC = clienteId === 'TODOS' || (a.rawPayload.clienteId === clienteId || a.rawPayload.clienteNombre === document.querySelector(`#cumplimiento-cliente option[value="${clienteId}"]`)?.text);
@@ -577,6 +578,7 @@ window.appModules['pedidos-clientes'] = () => {
                                     <th class="py-3 px-4 font-semibold text-right">Cumplimiento %</th>
                                 </tr>
                             </thead>
+                            <tbody id="cumplimiento-tbody">
                             </tbody>
                         </table>
                     </div>
