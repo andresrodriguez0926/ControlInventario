@@ -936,11 +936,11 @@ window.appModuleEvents['pedidos-clientes'] = () => {
             </head>
             <body>
                 <div style="max-width: 500px; margin: 0 auto;">
-                    \${target.innerHTML}
+                    ${target.innerHTML}
                 </div>
                 <script>
                     window.onload = function() { window.print(); window.close(); }
-                <\/script>
+                </script>
             </body>
             </html>
         `);
