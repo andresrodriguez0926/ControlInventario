@@ -1622,6 +1622,7 @@ window.appModules['canastas-demas'] = () => {
             <div class="flex flex-wrap gap-4 border-b border-border mb-6">
                 <button id="tab-btn-nueva-dem" class="pb-3 px-2 font-semibold text-success border-b-2 border-success transition-colors">Nuevo Llenado</button>
                 <button id="tab-btn-historial-dem" class="pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors">Consultar Registros Anteriores</button>
+                <button id="tab-btn-reporte-dem" class="pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors">Reporte Semanal</button>
             </div>
 
             <!-- TAB 1: NUEVA OPERACIÓN -->
@@ -1730,6 +1731,118 @@ window.appModules['canastas-demas'] = () => {
                 </div>
             </div>
 
+            <!-- TAB 3: REPORTE SEMANAL -->
+            <div id="tab-content-reporte-dem" class="hidden">
+                <div class="space-y-6">
+                    <!-- Panel de Filtros -->
+                    <div class="surface-card p-4 md:p-6 border border-success/10">
+                        <h4 class="text-success font-semibold mb-4 flex items-center gap-2">
+                            <i data-lucide="filter" class="w-4 h-4"></i> Filtros de Reporte
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div class="form-group">
+                                <label class="form-label mb-1 text-xs uppercase tracking-wider text-text-muted">Fecha Inicio</label>
+                                <input type="date" id="dem-rep-fecha-inicio" class="form-input text-sm">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label mb-1 text-xs uppercase tracking-wider text-text-muted">Fecha Fin</label>
+                                <input type="date" id="dem-rep-fecha-fin" class="form-input text-sm">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label mb-1 text-xs uppercase tracking-wider text-text-muted">Filtrar por Fruta</label>
+                                <select id="dem-rep-producto" class="form-select text-sm">
+                                    <option value="">-- Todas las Frutas --</option>
+                                    ${optProducts}
+                                </select>
+                            </div>
+                            <div class="md:col-span-3 flex justify-end gap-2 border-t border-border pt-4 mt-2">
+                                <button type="button" id="dem-rep-btn-clear" class="btn btn-secondary text-sm py-2 px-4 whitespace-nowrap">
+                                    Limpiar Filtros
+                                </button>
+                                <button type="button" id="dem-rep-btn-aplicar" class="btn btn-success text-sm py-2 px-6 whitespace-nowrap flex items-center gap-2" style="background-color: var(--accent-success); border-color: var(--accent-success); color: #000;">
+                                    <i data-lucide="activity" class="w-4 h-4"></i> Generar Reporte
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Resultados -->
+                    <div id="dem-rep-resultados" class="space-y-6 hidden">
+                        <!-- KPIs -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Card 1: Total Llenado -->
+                            <div class="surface-card p-5 border-l-4 border-success flex items-center gap-4 relative overflow-hidden group">
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-success/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+                                <div class="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center text-success border border-success/25">
+                                    <i data-lucide="package-plus" class="w-6 h-6"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-xs text-text-muted uppercase tracking-wider block font-medium">Total Ingresado</span>
+                                    <span id="dem-kpi-total" class="text-3xl font-black text-white leading-none">0</span>
+                                    <span class="text-[10px] text-text-secondary block mt-1">Canastas en el periodo</span>
+                                </div>
+                            </div>
+                            <!-- Card 2: Fruta Más Ingresada -->
+                            <div class="surface-card p-5 border-l-4 border-warning flex items-center gap-4 relative overflow-hidden group">
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-warning/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+                                <div class="w-12 h-12 rounded-xl bg-warning/15 flex items-center justify-center text-warning border border-warning/25">
+                                    <i data-lucide="apple" class="w-6 h-6"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-xs text-text-muted uppercase tracking-wider block font-medium">Fruta Más Agregada</span>
+                                    <span id="dem-kpi-fruta" class="text-xl font-bold text-white leading-none block truncate max-w-[180px]">Ninguna</span>
+                                    <span id="dem-kpi-fruta-qty" class="text-[10px] text-text-secondary block mt-1">0 canastas</span>
+                                </div>
+                            </div>
+                            <!-- Card 3: Semana Pico -->
+                            <div class="surface-card p-5 border-l-4 border-primary flex items-center gap-4 relative overflow-hidden group">
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-primary/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+                                <div class="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center text-primary border border-primary/25">
+                                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-xs text-text-muted uppercase tracking-wider block font-medium">Semana de Pico</span>
+                                    <span id="dem-kpi-semana" class="text-sm font-bold text-white block leading-snug">N/A</span>
+                                    <span id="dem-kpi-semana-qty" class="text-[10px] text-text-secondary block mt-1">0 canastas</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Impresión y WhatsApp -->
+                        <div class="flex justify-between items-center bg-surface p-3 rounded-xl border border-border">
+                            <span class="text-xs font-semibold text-text-secondary">Visualización de Reporte Semanal</span>
+                            <div class="flex gap-2">
+                                <button type="button" id="btn-dem-rep-print" class="btn btn-secondary text-xs py-2 px-4 flex items-center gap-1.5 whitespace-nowrap">
+                                    <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimir Reporte
+                                </button>
+                                <button type="button" id="btn-dem-rep-share" class="btn bg-[#25D366] hover:bg-[#128C7E] text-white text-xs py-2 px-4 flex items-center gap-1.5 border-none whitespace-nowrap">
+                                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Copiar para WhatsApp
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tabla Matricial -->
+                        <div class="surface-card overflow-hidden">
+                            <div id="dem-rep-table-container" class="overflow-x-auto p-0 border border-success/20 rounded-xl custom-scrollbar">
+                                <table class="w-full text-left border-collapse" id="tabla-demas-semanal">
+                                    <thead>
+                                        <tr class="bg-surface text-text-secondary text-xs uppercase tracking-wider border-b border-border">
+                                            <th class="py-3 px-4 font-semibold">Semana</th>
+                                            <th class="py-3 px-4 font-semibold text-center">Sin Datos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="2" class="py-12 text-center text-text-secondary italic">Haga clic en Generar Reporte para calcular...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     `;
 };
@@ -1738,28 +1851,482 @@ window.appModuleEvents['canastas-demas'] = () => {
     // Tab Logic
     const btnNueva = document.getElementById('tab-btn-nueva-dem');
     const btnHistorial = document.getElementById('tab-btn-historial-dem');
+    const btnReporte = document.getElementById('tab-btn-reporte-dem');
+    
     const contentNueva = document.getElementById('tab-content-nueva-dem');
     const contentHistorial = document.getElementById('tab-content-historial-dem');
+    const contentReporte = document.getElementById('tab-content-reporte-dem');
 
-    if (btnNueva && btnHistorial) {
+    let isReportLoaded = false;
+
+    // Helper functions for localized week calculations
+    const parseLocalDate = (dateStr) => {
+        if (!dateStr) return new Date();
+        const parts = dateStr.slice(0, 10).split('-');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return new Date(dateStr);
+    };
+
+    const getWeekRange = (dateObj) => {
+        const dCopy = new Date(dateObj);
+        const day = dCopy.getDay();
+        const diff = dCopy.getDate() - day + (day === 0 ? -6 : 1); // Get Monday
+        const monday = new Date(dCopy.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const mondayStr = `${pad(monday.getDate())}/${pad(monday.getMonth() + 1)}/${monday.getFullYear()}`;
+        const sundayStr = `${pad(sunday.getDate())}/${pad(sunday.getMonth() + 1)}/${sunday.getFullYear()}`;
+
+        return {
+            key: monday.toISOString().slice(0, 10),
+            label: `${mondayStr} al ${sundayStr}`,
+            monday,
+            sunday
+        };
+    };
+
+    // Cache parameters for printing/screenshotting
+    let _lastReportData = null;
+    let _lastProductColumns = [];
+    let _lastWeeksSorted = [];
+    let _lastTotalsByProduct = {};
+    let _lastGrandTotal = 0;
+
+    const renderDemasReport = async () => {
+        const btnGenerar = document.getElementById('dem-rep-btn-aplicar');
+        const resultsContainer = document.getElementById('dem-rep-resultados');
+        const tableContainer = document.getElementById('dem-rep-table-container');
+
+        if (btnGenerar) {
+            btnGenerar.disabled = true;
+            btnGenerar.innerHTML = `<i class="animate-spin mr-1" data-lucide="loader-2"></i> Calculando...`;
+            if (window.lucide) window.lucide.createIcons({ root: btnGenerar });
+        }
+
+        try {
+            // 1. Deep load activity log
+            const allFullHistory = await window.appStore.loadFullActivity();
+            const activityFromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+            
+            const allMap = new Map();
+            [...allFullHistory, ...activityFromState].forEach(a => { if (a.id) allMap.set(a.id, a); });
+            
+            const allActivity = Array.from(allMap.values());
+
+            // 2. Read filter values
+            const fInicio = document.getElementById('dem-rep-fecha-inicio')?.value;
+            const fFin = document.getElementById('dem-rep-fecha-fin')?.value;
+            const fProductoId = document.getElementById('dem-rep-producto')?.value;
+
+            // 3. Filter "Fruta Demás" actions
+            const filtered = allActivity.filter(a => {
+                if (a.anulado) return false;
+                if (a.operacion !== 'Fruta Demás' && a.operacion !== 'Canastas Demás' && a.operacion !== 'Ingreso Fruta Demás') return false;
+
+                const logicalDate = a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || (a.date ? a.date.slice(0, 10) : '');
+                
+                if (fInicio && logicalDate < fInicio) return false;
+                if (fFin && logicalDate > fFin) return false;
+
+                // Product filter
+                if (fProductoId) {
+                    if (a.rawPayload && a.rawPayload.productoId) {
+                        if (a.rawPayload.productoId !== fProductoId) return false;
+                    } else {
+                        // Fallback check on text string
+                        const matchProd = a.detalle ? (a.detalle.match(/Llenadas con:\s*([^|]+)/) || a.detalle.match(/Producto:\s*([^|]+)/)) : null;
+                        const pName = matchProd ? matchProd[1].trim().toLowerCase() : '';
+                        const targetProd = window.appStore.getProductos().find(p => p.id === fProductoId);
+                        const targetName = targetProd ? targetProd.nombre.toLowerCase() : '';
+                        if (!pName.includes(targetName)) return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // 4. Processing logic
+            const weeksMap = {};
+            const allProductsSet = new Set();
+
+            const getProductName = (a) => {
+                if (a.rawPayload && a.rawPayload.productoNombre) return a.rawPayload.productoNombre;
+                if (a.rawPayload && a.rawPayload.productoId) {
+                    const p = window.appStore.getProductos().find(prod => prod.id === a.rawPayload.productoId);
+                    if (p) return p.nombre;
+                }
+                const matchProd = a.detalle ? (a.detalle.match(/Llenadas con:\s*([^|]+)/) || a.detalle.match(/Producto:\s*([^|]+)/)) : null;
+                return matchProd ? matchProd[1].trim() : 'Desconocido';
+            };
+
+            const getQuantity = (a) => {
+                if (a.rawPayload && a.rawPayload.cantidad !== undefined) return parseInt(a.rawPayload.cantidad) || 0;
+                const val = parseInt(a.cantidad);
+                return isNaN(val) ? 0 : Math.abs(val);
+            };
+
+            let grandTotal = 0;
+            const productTotals = {};
+
+            filtered.forEach(a => {
+                const logicalDate = a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaLlenado) || (a.date ? a.date.slice(0, 10) : '');
+                const dateObj = parseLocalDate(logicalDate);
+                const weekInfo = getWeekRange(dateObj);
+                const wKey = weekInfo.key;
+                const wLabel = weekInfo.label;
+                
+                const pName = getProductName(a);
+                const qty = getQuantity(a);
+
+                if (!weeksMap[wKey]) {
+                    weeksMap[wKey] = {
+                        label: wLabel,
+                        products: {},
+                        total: 0,
+                        key: wKey
+                    };
+                }
+
+                weeksMap[wKey].products[pName] = (weeksMap[wKey].products[pName] || 0) + qty;
+                weeksMap[wKey].total += qty;
+                grandTotal += qty;
+                
+                productTotals[pName] = (productTotals[pName] || 0) + qty;
+                allProductsSet.add(pName);
+            });
+
+            const productColumns = Array.from(allProductsSet).sort();
+            const weeksSorted = Object.keys(weeksMap).sort((a, b) => b.localeCompare(a)); // Newest weeks first
+
+            // Save values for prints/whatsapp screenshots
+            _lastReportData = weeksMap;
+            _lastProductColumns = productColumns;
+            _lastWeeksSorted = weeksSorted;
+            _lastTotalsByProduct = productTotals;
+            _lastGrandTotal = grandTotal;
+
+            // 5. Render Metric Cards
+            document.getElementById('dem-kpi-total').textContent = grandTotal.toLocaleString();
+            
+            // Fruta más agregada
+            let maxProduct = 'Ninguna';
+            let maxProductQty = 0;
+            Object.entries(productTotals).forEach(([pName, qty]) => {
+                if (qty > maxProductQty) {
+                    maxProduct = pName;
+                    maxProductQty = qty;
+                }
+            });
+            document.getElementById('dem-kpi-fruta').textContent = maxProduct;
+            document.getElementById('dem-kpi-fruta-qty').textContent = `${maxProductQty.toLocaleString()} canastas`;
+
+            // Semana Pico
+            let maxWeekLabel = 'N/A';
+            let maxWeekQty = 0;
+            Object.values(weeksMap).forEach(w => {
+                if (w.total > maxWeekQty) {
+                    maxWeekLabel = w.label;
+                    maxWeekQty = w.total;
+                }
+            });
+            document.getElementById('dem-kpi-semana').textContent = maxWeekLabel.replace('Semana: ', '');
+            document.getElementById('dem-kpi-semana-qty').textContent = `${maxWeekQty.toLocaleString()} canastas`;
+
+            // 6. Build the dynamic Matrix Table
+            if (filtered.length === 0) {
+                tableContainer.innerHTML = `
+                    <table class="w-full text-left border-collapse" id="tabla-demas-semanal">
+                        <thead>
+                            <tr class="bg-surface text-text-secondary text-xs uppercase tracking-wider border-b border-border">
+                                <th class="py-3 px-4 font-semibold">Semana (Lunes a Domingo)</th>
+                                <th class="py-3 px-4 font-semibold text-center">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="2" class="py-12 text-center text-text-secondary italic">No se registraron conversiones en el rango especificado.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                const headerCells = productColumns.map(p => `
+                    <th class="py-3 px-4 font-semibold text-right text-xs bg-surface-light border-l border-border/40">${p}</th>
+                `).join('');
+
+                const rowsHtml = weeksSorted.map(wKey => {
+                    const week = weeksMap[wKey];
+                    const cells = productColumns.map(p => {
+                        const qty = week.products[p] || 0;
+                        return `
+                            <td class="py-2.5 px-4 text-right border-l border-border/40 font-mono text-sm ${qty > 0 ? 'text-white font-bold' : 'text-text-muted opacity-30'}">
+                                ${qty > 0 ? qty.toLocaleString() : '-'}
+                            </td>
+                        `;
+                    }).join('');
+
+                    return `
+                        <tr class="border-b border-border/40 hover:bg-surface-light/30 transition-colors text-sm">
+                            <td class="py-2.5 px-4 font-bold text-success-light whitespace-nowrap">Semana del ${week.label}</td>
+                            ${cells}
+                            <td class="py-2.5 px-4 text-right border-l-2 border-border font-bold text-success bg-success/5 font-mono text-sm">${week.total.toLocaleString()}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                const footerTotalsCells = productColumns.map(p => `
+                    <td class="py-3 px-4 text-right border-l border-border/40 font-black text-white font-mono text-sm bg-surface-light">${(productTotals[p] || 0).toLocaleString()}</td>
+                `).join('');
+
+                tableContainer.innerHTML = `
+                    <table class="w-full text-left border-collapse" id="tabla-demas-semanal">
+                        <thead>
+                            <tr class="bg-surface sticky top-0 z-10 text-text-secondary text-xs uppercase tracking-wider border-b border-border shadow-sm">
+                                <th class="py-3 px-4 font-semibold bg-surface">Semana (Lunes a Domingo)</th>
+                                ${headerCells}
+                                <th class="py-3 px-4 font-semibold text-right bg-success/10 text-success border-l-2 border-border">Total Semana</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-border/80 font-bold bg-surface-light">
+                                <td class="py-3 px-4 text-text-secondary uppercase tracking-widest text-xs font-black">TOTALES</td>
+                                ${footerTotalsCells}
+                                <td class="py-3 px-4 text-right border-l-2 border-border font-black text-success bg-success/15 font-mono text-sm">${grandTotal.toLocaleString()}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+            }
+
+            if (resultsContainer) resultsContainer.classList.remove('hidden');
+
+        } catch (error) {
+            console.error(error);
+            window.UI.showToast("Error calculando el reporte: " + error.message, "error");
+        } finally {
+            if (btnGenerar) {
+                btnGenerar.disabled = false;
+                btnGenerar.innerHTML = `<i data-lucide="activity" class="w-4 h-4"></i> Generar Reporte`;
+                if (window.lucide) window.lucide.createIcons({ root: btnGenerar });
+            }
+        }
+    };
+
+    if (btnNueva && btnHistorial && btnReporte) {
         btnNueva.addEventListener('click', () => {
             btnNueva.className = 'pb-3 px-2 font-semibold text-success border-b-2 border-success transition-colors';
             btnHistorial.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            btnReporte.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
             contentNueva.classList.remove('hidden');
             contentNueva.classList.add('block');
             contentHistorial.classList.add('hidden');
             contentHistorial.classList.remove('block');
+            contentReporte.classList.add('hidden');
+            contentReporte.classList.remove('block');
         });
 
         btnHistorial.addEventListener('click', () => {
             btnHistorial.className = 'pb-3 px-2 font-semibold text-success border-b-2 border-success transition-colors';
             btnNueva.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            btnReporte.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
             contentHistorial.classList.remove('hidden');
             contentHistorial.classList.add('block');
             contentNueva.classList.add('hidden');
             contentNueva.classList.remove('block');
+            contentReporte.classList.add('hidden');
+            contentReporte.classList.remove('block');
+        });
+
+        btnReporte.addEventListener('click', () => {
+            btnReporte.className = 'pb-3 px-2 font-semibold text-success border-b-2 border-success transition-colors';
+            btnNueva.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            btnHistorial.className = 'pb-3 px-2 font-medium text-text-secondary hover:text-white border-b-2 border-transparent hover:border-border transition-colors';
+            contentReporte.classList.remove('hidden');
+            contentReporte.classList.add('block');
+            contentNueva.classList.add('hidden');
+            contentNueva.classList.remove('block');
+            contentHistorial.classList.add('hidden');
+            contentHistorial.classList.remove('block');
+
+            if (!isReportLoaded) {
+                renderDemasReport();
+                isReportLoaded = true;
+            }
         });
     }
+
+    // Bind event buttons for the weekly report
+    document.getElementById('dem-rep-btn-aplicar')?.addEventListener('click', () => {
+        renderDemasReport();
+    });
+
+    document.getElementById('dem-rep-btn-clear')?.addEventListener('click', () => {
+        const fIni = document.getElementById('dem-rep-fecha-inicio');
+        const fFin = document.getElementById('dem-rep-fecha-fin');
+        const fProd = document.getElementById('dem-rep-producto');
+        if (fIni) fIni.value = '';
+        if (fFin) fFin.value = '';
+        if (fProd) fProd.value = '';
+        renderDemasReport();
+    });
+
+    // 1. Imprimir Reporte
+    document.getElementById('btn-dem-rep-print')?.addEventListener('click', () => {
+        if (!_lastReportData || _lastWeeksSorted.length === 0) {
+            return window.UI.showToast("Primero genere un reporte con registros.", "warning");
+        }
+
+        const fInicio = document.getElementById('dem-rep-fecha-inicio')?.value;
+        const fFin = document.getElementById('dem-rep-fecha-fin')?.value;
+        const fProdId = document.getElementById('dem-rep-producto')?.value;
+        
+        let filterStr = '';
+        if (fInicio || fFin) {
+            filterStr += `Rango de fecha: ${fInicio ? fInicio : 'Inicio'} al ${fFin ? fFin : 'Fin'}`;
+        }
+        if (fProdId) {
+            const pObj = window.appStore.getProductos().find(p => p.id === fProdId);
+            if (pObj) {
+                filterStr += (filterStr ? ' | ' : '') + `Fruta: ${pObj.nombre}`;
+            }
+        }
+
+        const win = window.open('', '_blank');
+        if (!win) return window.UI.showToast("Por favor, permita las ventanas emergentes en su navegador.", "warning");
+
+        const headerCols = _lastProductColumns.map(p => `
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: right; background-color: #f2f2f2; font-weight: bold;">${p}</th>
+        `).join('');
+
+        let rowsHtml = '';
+        _lastWeeksSorted.forEach(wKey => {
+            const week = _lastReportData[wKey];
+            const cells = _lastProductColumns.map(p => {
+                const qty = week.products[p] || 0;
+                return `<td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-family: monospace;">${qty > 0 ? qty.toLocaleString() : '-'}</td>`;
+            }).join('');
+
+            rowsHtml += `
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">Semana del ${week.label}</td>
+                    ${cells}
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; background-color: #fafafa; font-family: monospace;">${week.total.toLocaleString()}</td>
+                </tr>
+            `;
+        });
+
+        const footerCells = _lastProductColumns.map(p => {
+            const qty = _lastTotalsByProduct[p] || 0;
+            return `<td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; background-color: #e2e2e2; font-family: monospace;">${qty.toLocaleString()}</td>`;
+        }).join('');
+
+        const tableHtml = `
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: sans-serif; font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2; font-weight: bold;">Semana (Lunes a Domingo)</th>
+                        ${headerCols}
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right; background-color: #f2f2f2; font-weight: bold;">Total Semana</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+                <tfoot>
+                    <tr style="background-color: #f2f2f2;">
+                        <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-transform: uppercase;">TOTALES</td>
+                        ${footerCells}
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; background-color: #d2d2d2; font-family: monospace;">${_lastGrandTotal.toLocaleString()}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+
+        win.document.write(`
+            <html>
+            <head>
+                <title>Reporte Semanal de Canastas de Fruta Demás</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #333; }
+                    h1 { margin-bottom: 5px; color: #5cb85c; font-size: 24px; }
+                    p { margin-top: 0; color: #777; font-size: 13px; }
+                    .meta { margin-bottom: 20px; border-bottom: 2px solid #5cb85c; padding-bottom: 12px; }
+                    @media print {
+                        body { padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="meta">
+                    <h1>Reporte Semanal de Canastas de Fruta Demás</h1>
+                    <p><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</p>
+                    ${filterStr ? `<p><strong>Filtros:</strong> ${filterStr}</p>` : ''}
+                </div>
+                ${tableHtml}
+                <script>
+                    window.onload = function() { window.print(); window.close(); }
+                </script>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    });
+
+    // 2. Copiar para WhatsApp
+    document.getElementById('btn-dem-rep-share')?.addEventListener('click', async () => {
+        if (typeof html2canvas === 'undefined') {
+            return window.UI.showToast("La librería de captura (html2canvas) no está cargada.", "error");
+        }
+        
+        const target = document.getElementById('dem-rep-table-container');
+        if (!target || !_lastReportData || _lastWeeksSorted.length === 0) {
+            return window.UI.showToast("Primero genere el reporte semanal.", "warning");
+        }
+
+        const btn = document.getElementById('btn-dem-rep-share');
+        const origText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Copiando...`;
+        btn.disabled = true;
+        if (window.lucide) window.lucide.createIcons({ root: btn });
+
+        try {
+            const canvas = await html2canvas(target, {
+                scale: 2,
+                backgroundColor: "#1e1e2d" // Match dashboard theme background
+            });
+
+            canvas.toBlob(async (blob) => {
+                try {
+                    const item = new ClipboardItem({ "image/png": blob });
+                    await navigator.clipboard.write([item]);
+                    window.UI.showToast("¡Imagen copiada con éxito! Ve a WhatsApp y presiona Pegar (Ctrl + V)", "success");
+                } catch (err) {
+                    window.UI.showToast("Este navegador bloquea el copiado de imágenes. Guarde la imagen de forma manual.", "warning");
+                } finally {
+                    btn.innerHTML = origText;
+                    btn.disabled = false;
+                    if (window.lucide) window.lucide.createIcons({ root: btn });
+                }
+            }, 'image/png');
+
+        } catch (err) {
+            console.error(err);
+            window.UI.showToast("Error al procesar la imagen del reporte.", "error");
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            if (window.lucide) window.lucide.createIcons({ root: btn });
+        }
+    });
 
     const form = document.getElementById('form-demas');
     if (!form) return;
