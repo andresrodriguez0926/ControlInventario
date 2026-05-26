@@ -928,9 +928,19 @@ window.appModuleEvents['pedidos-clientes'] = () => {
                         padding: 30px;
                         color: black;
                         background-color: white;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     @media print {
-                        body { padding: 0; }
+                        body { 
+                            padding: 0;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                    }
+                    table, tr, td, th {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                 </style>
             </head>
