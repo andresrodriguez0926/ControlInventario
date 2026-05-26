@@ -622,6 +622,9 @@ window.appModules['pedidos-clientes'] = () => {
                         <div class="flex justify-between items-center mb-4">
                             <h4 class="text-md font-semibold text-white">Previsualización</h4>
                             <div class="flex gap-2">
+                                <button type="button" id="btn-imprimir-wa" class="btn bg-primary/20 text-primary hover:bg-primary/30 px-4 py-2 text-sm flex items-center gap-2 rounded-md font-bold">
+                                    <i data-lucide="printer" class="w-4 h-4"></i> Imprimir Reporte
+                                </button>
                                 <button type="button" id="btn-copiar-wa" class="btn bg-info/20 text-info hover:bg-info/30 px-4 py-2 text-sm flex items-center gap-2 rounded-md font-bold">
                                     <i data-lucide="copy" class="w-4 h-4"></i> Copiar Imagen
                                 </button>
@@ -899,6 +902,49 @@ window.appModuleEvents['pedidos-clientes'] = () => {
             btn.disabled = false;
             if (window.lucide) window.lucide.createIcons();
         }
+    });
+
+    // Print WhatsApp report
+    document.getElementById('btn-imprimir-wa')?.addEventListener('click', () => {
+        const target = document.getElementById('wa-canvas-target');
+        if (!target || !target.innerHTML.trim()) {
+            window.UI.showToast("Primero genere la tabla de previsualización.", "warning");
+            return;
+        }
+
+        const win = window.open('', '_blank');
+        if (!win) {
+            window.UI.showToast("Por favor, permita las ventanas emergentes en su navegador.", "warning");
+            return;
+        }
+
+        win.document.write(`
+            <html>
+            <head>
+                <title>Reporte de Pedidos (WhatsApp)</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        padding: 30px;
+                        color: black;
+                        background-color: white;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div style="max-width: 500px; margin: 0 auto;">
+                    \${target.innerHTML}
+                </div>
+                <script>
+                    window.onload = function() { window.print(); window.close(); }
+                <\/script>
+            </body>
+            </html>
+        `);
+        win.document.close();
     });
 
     // Copy to clipboard WhatsApp image
