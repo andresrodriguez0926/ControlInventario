@@ -37,6 +37,9 @@ window.appModules['maduracion'] = () => {
                 </div>
             </div>
 
+            <!-- Reporte Global de Salidas -->
+            <div id="reporte-salidas-programadas" class="mb-6"></div>
+
             <!-- Frizzers Grid -->
             <div id="maduracion-grid" class="grid grid-cols-1 gap-6">
                 <div class="surface-card p-12 text-center text-text-secondary animate-pulse">
@@ -50,6 +53,61 @@ window.appModules['maduracion'] = () => {
 
 window.appModuleEvents['maduracion'] = () => {
     renderMaduracionTabs();
+};
+
+window.addProgramacionFrizzer = async (almacenId) => {
+    const diaEl = document.getElementById(`prog-dia-${almacenId}`);
+    const cantEl = document.getElementById(`prog-cant-${almacenId}`);
+    if (!diaEl || !cantEl || !cantEl.value) {
+        window.UI?.showToast('Por favor ingrese una cantidad', 'warning');
+        return;
+    }
+    const dia = diaEl.value;
+    const cantidad = parseInt(cantEl.value);
+    if (cantidad <= 0) return;
+    
+    const almacenes = window.appStore.getAlmacenes();
+    const almacen = almacenes.find(a => a.id === almacenId);
+    if (!almacen) return;
+    
+    const programacion = almacen.programacionSalidas || [];
+    programacion.push({
+        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
+        dia,
+        cantidad
+    });
+    
+    try {
+        await window.appStore.updateAlmacen(almacenId, { programacionSalidas: programacion });
+        window.UI?.showToast(`Salida programada agregada`);
+        renderMaduracionTabs();
+    } catch(e) {
+        window.UI?.showToast(e.message, 'error');
+    }
+};
+
+window.deleteProgramacionFrizzer = async (almacenId, progId) => {
+    const almacenes = window.appStore.getAlmacenes();
+    const almacen = almacenes.find(a => a.id === almacenId);
+    if (!almacen) return;
+    
+    const programacion = (almacen.programacionSalidas || []).filter(p => p.id !== progId);
+    try {
+        await window.appStore.updateAlmacen(almacenId, { programacionSalidas: programacion });
+        window.UI?.showToast(`Programación eliminada`);
+        renderMaduracionTabs();
+    } catch(e) {
+        window.UI?.showToast(e.message, 'error');
+    }
+};
+
+window.compartirReporteMaduracion = () => {
+    if (!window.__reporteMaduracionText) {
+        window.UI?.showToast('No hay datos en el reporte para compartir', 'warning');
+        return;
+    }
+    const text = encodeURIComponent(window.__reporteMaduracionText);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
 };
 
 function calcularEdadFIFO() {
@@ -257,6 +315,147 @@ function renderMaduracionTabs() {
         document.getElementById('mad-total-proceso').textContent = resultado.granTotalProceso;
         document.getElementById('mad-total-listas').textContent = resultado.granTotalListas;
 
+        // --- Generar Reporte Global de Salidas Programadas ---
+        // --- Generar Reporte Global de Salidas Programadas ---
+        const salidasTotales = {}; 
+        let totalNoAsignado = 0;
+        const frizzersNoAsignados = [];
+        
+        resultado.matriz.forEach(cuarto => {
+            const a = cuarto.almacen;
+            let asignadoEsteCuarto = 0;
+
+            if (a.programacionSalidas) {
+                a.programacionSalidas.forEach(prog => {
+                    if (!salidasTotales[prog.dia]) {
+                        salidasTotales[prog.dia] = { total: 0, frizzers: [] };
+                    }
+                    salidasTotales[prog.dia].total += parseInt(prog.cantidad);
+                    salidasTotales[prog.dia].frizzers.push({ nombre: a.nombre, cantidad: parseInt(prog.cantidad) });
+                    asignadoEsteCuarto += parseInt(prog.cantidad);
+                });
+            }
+
+            const noAsignado = cuarto.totalProceso - asignadoEsteCuarto;
+            if (noAsignado > 0) {
+                totalNoAsignado += noAsignado;
+                frizzersNoAsignados.push({ nombre: a.nombre, cantidad: noAsignado });
+            }
+        });
+
+        const ordenDias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const diasConSalida = ordenDias.filter(d => salidasTotales[d] && salidasTotales[d].total > 0);
+
+        const getNextDateForDay = (dayName) => {
+            const diasMap = { 'Domingo': 0, 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6 };
+            const targetDay = diasMap[dayName];
+            if (targetDay === undefined) return '';
+            const today = new Date();
+            const currentDay = today.getDay();
+            let daysToAdd = targetDay - currentDay;
+            if (daysToAdd < 0) daysToAdd += 7; // Si ya pasó, próxima semana
+            
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + daysToAdd);
+            return targetDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        };
+
+        let reporteHtml = '';
+        if (diasConSalida.length > 0 || totalNoAsignado > 0) {
+            
+            // Construir texto para WhatsApp
+            let textWhatsApp = "*REPORTE DE SALIDAS PROGRAMADAS*\n\n";
+            diasConSalida.forEach(dia => {
+                const data = salidasTotales[dia];
+                const dateStr = getNextDateForDay(dia);
+                textWhatsApp += `🗓️ *${dia.toUpperCase()}* (${dateStr})\n`;
+                data.frizzers.forEach(f => {
+                    textWhatsApp += `  - ${f.nombre}: ${f.cantidad} canastas\n`;
+                });
+                textWhatsApp += `  *TOTAL: ${data.total} canastas*\n\n`;
+            });
+            if (totalNoAsignado > 0) {
+                textWhatsApp += `⚠️ *SIN ASIGNAR (Pendiente)*\n`;
+                frizzersNoAsignados.forEach(f => {
+                    textWhatsApp += `  - ${f.nombre}: ${f.cantidad} canastas\n`;
+                });
+                textWhatsApp += `  *TOTAL PENDIENTE: ${totalNoAsignado} canastas*\n`;
+            }
+            window.__reporteMaduracionText = textWhatsApp;
+
+            reporteHtml = `
+                <div class="surface-card p-5 border-l-4 border-primary shadow-lg mb-6 reporte-print-area">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="calendar-days" class="w-5 h-5 text-primary"></i>
+                            Reporte Detallado de Salidas
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.compartirReporteMaduracion()" class="btn border border-border bg-surface-light text-text-secondary hover:text-success hover:border-success/50 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors" title="Compartir por WhatsApp">
+                                <i data-lucide="message-circle" class="w-4 h-4"></i> <span class="hidden sm:inline">WhatsApp</span>
+                            </button>
+                            <button onclick="window.print()" class="btn border border-border bg-surface-light text-text-secondary hover:text-white hover:border-text-secondary flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors" title="Imprimir Reporte">
+                                <i data-lucide="printer" class="w-4 h-4"></i> <span class="hidden sm:inline">Imprimir</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        ${diasConSalida.map(dia => {
+                            const data = salidasTotales[dia];
+                            const dateStr = getNextDateForDay(dia);
+                            return `
+                            <div class="bg-surface-light rounded-lg p-4 border border-border flex flex-col md:flex-row justify-between items-center gap-4 hover:border-primary/50 transition-colors">
+                                <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                                    <div class="text-primary font-black text-lg uppercase tracking-wider w-full md:w-32 text-center md:text-left">
+                                        ${dia}
+                                        <span class="text-text-muted text-xs block font-medium mt-0.5">${dateStr}</span>
+                                    </div>
+                                    <div class="flex flex-wrap justify-center md:justify-start gap-2 md:border-l md:border-border md:pl-4">
+                                        ${data.frizzers.map(f => `
+                                            <span class="bg-surface border border-border px-3 py-1 rounded text-sm text-text-secondary shadow-sm">
+                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> ${f.cantidad}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <div class="text-center md:text-right mt-2 md:mt-0 bg-primary/10 px-4 py-2 rounded-lg border border-primary/20">
+                                    <span class="text-2xl font-black text-primary">${data.total}</span>
+                                    <span class="text-xs text-text-muted uppercase tracking-widest ml-1 font-bold">Total</span>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                        
+                        ${totalNoAsignado > 0 ? `
+                            <div class="bg-surface-light rounded-lg p-4 border border-warning flex flex-col md:flex-row justify-between items-center gap-4 hover:border-warning/50 transition-colors">
+                                <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                                    <div class="text-warning font-black text-lg uppercase tracking-wider w-full md:w-32 text-center md:text-left">
+                                        SIN ASIGNAR
+                                        <span class="text-text-muted text-xs block font-medium mt-0.5">Pendiente</span>
+                                    </div>
+                                    <div class="flex flex-wrap justify-center md:justify-start gap-2 md:border-l md:border-border md:pl-4">
+                                        ${frizzersNoAsignados.map(f => `
+                                            <span class="bg-surface border border-border px-3 py-1 rounded text-sm text-text-secondary shadow-sm">
+                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> ${f.cantidad}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <div class="text-center md:text-right mt-2 md:mt-0 bg-warning/10 px-4 py-2 rounded-lg border border-warning/20">
+                                    <span class="text-2xl font-black text-warning">${totalNoAsignado}</span>
+                                    <span class="text-xs text-text-muted uppercase tracking-widest ml-1 font-bold">Total</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        const reporteContainer = document.getElementById('reporte-salidas-programadas');
+        if (reporteContainer) reporteContainer.innerHTML = reporteHtml;
+        // -----------------------------------------------------
+
         if (resultado.matriz.length === 0 || resultado.granTotalProceso === 0) {
             gridEl.innerHTML = `
                 <div class="surface-card p-12 text-center text-text-secondary">
@@ -353,8 +552,51 @@ function renderMaduracionTabs() {
                                         </tr>
                                     `;
             }).join('')}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Nueva sección: Programación de Salidas por Cuarto -->
+                        <div class="p-5 bg-surface/50 relative z-10 flex flex-col md:flex-row gap-6 border-t border-border/50">
+                            <!-- Lista Actual -->
+                            <div class="flex-1">
+                                <h4 class="text-xs font-bold text-white mb-3 uppercase tracking-wider text-text-secondary flex items-center gap-2"><i data-lucide="calendar" class="w-4 h-4 text-primary"></i> Salidas Programadas</h4>
+                                ${(!cuarto.almacen.programacionSalidas || cuarto.almacen.programacionSalidas.length === 0) 
+                                    ? `<p class="text-sm text-text-muted italic bg-surface-light/30 px-3 py-2 rounded-lg inline-block">No hay salidas programadas para este frizzer.</p>`
+                                    : `<div class="flex flex-wrap gap-2">
+                                        ${cuarto.almacen.programacionSalidas.map(prog => `
+                                            <div class="flex items-center gap-2 bg-surface-light border border-border hover:border-info/30 rounded-lg px-3 py-1.5 text-sm transition-colors group">
+                                                <span class="text-text-secondary font-medium uppercase text-xs tracking-wider">${prog.dia}:</span>
+                                                <span class="text-white font-bold text-base">${prog.cantidad}</span>
+                                                <button onclick="window.deleteProgramacionFrizzer('${cuarto.almacen.id}', '${prog.id}')" class="text-text-muted hover:text-danger ml-2 transition-colors opacity-50 group-hover:opacity-100" title="Eliminar">
+                                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                       </div>`
+                                }
+                            </div>
+                            
+                            <!-- Formulario para agregar -->
+                            <div class="md:w-72 bg-surface-light p-4 rounded-lg border border-border shadow-inner">
+                                <h4 class="text-[10px] font-bold text-text-muted mb-3 uppercase tracking-wider">Añadir Nueva Salida</h4>
+                                <div class="flex gap-2">
+                                    <select id="prog-dia-${cuarto.almacen.id}" class="form-input text-sm py-1.5 px-2 h-auto flex-1 border-border bg-surface">
+                                        <option value="Lunes">Lunes</option>
+                                        <option value="Martes">Martes</option>
+                                        <option value="Miércoles">Miércoles</option>
+                                        <option value="Jueves">Jueves</option>
+                                        <option value="Viernes">Viernes</option>
+                                        <option value="Sábado">Sábado</option>
+                                        <option value="Domingo">Domingo</option>
+                                    </select>
+                                    <input type="number" id="prog-cant-${cuarto.almacen.id}" class="form-input text-sm py-1.5 px-2 h-auto w-24 border-border bg-surface text-center" placeholder="Cant." min="1">
+                                </div>
+                                <button onclick="window.addProgramacionFrizzer('${cuarto.almacen.id}')" class="btn btn-primary w-full text-xs mt-3 py-1.5 flex justify-center items-center gap-1">
+                                    <i data-lucide="plus" class="w-3 h-3"></i> Programar
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
