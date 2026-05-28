@@ -325,13 +325,29 @@ function renderMaduracionTabs() {
             const a = cuarto.almacen;
             let asignadoEsteCuarto = 0;
 
+            let maxAgeCategory = 0;
+            cuarto.productos.forEach(p => {
+                if (p.grupos.listas > 0) maxAgeCategory = Math.max(maxAgeCategory, 3);
+                else if (p.grupos.max_3 > 0) maxAgeCategory = Math.max(maxAgeCategory, 2);
+                else if (p.grupos.max_2 > 0) maxAgeCategory = Math.max(maxAgeCategory, 1);
+            });
+
+            let colorClass = "text-white";
+            if (maxAgeCategory === 3) colorClass = "text-danger font-black drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]";
+            else if (maxAgeCategory === 2) colorClass = "text-warning font-bold";
+            else if (maxAgeCategory === 1) colorClass = "text-info font-medium";
+
             if (a.programacionSalidas) {
                 a.programacionSalidas.forEach(prog => {
                     if (!salidasTotales[prog.dia]) {
                         salidasTotales[prog.dia] = { total: 0, frizzers: [] };
                     }
                     salidasTotales[prog.dia].total += parseInt(prog.cantidad);
-                    salidasTotales[prog.dia].frizzers.push({ nombre: a.nombre, cantidad: parseInt(prog.cantidad) });
+                    salidasTotales[prog.dia].frizzers.push({ 
+                        nombre: a.nombre, 
+                        cantidad: parseInt(prog.cantidad),
+                        colorClass: colorClass
+                    });
                     asignadoEsteCuarto += parseInt(prog.cantidad);
                 });
             }
@@ -339,7 +355,11 @@ function renderMaduracionTabs() {
             const noAsignado = cuarto.totalProceso - asignadoEsteCuarto;
             if (noAsignado > 0) {
                 totalNoAsignado += noAsignado;
-                frizzersNoAsignados.push({ nombre: a.nombre, cantidad: noAsignado });
+                frizzersNoAsignados.push({ 
+                    nombre: a.nombre, 
+                    cantidad: noAsignado,
+                    colorClass: colorClass
+                });
             }
         });
 
@@ -386,10 +406,21 @@ function renderMaduracionTabs() {
             reporteHtml = `
                 <div class="surface-card p-5 border-l-4 border-primary shadow-lg mb-6 reporte-print-area">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                            <i data-lucide="calendar-days" class="w-5 h-5 text-primary"></i>
-                            Reporte Detallado de Salidas
-                        </h3>
+                        <div>
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i data-lucide="calendar-days" class="w-5 h-5 text-primary"></i>
+                                Reporte Detallado de Salidas
+                            </h3>
+                            <div class="flex flex-wrap items-center gap-4 text-[11px] mt-2 font-bold tracking-wider uppercase">
+                                <span class="text-danger drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]">Listas</span>
+                                <span class="text-text-muted opacity-50">&bull;</span>
+                                <span class="text-warning">Casi Listas</span>
+                                <span class="text-text-muted opacity-50">&bull;</span>
+                                <span class="text-info">1-2 Días</span>
+                                <span class="text-text-muted opacity-50">&bull;</span>
+                                <span class="text-white opacity-80">Fresco</span>
+                            </div>
+                        </div>
                         <div class="flex items-center gap-2">
                             <button onclick="window.compartirReporteMaduracion()" class="btn border border-border bg-surface-light text-text-secondary hover:text-success hover:border-success/50 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors" title="Compartir por WhatsApp">
                                 <i data-lucide="message-circle" class="w-4 h-4"></i> <span class="hidden sm:inline">WhatsApp</span>
@@ -413,7 +444,7 @@ function renderMaduracionTabs() {
                                     <div class="flex flex-wrap justify-center md:justify-start gap-2 md:border-l md:border-border md:pl-4">
                                         ${data.frizzers.map(f => `
                                             <span class="bg-surface border border-border px-3 py-1 rounded text-sm text-text-secondary shadow-sm">
-                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> ${f.cantidad}
+                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> <span class="${f.colorClass}">${f.cantidad}</span>
                                             </span>
                                         `).join('')}
                                     </div>
@@ -436,7 +467,7 @@ function renderMaduracionTabs() {
                                     <div class="flex flex-wrap justify-center md:justify-start gap-2 md:border-l md:border-border md:pl-4">
                                         ${frizzersNoAsignados.map(f => `
                                             <span class="bg-surface border border-border px-3 py-1 rounded text-sm text-text-secondary shadow-sm">
-                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> ${f.cantidad}
+                                                <strong class="text-white">${f.nombre}</strong> <span class="text-text-muted mx-1">&rarr;</span> <span class="${f.colorClass}">${f.cantidad}</span>
                                             </span>
                                         `).join('')}
                                     </div>
