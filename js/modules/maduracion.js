@@ -349,6 +349,34 @@ function renderMaduracionTabs() {
             else if (maxAgeCategory === 2) colorClass = "text-warning font-bold";
             else if (maxAgeCategory === 1) colorClass = "text-info font-medium";
 
+            // --- Auto-Heal: Eliminar programaciones fantasma si exceden el total ---
+            if (a.programacionSalidas && a.programacionSalidas.length > 0) {
+                let saldoParaProg = cuarto.totalProceso;
+                let validProgs = [];
+                let modified = false;
+                for (let p of a.programacionSalidas) {
+                    let cp = parseInt(p.cantidad) || 0;
+                    if (cp > saldoParaProg) {
+                        cp = saldoParaProg;
+                        modified = true;
+                    }
+                    if (cp > 0) {
+                        validProgs.push({...p, cantidad: cp});
+                        saldoParaProg -= cp;
+                    } else {
+                        modified = true;
+                    }
+                }
+                
+                if (modified) {
+                    a.programacionSalidas = validProgs;
+                    // Guardar silenciosamente para corregir la DB (con pequeño retraso para no bloquear)
+                    setTimeout(() => {
+                        window.appStore.updateAlmacen(a.id, { programacionSalidas: validProgs }).catch(e => console.warn("Auto-heal err:", e));
+                    }, 100);
+                }
+            }
+
             if (a.programacionSalidas) {
                 a.programacionSalidas.forEach(prog => {
                     if (!salidasTotales[prog.dia]) {
