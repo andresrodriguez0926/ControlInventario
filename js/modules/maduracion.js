@@ -66,6 +66,18 @@ window.addProgramacionFrizzer = async (almacenId) => {
     const cantidad = parseInt(cantEl.value);
     if (cantidad <= 0) return;
     
+    const resultado = calcularEdadFIFO();
+    const cuarto = resultado.matriz.find(c => c.almacen.id === almacenId);
+    if (!cuarto) return;
+
+    const yaProgramado = (cuarto.almacen.programacionSalidas || []).reduce((sum, p) => sum + parseInt(p.cantidad), 0);
+    const disponibleParaProgramar = cuarto.totalProceso - yaProgramado;
+    
+    if (cantidad > disponibleParaProgramar) {
+        window.UI?.showToast(`No puedes programar más del inventario disponible. Máximo a programar: ${disponibleParaProgramar} canastas.`, 'warning');
+        return;
+    }
+
     const almacenes = window.appStore.getAlmacenes();
     const almacen = almacenes.find(a => a.id === almacenId);
     if (!almacen) return;

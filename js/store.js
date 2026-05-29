@@ -473,6 +473,40 @@ class Store {
         state.configVersion = (state.configVersion || 1) + 1;
     }
 
+    // Helper interno para deducir las salidas programadas (cronológicamente)
+    _deducirProgramacionSalidas(almacen, cantidadADeducir) {
+        if (!almacen || !almacen.programacionSalidas || almacen.programacionSalidas.length === 0 || cantidadADeducir <= 0) return;
+        
+        const diasMap = { 'Domingo': 0, 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6 };
+        const today = new Date().getDay();
+        
+        let ordenadas = almacen.programacionSalidas.map(p => {
+            let targetDay = diasMap[p.dia];
+            if (targetDay === undefined) return null;
+            let daysToAdd = targetDay - today;
+            if (daysToAdd < 0) daysToAdd += 7;
+            return { p, daysToAdd };
+        }).filter(x => x !== null);
+        
+        ordenadas.sort((a, b) => a.daysToAdd - b.daysToAdd);
+        
+        let pendiente = cantidadADeducir;
+        
+        for (let item of ordenadas) {
+            if (pendiente <= 0) break;
+            const cantProgramada = parseInt(item.p.cantidad) || 0;
+            if (cantProgramada <= pendiente) {
+                pendiente -= cantProgramada;
+                item.p.cantidad = 0;
+            } else {
+                item.p.cantidad = cantProgramada - pendiente;
+                pendiente = 0;
+            }
+        }
+        
+        almacen.programacionSalidas = almacen.programacionSalidas.filter(p => parseInt(p.cantidad) > 0);
+    }
+
     // Helper interno para actividad
     _registrarActividad(state, transaction, operacion, detalle, cantidad, customDate = null, rawPayload = null) {
         // Autoincrementar Secuencia de Documento
@@ -1166,6 +1200,11 @@ class Store {
                 state.inventario.canastasLlenas -= cant;
                 total += cant;
 
+                const almacenOrigen = state.almacenes.find(a => a.id === det.almacenOrigenId);
+                if (almacenOrigen && almacenOrigen.esFrizzer) {
+                    this._deducirProgramacionSalidas(almacenOrigen, cant);
+                }
+
                 const pName = state.productos.find(p => p.id === det.productoId)?.nombre || 'Producto';
                 frutasDespachadas[pName] = (frutasDespachadas[pName] || 0) + cant;
             }
@@ -1440,6 +1479,11 @@ class Store {
 
                 // Descontar llenas del origen
                 invOrigen[productoIdActual] -= cantidad;
+
+                const almacenOrigenObj = state.almacenes.find(a => a.id === almacenOrigenId);
+                if (almacenOrigenObj && almacenOrigenObj.esFrizzer) {
+                    this._deducirProgramacionSalidas(almacenOrigenObj, cantidad);
+                }
 
                 // Sumar llenas al destino (con el producto que será ahora)
                 if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
