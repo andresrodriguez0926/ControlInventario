@@ -1719,6 +1719,9 @@ window.appModules['canastas-demas'] = () => {
                                                     <button type="button" onclick="window.UI.showToast('La edición para este módulo aún no está implementada.', 'info')" class="text-primary hover:text-primary-hover tooltip-trigger" title="Modificar Registro">
                                                         <i data-lucide="edit" class="w-4 h-4"></i>
                                                     </button>
+                                                    <button type="button" onclick="window.confirmarEliminarCanastasDemas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-1" title="Anular Registro">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
                                                 ` : ''}
                                             </div>
                                         </td>
@@ -1848,6 +1851,32 @@ window.appModules['canastas-demas'] = () => {
 };
 
 window.appModuleEvents['canastas-demas'] = () => {
+    window.confirmarEliminarCanastasDemas = async (idActividad) => {
+        if (!confirm('¿Está seguro de que desea anular este ingreso de fruta de más? Se revertirán las canastas llenas y se devolverán las vacías al almacén origen.')) return;
+
+        try {
+            const btn = document.activeElement;
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>';
+                btn.disabled = true;
+            }
+
+            await window.appStore.eliminarCanastasDemas(idActividad);
+            window.UI.showToast('Ingreso de fruta anulado con éxito y saldos revertidos.');
+            window.UI.renderModuleContainer('canastas-demas');
+        } catch (error) {
+            window.UI.showToast(error.message, 'error');
+        } finally {
+            const btn = document.activeElement;
+            if (btn && btn.tagName === 'BUTTON' && originalHtml) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+    };
+
     // Tab Logic
     const btnNueva = document.getElementById('tab-btn-nueva-dem');
     const btnHistorial = document.getElementById('tab-btn-historial-dem');

@@ -1568,6 +1568,50 @@ class Store {
         });
     }
 
+    async eliminarCanastasDemas(idActividad) {
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para anular.");
+
+            const actividadObj = docSnap.data();
+            if (!actividadObj.rawPayload) {
+                throw new Error("No se puede anular: Este registro es antiguo y no contiene los datos técnicos necesarios para revertirlo.");
+            }
+
+            if (actividadObj.anulado) {
+                throw new Error("Este registro ya se encuentra anulado.");
+            }
+
+            const payload = actividadObj.rawPayload;
+            const cantAntigua = parseInt(payload.cantidad);
+
+            // 1. REVERTIR IMPACTO EN LLENAS (DESTINO)
+            const invDestinoOld = state.inventario.porAlmacen[payload.almacenDestinoId];
+            if (!invDestinoOld || (invDestinoOld[payload.productoId] || 0) < cantAntigua) {
+                throw new Error("No hay suficientes canastas llenas en el almacén destino para revertir esta operación.");
+            }
+            invDestinoOld[payload.productoId] -= cantAntigua;
+            state.inventario.canastasLlenas -= cantAntigua;
+
+            // 2. REVERTIR IMPACTO EN VACÍAS (ORIGEN)
+            const invOrigenOld = state.inventario.porAlmacen[payload.almacenOrigenId];
+            if (invOrigenOld) {
+                invOrigenOld.vacias = (invOrigenOld.vacias || 0) + cantAntigua;
+            }
+            state.inventario.canastasVacias = (state.inventario.canastasVacias || 0) + cantAntigua;
+
+            // 3. ANULAR EL DOCUMENTO
+            actividadObj.anulado = true;
+            actividadObj.detalle = actividadObj.detalle + ' (ANULADO)';
+            actividadObj.cantidad = '0 (ANULADO)';
+
+            if (payload.cantidad) payload.cantidad = 0;
+
+            transaction.update(docRef, actividadObj);
+        });
+    }
+
     async bajaCanastasVacias({ almacenId, cantidad, personaBaja, descripcion, fechaBaja }) {
         cantidad = parseInt(cantidad);
         await this.runTransaction((state, transaction) => {
