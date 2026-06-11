@@ -87,6 +87,9 @@ window.PedidosClientesController = {
                 <td class="py-3 px-4 text-sm font-medium">${clienteName}</td>
                 <td class="py-3 px-4 text-sm text-text-secondary">${detalleStr}</td>
                 <td class="py-3 px-4 text-center">
+                    <button class="text-info hover:text-info-light transition-colors mr-2" onclick="window.PedidosClientesController.editarPedido('${p.id}')" title="Editar Pedido">
+                        <i data-lucide="edit-2" class="w-4 h-4 inline-block"></i>
+                    </button>
                     <button class="text-danger hover:text-danger-light transition-colors" onclick="window.PedidosClientesController.eliminarPedido('${p.id}')" title="Eliminar Pedido">
                         <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
                     </button>
@@ -106,6 +109,50 @@ window.PedidosClientesController = {
             this.renderHistorial();
         } catch (e) {
             window.UI.showToast(e.message, "error");
+        }
+    },
+
+    editarPedido: function (id) {
+        const pedido = window.appStore.getPedidos().find(p => p.id === id);
+        if (!pedido) return;
+
+        // Switch to "Nuevo Pedido" tab
+        document.getElementById('tab-btn-nuevo-pedido').click();
+
+        const inputEdit = document.getElementById('pedido-id-edit');
+        if (inputEdit) inputEdit.value = pedido.id;
+        
+        // pedido.fecha is YYYY-MM-DDT12:00:00
+        const fechaInput = document.getElementById('pedido-fecha');
+        if (fechaInput && pedido.fecha) fechaInput.value = pedido.fecha.split('T')[0];
+        
+        const clienteInput = document.getElementById('pedido-cliente');
+        if (clienteInput) clienteInput.value = pedido.clienteId;
+
+        const tbody = document.getElementById('pedido-filas-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            pedido.detalles.forEach(d => {
+                this.addPedidoRow();
+                const lastRow = tbody.lastElementChild;
+                if (lastRow) {
+                    lastRow.querySelector('.select-producto').value = d.productoId;
+                    lastRow.querySelector('.input-cantidad').value = d.cantidad;
+                }
+            });
+        }
+
+        const submitBtn = document.querySelector('#form-nuevo-pedido button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.textContent = 'Actualizar Pedido';
+        }
+        const titleEl = document.querySelector('#tab-nuevo-pedido h3');
+        if (titleEl) {
+            titleEl.textContent = 'Editar Pedido';
+        }
+        const cancelBtn = document.getElementById('btn-cancelar-edicion-pedido');
+        if (cancelBtn) {
+            cancelBtn.classList.remove('hidden');
         }
     },
 
@@ -457,6 +504,7 @@ window.appModules['pedidos-clientes'] = () => {
                     <h3 class="text-lg font-semibold text-white mb-4">Registrar Nuevo Pedido</h3>
                     
                     <form id="form-nuevo-pedido" class="space-y-6">
+                        <input type="hidden" id="pedido-id-edit" value="">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="form-group">
                                 <label class="form-label">Fecha del Pedido</label>
@@ -494,7 +542,8 @@ window.appModules['pedidos-clientes'] = () => {
                             </div>
                         </div>
 
-                        <div class="flex justify-end pt-4">
+                        <div class="flex justify-end gap-2 pt-4">
+                            <button type="button" id="btn-cancelar-edicion-pedido" class="btn bg-surface border border-border hover:bg-surface-light hidden h-11 px-6 rounded-lg">Cancelar</button>
                             <button type="submit" class="btn btn-primary h-11 px-8 rounded-lg shadow-md shadow-primary/20 hover:shadow-primary/40">Guardar Pedido</button>
                         </div>
                     </form>
@@ -706,13 +755,13 @@ window.appModuleEvents['pedidos-clientes'] = () => {
         }
     });
 
-    // Form Submit
     document.getElementById('form-nuevo-pedido')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = e.target.querySelector('button[type="submit"]');
         
         const fecha = document.getElementById('pedido-fecha').value;
         const clienteId = document.getElementById('pedido-cliente').value;
+        const editId = document.getElementById('pedido-id-edit') ? document.getElementById('pedido-id-edit').value : '';
         
         const detalles = [];
         const rows = document.querySelectorAll('#pedido-filas-tbody tr');
@@ -742,25 +791,59 @@ window.appModuleEvents['pedidos-clientes'] = () => {
             
             const fechaEstandar = fecha + "T12:00:00"; 
 
-            await window.appStore.addPedido({
-                fecha: fechaEstandar,
-                clienteId,
-                detalles
-            });
-
-            window.UI.showToast("Pedido guardado exitosamente.", "success");
+            if (editId) {
+                await window.appStore.updatePedido(editId, {
+                    fecha: fechaEstandar,
+                    clienteId,
+                    detalles
+                });
+                window.UI.showToast("Pedido actualizado exitosamente.", "success");
+            } else {
+                await window.appStore.addPedido({
+                    fecha: fechaEstandar,
+                    clienteId,
+                    detalles
+                });
+                window.UI.showToast("Pedido guardado exitosamente.", "success");
+            }
             
             // Reset form partially
             document.getElementById('pedido-filas-tbody').innerHTML = '';
             window.PedidosClientesController.addPedidoRow();
             
-            btn.innerHTML = orig;
+            const inputEdit = document.getElementById('pedido-id-edit');
+            if (inputEdit) inputEdit.value = '';
+            
+            if (btn) btn.textContent = 'Guardar Pedido';
+            const titleEl = document.querySelector('#tab-nuevo-pedido h3');
+            if (titleEl) titleEl.textContent = 'Registrar Nuevo Pedido';
+            const cancelBtn = document.getElementById('btn-cancelar-edicion-pedido');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+            
             btn.disabled = false;
         } catch (error) {
             console.error(error);
             window.UI.showToast(error.message, "error");
             btn.disabled = false;
         }
+    });
+
+    document.getElementById('btn-cancelar-edicion-pedido')?.addEventListener('click', () => {
+        const inputEdit = document.getElementById('pedido-id-edit');
+        if (inputEdit) inputEdit.value = '';
+        
+        document.getElementById('pedido-fecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('pedido-cliente').value = '';
+        
+        document.getElementById('pedido-filas-tbody').innerHTML = '';
+        window.PedidosClientesController.addPedidoRow();
+        
+        const submitBtn = document.querySelector('#form-nuevo-pedido button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = 'Guardar Pedido';
+        const titleEl = document.querySelector('#tab-nuevo-pedido h3');
+        if (titleEl) titleEl.textContent = 'Registrar Nuevo Pedido';
+        const cancelBtn = document.getElementById('btn-cancelar-edicion-pedido');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
     });
 
     // Report filters toggle

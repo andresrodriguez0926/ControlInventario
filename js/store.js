@@ -739,6 +739,25 @@ class Store {
         }, true);
     }
 
+    async updatePedido(id, newData) {
+        await this.runTransaction((state, transaction) => {
+            if (!state.pedidos) return;
+            const index = state.pedidos.findIndex(p => p.id === id);
+            if (index === -1) throw new Error("Pedido no encontrado en la Nube.");
+            
+            const oldPedido = state.pedidos[index];
+            state.pedidos[index] = { ...oldPedido, ...newData };
+            
+            const cliente = state.clientes.find(c => c.id === state.pedidos[index].clienteId);
+            const clienteName = cliente ? cliente.nombre : 'Desconocido';
+            
+            this._incrementConfigVersion(state);
+            
+            const rawPayload = { ...state.pedidos[index], clienteNombre: clienteName };
+            this._registrarActividad(state, transaction, 'Pedido Cliente', `Actualización pedido de: ${clienteName}`, `Cambio`, state.pedidos[index].fecha, rawPayload);
+        }, true);
+    }
+
     async deletePedido(id) {
         await this.runTransaction((state, transaction) => {
             if (!state.pedidos) return;
