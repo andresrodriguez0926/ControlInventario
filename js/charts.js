@@ -1100,23 +1100,21 @@ const Charts = {
                 matched = true;
             } else if (a.operacion === 'Decomiso' || a.operacion === 'Decomiso de Fruta') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
-                    isNegative = true;
-                    if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
-                } else if (payload.almacenVaciasId === targetAlmacenId) {
-                    isNegative = false;
-                    impactaVaciasDirecto = true;
+                    if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas -= parseInt(payload.cantidad) || 0;
+                }
+                if (payload.almacenVaciasId === targetAlmacenId) {
                     if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                 }
+                isNegative = false;
                 matched = true;
             } else if (a.operacion === 'Fruta Demás' || a.operacion === 'Canastas Demás' || a.operacion === 'Ingreso Fruta Demás') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
-                    isNegative = true;
-                    impactaVaciasDirecto = true;
-                    if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
-                } else if (payload.almacenDestinoId === targetAlmacenId) {
-                    isNegative = false;
+                    if (!targetProductoId || targetProductoId === 'vacias') sumCantVacias -= parseInt(payload.cantidad) || 0;
+                }
+                if (payload.almacenDestinoId === targetAlmacenId) {
                     if (!targetProductoId || payload.productoId === targetProductoId) sumCantLlenas += parseInt(payload.cantidad) || 0;
                 }
+                isNegative = false;
                 matched = true;
             } else if (a.operacion === 'Salida Canastas' || a.operacion === 'Salida de Canastas' || a.operacion === 'Baja de Canastas') {
                 isNegative = true;
@@ -1125,31 +1123,43 @@ const Charts = {
                 matched = true;
             } else if (a.operacion === 'Transf. Interna' || a.operacion === 'Transferencia entre Almacenes') {
                 if (payload.almacenOrigenId === targetAlmacenId) {
-                    isNegative = true;
                     if (!targetProductoId || payload.productoIdActual === targetProductoId) {
-                        if (payload.productoIdActual === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
-                        else sumCantLlenas += parseInt(payload.cantidad) || 0;
+                        if (payload.productoIdActual === 'vacias') sumCantVacias -= parseInt(payload.cantidad) || 0;
+                        else sumCantLlenas -= parseInt(payload.cantidad) || 0;
                     }
-                } else if (payload.almacenDestinoId === targetAlmacenId) {
-                    isNegative = false;
+                }
+                if (payload.almacenDestinoId === targetAlmacenId) {
                     if (!targetProductoId || payload.productoIdNuevo === targetProductoId) {
                         if (payload.productoIdNuevo === 'vacias') sumCantVacias += parseInt(payload.cantidad) || 0;
                         else sumCantLlenas += parseInt(payload.cantidad) || 0;
                     }
                 }
-                // Handle vacias destination in Transferencia entre Almacenes
-                if (payload.almacenDestinoVaciasId === targetAlmacenId) {
-                    isNegative = false;
-                    impactaVaciasDirecto = true; // We are receiving vacias here
-                    if (!targetProductoId || targetProductoId === 'vacias') {
-                        sumCantVacias += parseInt(payload.canastasVacias) || 0; // Transf uses canastasVacias field
-                    }
-                }
-                // If it was origen and there were canastasVacias explicitly moved, handled?
-                // In store.js, Transferencia entre Almacenes moves 'cantidad' of product AND 'canastasVacias' empty baskets from origen.
+                // Handle vacias explícitas movidas
                 if (payload.almacenOrigenId === targetAlmacenId && payload.canastasVacias > 0) {
                     if (!targetProductoId || targetProductoId === 'vacias') {
+                        sumCantVacias -= parseInt(payload.canastasVacias) || 0;
+                    }
+                }
+                if (payload.almacenDestinoVaciasId === targetAlmacenId && payload.canastasVacias > 0) {
+                    if (!targetProductoId || targetProductoId === 'vacias') {
                         sumCantVacias += parseInt(payload.canastasVacias) || 0;
+                    }
+                }
+                isNegative = false;
+                matched = true;
+            } else if (a.operacion === 'Reparación Sistema' || a.operacion === 'Auditoría' || a.operacion === 'Ajuste de Inventario') {
+                if (payload.balanceNuevo && payload.balanceAnterior) {
+                    const cantNueva = payload.balanceNuevo[targetAlmacenId] || 0;
+                    const cantAnterior = payload.balanceAnterior[targetAlmacenId] || 0;
+                    if (!targetProductoId || payload.productoId === targetProductoId) {
+                        const delta = cantNueva - cantAnterior;
+                        if (delta < 0) {
+                            isNegative = true;
+                            sumCantLlenas += Math.abs(delta);
+                        } else {
+                            isNegative = false;
+                            sumCantLlenas += delta;
+                        }
                     }
                 }
                 matched = true;
@@ -1197,34 +1207,113 @@ const Charts = {
                 let balanceInicialVacias = 0;
                 const rows = [];
 
-                todas.forEach(a => {
-                    if (a.anulado || a.eliminado) return;
-                    
+                // --- OPTIMIZATION: BÚSQUEDA DE SNAPSHOT ---
+                // Iteramos en reversa desde el índice antes de la fecha de inicio para buscar un snapshot base.
+                let startIndex = 0;
+                let foundSnapshot = false;
+
+                // Primero, encontramos dónde empieza el rango de fecha
+                let startIndexRange = 0;
+                for (let i = 0; i < todas.length; i++) {
+                    const a = todas[i];
+                    if (a.anulado || a.eliminado) continue;
                     const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
-                const dt = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
-                    const imp = calcularImpactoActividad(a, almacenId, productoId);
-                    
-                    // Si es antes del rango, solo acumulamos al balance inicial
-                    if (dt < start) {
-                        runningLlenas += imp.llenas;
-                        runningVacias += imp.vacias;
-                        return;
+                    const dt = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
+                    if (dt >= start) {
+                        startIndexRange = i;
+                        break;
                     }
-                    
-                    // Si estamos en el primer registro del rango, guardamos el balance inicial "oficial"
-                    if (rows.length === 0 && dt >= start) {
+                }
+                
+                // Si el rango empieza después del último, o no se encontró, será la longitud total
+                if (startIndexRange === 0 && todas.length > 0 && new Date((todas[todas.length-1].fechaOperacion || todas[todas.length-1].date).slice(0, 10) + 'T12:00:00') < start) {
+                    startIndexRange = todas.length;
+                }
+
+                // Buscamos un snapshot válido antes de startIndexRange
+                for (let i = startIndexRange - 1; i >= 0; i--) {
+                    const a = todas[i];
+                    if (a.anulado || a.eliminado) continue;
+                    if (a.balanceSnapshot && a.balanceSnapshot[almacenId]) {
+                        const snap = a.balanceSnapshot[almacenId];
+                        runningLlenas = (snap[productoId] || 0);
+                        runningVacias = (snap['vacias'] || 0);
+                        
                         balanceInicialLlenas = runningLlenas;
                         balanceInicialVacias = runningVacias;
+                        
+                        startIndex = i + 1; // Comenzamos a calcular desde la SIGUIENTE actividad al snapshot
+                        foundSnapshot = true;
+                        break;
+                    }
+                }
+
+                // Si no encontramos un snapshot, calculamos hacia atrás desde el balance real actual!
+                // Esto garantiza que el reporte cuadre perfectamente con la existencia real, 
+                // incluso si hubo ediciones manuales en la base de datos o fallas en el historial.
+                if (!foundSnapshot) {
+                    let currentRealLlenas = 0;
+                    let currentRealVacias = 0;
+                    
+                    if (window.appStore.data && window.appStore.data.inventario && window.appStore.data.inventario.porAlmacen) {
+                        const invAlm = window.appStore.data.inventario.porAlmacen[almacenId];
+                        if (invAlm) {
+                            currentRealLlenas = invAlm[productoId] || 0;
+                            currentRealVacias = invAlm['vacias'] || 0;
+                        }
                     }
 
-                    // Si es después del rango, paramos
-                    if (dt > end) return;
+                    runningLlenas = currentRealLlenas;
+                    runningVacias = currentRealVacias;
 
-                    // Procesar movimiento dentro del rango
-                    if (imp.llenas !== 0 || imp.vacias !== 0) {
+                    // Restamos todas las actividades que ocurrieron desde el inicio del rango hasta hoy
+                    for (let i = todas.length - 1; i >= startIndexRange; i--) {
+                        const a = todas[i];
+                        if (a.anulado || a.eliminado) continue;
+                        const imp = calcularImpactoActividad(a, almacenId, productoId);
+                        runningLlenas -= imp.llenas;
+                        runningVacias -= imp.vacias;
+                    }
+                    
+                    balanceInicialLlenas = runningLlenas;
+                    balanceInicialVacias = runningVacias;
+                    startIndex = startIndexRange;
+                } else {
+                    // Si encontramos el snapshot, calculamos los deltas que faltan entre el snapshot y el inicio del rango
+                    for (let i = startIndex; i < startIndexRange; i++) {
+                        const a = todas[i];
+                        if (a.anulado || a.eliminado) continue;
+                        const imp = calcularImpactoActividad(a, almacenId, productoId);
                         runningLlenas += imp.llenas;
                         runningVacias += imp.vacias;
+                    }
+                    balanceInicialLlenas = runningLlenas;
+                    balanceInicialVacias = runningVacias;
+                    startIndex = startIndexRange;
+                }
 
+                // Ahora procesamos solo los que están DENTRO del rango
+                for (let i = startIndex; i < todas.length; i++) {
+                    const a = todas[i];
+                    if (a.anulado || a.eliminado) continue;
+                    
+                    const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
+                    const dt = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
+                    
+                    // Si es después del rango, paramos
+                    if (dt > end) break;
+
+                    const imp = calcularImpactoActividad(a, almacenId, productoId);
+
+                    // Siempre acumulamos matemáticamente (sumar 0 no afecta)
+                    runningLlenas += imp.llenas;
+                    runningVacias += imp.vacias;
+
+                    // Lógica de visualización (filtro visual)
+                    // Si el usuario eligió un producto específico, ignoramos los movimientos puramente de canastas vacías
+                    const renderRow = productoId ? (imp.llenas !== 0) : (imp.llenas !== 0 || imp.vacias !== 0);
+
+                    if (renderRow) {
                         const fechaStr = `${dt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
                         
                         let descCantidad = [];
@@ -1253,7 +1342,7 @@ const Charts = {
                             </tr>
                         `);
                     }
-                });
+                }
 
                 if (rows.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron movimientos específicos para los filtros seleccionados.</td></tr>`;
