@@ -110,7 +110,7 @@ window.appModules['reporte-fruta'] = () => {
                             </h3>
                             <button type="button" id="rf-btn-export-csv" class="btn btn-secondary text-sm py-1.5 px-4 flex items-center gap-2">
                                 <i data-lucide="file-spreadsheet" class="w-4 h-4 text-[#10b981]"></i> 
-                                Descargar Excel (CSV)
+                                Descargar Excel
                             </button>
                         </div>
                         
@@ -332,33 +332,36 @@ window.appModuleEvents['reporte-fruta'] = () => {
                 return;
             }
 
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // UTF8 BOM
-            csvContent += `Reporte de Movimientos - Fruta: ${currentProductName}\n`;
-            csvContent += "ID Documento,Fecha,Operacion,Detalle,Entradas (+),Salidas (-),Usuario\n";
+            if (typeof XLSX === 'undefined') {
+                window.UI.showToast("La librería de Excel no ha cargado. Verifique su conexión.", "error");
+                return;
+            }
+
+            const ws_data = [
+                ["Reporte de Movimientos - Fruta:", currentProductName],
+                [],
+                ["ID Documento", "Fecha", "Operación", "Detalle", "Entradas (+)", "Salidas (-)", "Usuario"]
+            ];
 
             currentData.forEach(r => {
                 const dParts = r.fechaIso ? r.fechaIso.split('-') : [];
                 const safeFileDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : r.fechaCompleta.replace(/,/g, '');
                 
-                const row = [
+                ws_data.push([
                     r.doc,
                     safeFileDate,
-                    `"${r.operacion}"`,
-                    `"${r.detalle.replace(/"/g, '""')}"`,
+                    r.operacion,
+                    r.detalle,
                     r.qtyIn,
                     r.qtyOut,
-                    `"${r.usuario}"`
-                ].join(",");
-                csvContent += row + "\n";
+                    r.usuario
+                ]);
             });
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Reporte_Fruta_${currentProductName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
+            XLSX.writeFile(wb, `Reporte_Fruta_${currentProductName.replace(/\\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
         });
     }
 

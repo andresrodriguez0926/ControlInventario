@@ -1231,13 +1231,20 @@ const Charts = {
                 }
 
                 // Buscamos un snapshot válido antes de startIndexRange
+                // SE HA DESACTIVADO LA BÚSQUEDA DE SNAPSHOT PARA GARANTIZAR 
+                // QUE EL REPORTE SIEMPRE CUADRE CON EL BALANCE REAL (currentRealLlenas)
+                /*
                 for (let i = startIndexRange - 1; i >= 0; i--) {
                     const a = todas[i];
                     if (a.anulado || a.eliminado) continue;
                     if (a.balanceSnapshot && a.balanceSnapshot[almacenId]) {
                         const snap = a.balanceSnapshot[almacenId];
-                        runningLlenas = (snap[productoId] || 0);
-                        runningVacias = (snap['vacias'] || 0);
+                        if (!productoId) {
+                            runningLlenas = Object.keys(snap).filter(k => k !== 'vacias').reduce((sum, k) => sum + (parseFloat(snap[k]) || 0), 0);
+                        } else {
+                            runningLlenas = (parseFloat(snap[productoId]) || 0);
+                        }
+                        runningVacias = (parseFloat(snap['vacias']) || 0);
                         
                         balanceInicialLlenas = runningLlenas;
                         balanceInicialVacias = runningVacias;
@@ -1247,6 +1254,7 @@ const Charts = {
                         break;
                     }
                 }
+                */
 
                 // Si no encontramos un snapshot, calculamos hacia atrás desde el balance real actual!
                 // Esto garantiza que el reporte cuadre perfectamente con la existencia real, 
@@ -1258,8 +1266,12 @@ const Charts = {
                     if (window.appStore.data && window.appStore.data.inventario && window.appStore.data.inventario.porAlmacen) {
                         const invAlm = window.appStore.data.inventario.porAlmacen[almacenId];
                         if (invAlm) {
-                            currentRealLlenas = invAlm[productoId] || 0;
-                            currentRealVacias = invAlm['vacias'] || 0;
+                            if (!productoId) {
+                                currentRealLlenas = Object.keys(invAlm).filter(k => k !== 'vacias').reduce((sum, k) => sum + (parseFloat(invAlm[k]) || 0), 0);
+                            } else {
+                                currentRealLlenas = parseFloat(invAlm[productoId]) || 0;
+                            }
+                            currentRealVacias = parseFloat(invAlm['vacias']) || 0;
                         }
                     }
 
