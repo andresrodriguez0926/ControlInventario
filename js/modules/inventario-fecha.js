@@ -206,26 +206,42 @@ window.appModuleEvents['inventario-fecha'] = () => {
         message += `\n`;
 
         message += `⚠️ *DEUDA PRODUCTORES: ${data.totalDespProd.toLocaleString()}*\n`;
-        const dProdArr = Object.entries(data.deudaProductor || {})
-            .filter(([_, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
-        dProdArr.forEach(([uid, qty]) => {
-            const uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || `Inactivo`);
-            message += `  • ${uName}: ${qty.toLocaleString()}\n`;
+        const aggregatedDProd = {};
+        Object.entries(data.deudaProductor || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || uid);
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDProd[key]) {
+                aggregatedDProd[key] = { name: uName.trim(), qty: 0 };
+            }
+            aggregatedDProd[key].qty += qty;
+        });
+
+        const dProdArr = Object.values(aggregatedDProd)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
+        dProdArr.forEach(item => {
+            message += `  • ${item.name}: ${item.qty.toLocaleString()}\n`;
         });
         message += `\n`;
 
         message += `⚠️ *DEUDA CLIENTES: ${data.totalDespCli.toLocaleString()}*\n`;
-        const dCliArr = Object.entries(data.deudaCliente || {})
-            .filter(([_, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
-        dCliArr.forEach(([uid, qty]) => {
-            let uName = uid === 'no-especificado' ? 'S/N' : uid;
-            if (uid !== 'no-especificado') {
-                const cObj = clientes.find(c => c.id === uid);
-                if (cObj) uName = cObj.nombre;
+        const aggregatedDCli = {};
+        Object.entries(data.deudaCliente || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || uid);
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDCli[key]) {
+                aggregatedDCli[key] = { name: uName.trim(), qty: 0 };
             }
-            message += `  • ${uName}: ${qty.toLocaleString()}\n`;
+            aggregatedDCli[key].qty += qty;
+        });
+
+        const dCliArr = Object.values(aggregatedDCli)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
+        dCliArr.forEach(item => {
+            message += `  • ${item.name}: ${item.qty.toLocaleString()}\n`;
         });
         message += `\n`;
 
@@ -508,12 +524,28 @@ window.appModuleEvents['inventario-fecha'] = () => {
         // Deudas Productores
         const lstDProd = document.getElementById('if-lista-dprod');
         let htmlDProd = '';
-        const dProdArr = Object.entries(data.deudaProductor || {})
-            .filter(([_, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
+        const aggregatedDProd2 = {};
+        Object.entries(data.deudaProductor || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : uid;
+            if (uid !== 'no-especificado') {
+                const pObj = productores.find(p => p.id === uid);
+                if (pObj) uName = pObj.nombre;
+            }
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDProd2[key]) {
+                aggregatedDProd2[key] = { name: uName.trim(), qty: 0 };
+            }
+            aggregatedDProd2[key].qty += qty;
+        });
+
+        const dProdArr = Object.values(aggregatedDProd2)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
         if (dProdArr.length > 0) {
-            dProdArr.forEach(([uid, qty]) => {
-                const uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || `Inactivo`);
+            dProdArr.forEach(item => {
+                const uName = item.name;
+                const qty = item.qty;
                 const color = qty < 0 ? 'text-success' : 'text-danger';
                 htmlDProd += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-1.5 last:pb-0 pt-1.5 first:pt-0"><span class="text-sm text-text-secondary truncate pr-2" title="${uName}">${uName}</span><span class="font-bold text-sm ${color}">${qty.toLocaleString()}</span></div>`;
             });
@@ -525,16 +557,28 @@ window.appModuleEvents['inventario-fecha'] = () => {
         // Deudas Clientes
         const lstDCli = document.getElementById('if-lista-dcli');
         let htmlDCli = '';
-        const dCliArr = Object.entries(data.deudaCliente || {})
-            .filter(([_, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
+        const aggregatedDCli2 = {};
+        Object.entries(data.deudaCliente || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : uid;
+            if (uid !== 'no-especificado') {
+                const cObj = clientes.find(c => c.id === uid);
+                if (cObj) uName = cObj.nombre;
+            }
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDCli2[key]) {
+                aggregatedDCli2[key] = { name: uName.trim(), qty: 0 };
+            }
+            aggregatedDCli2[key].qty += qty;
+        });
+
+        const dCliArr = Object.values(aggregatedDCli2)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
         if (dCliArr.length > 0) {
-            dCliArr.forEach(([uid, qty]) => {
-                let uName = uid === 'no-especificado' ? 'S/N' : uid;
-                if (uid !== 'no-especificado') {
-                    const cObj = clientes.find(c => c.id === uid);
-                    if (cObj) uName = cObj.nombre;
-                }
+            dCliArr.forEach(item => {
+                const uName = item.name;
+                const qty = item.qty;
                 const color = qty < 0 ? 'text-success' : 'text-danger';
                 htmlDCli += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-1.5 last:pb-0 pt-1.5 first:pt-0"><span class="text-sm text-text-secondary truncate pr-2" title="${uName}">${uName}</span><span class="font-bold text-sm ${color}">${qty.toLocaleString()}</span></div>`;
             });

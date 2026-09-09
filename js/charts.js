@@ -249,6 +249,44 @@ const Charts = {
             selectorB.dataset.bound = "true";
         }
 
+        const selectClientFilter = document.getElementById('filtro-cliente-despacho');
+        if (selectClientFilter) {
+            const clientes = window.appStore.getClientes();
+            const currentOptionsCount = selectClientFilter.options.length - 1; // subtract "Todos"
+            
+            // Si la cantidad de clientes en el store no coincide con el dropdown, lo regeneramos
+            if (clientes.length > 0 && currentOptionsCount !== clientes.length) {
+                // Deshacer el wrapper si existe
+                if (selectClientFilter.parentElement && selectClientFilter.parentElement.classList.contains('searchable-select-container')) {
+                    const container = selectClientFilter.parentElement;
+                    container.parentNode.insertBefore(selectClientFilter, container);
+                    container.parentNode.removeChild(container);
+                    selectClientFilter.style.display = '';
+                }
+
+                let htmlC = '<option value="todos" selected>Todos los Clientes</option>';
+                clientes.forEach(c => {
+                    htmlC += `<option value="${c.id}">${c.nombre}</option>`;
+                });
+                selectClientFilter.innerHTML = htmlC;
+
+                if (window.UI && window.UI.makeSelectSearchable) {
+                    window.UI.makeSelectSearchable('filtro-cliente-despacho');
+                }
+            }
+
+            // Bind de evento una sola vez
+            if (!selectClientFilter.dataset.bound) {
+                selectClientFilter.addEventListener('change', () => {
+                    const rangeA = this.getWeekRange(selectorA.value);
+                    const rangeB = this.getWeekRange(selectorB.value);
+                    this.renderWeeklyCharts(rangeA.start, rangeA.end);
+                    this.renderComparisonChart(rangeA, rangeB, selectorA.value, selectorB.value);
+                });
+                selectClientFilter.dataset.bound = "true";
+            }
+        }
+
         const weekA = selectorA.value;
         const weekB = selectorB.value;
 
@@ -569,6 +607,10 @@ const Charts = {
 
         const txDataByDay = {}; // Estructura: { 'YYYY-MM-DD': { dateObj: Date, total: 0, prods: { prodId: qty } } }
 
+        const filtroClienteSelect = document.getElementById('filtro-cliente-despacho');
+        const selectedClienteId = filtroClienteSelect ? filtroClienteSelect.value : 'todos';
+        const selectedClienteNombre = (filtroClienteSelect && selectedClienteId !== 'todos') ? filtroClienteSelect.options[filtroClienteSelect.selectedIndex].text : null;
+
         let totalTx = 0;
 
         duringWeek.forEach(a => {
@@ -577,9 +619,20 @@ const Charts = {
             const dateObj = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
             const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
-            if (a.anulado || a.eliminado) return;
-
             if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
+                if (selectedClienteId !== 'todos') {
+                    const actClienteId = a.rawPayload?.clienteId || a.clienteId || null;
+                    const actClienteNombre = a.rawPayload?.clienteNombre || a.clienteNombre || null;
+                    let matchC = (actClienteId === selectedClienteId) || (actClienteNombre && actClienteNombre === selectedClienteNombre);
+                    
+                    if (!matchC && a.detalle) {
+                        if (!a.detalle.includes(`cliente: ${selectedClienteNombre}`) && !a.detalle.includes(`Cliente: ${selectedClienteNombre}`)) {
+                            return; // Skip
+                        }
+                    } else if (!matchC) {
+                        return; // Skip
+                    }
+                }
                 if (!txDataByDay[dayKey]) {
                     txDataByDay[dayKey] = {
                         dateObj: dateObj,
@@ -649,20 +702,40 @@ const Charts = {
                 if (a.rawPayload) {
                     if (a.rawPayload.tipoOrigen === 'cliente' && a.rawPayload.productoId) {
                         isCliente = true;
-                        foundProdId = a.rawPayload.productoId;
-                        foundQty = parseInt(a.rawPayload.cantidad) || 0;
+                        
+                        if (selectedClienteId !== 'todos') {
+                            const actClienteId = a.rawPayload.clienteId || null;
+                            const actClienteNombre = a.rawPayload.clienteNombre || null;
+                            if (actClienteId !== selectedClienteId && actClienteNombre !== selectedClienteNombre) {
+                                isCliente = false; // Doesn't match filter
+                            }
+                        }
+
+                        if (isCliente) {
+                            foundProdId = a.rawPayload.productoId;
+                            foundQty = parseInt(a.rawPayload.cantidad) || 0;
+                        }
                     }
                 } else if (a.detalle && a.detalle.includes('De Cliente')) {
                     isCliente = true;
-                    // Intenta extraer el nombre del producto "Llenas de PRODUCTO)"
-                    const match = a.detalle.match(/Llenas de (.*?)\)/);
-                    if (match) {
-                        const prodName = match[1].trim();
-                        const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
-                        if (foundProd) {
-                            foundProdId = foundProd.id;
-                            const qtyMatch = String(a.cantidad || '').match(/\d+/);
-                            foundQty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
+                    
+                    if (selectedClienteId !== 'todos') {
+                        if (!a.detalle.includes(`Cliente: ${selectedClienteNombre}`) && !a.detalle.includes(selectedClienteNombre)) {
+                            isCliente = false; // Doesn't match filter
+                        }
+                    }
+                    
+                    if (isCliente) {
+                        // Intenta extraer el nombre del producto "Llenas de PRODUCTO)"
+                        const match = a.detalle.match(/Llenas de (.*?)\)/);
+                        if (match) {
+                            const prodName = match[1].trim();
+                            const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                            if (foundProd) {
+                                foundProdId = foundProd.id;
+                                const qtyMatch = String(a.cantidad || '').match(/\d+/);
+                                foundQty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
+                            }
                         }
                     }
                 }
@@ -764,11 +837,31 @@ const Charts = {
         const productos = window.appStore.getProductos();
         const totals = {};
 
+        const filtroClienteSelect = document.getElementById('filtro-cliente-despacho');
+        const selectedClienteId = filtroClienteSelect ? filtroClienteSelect.value : 'todos';
+        const selectedClienteNombre = (filtroClienteSelect && selectedClienteId !== 'todos') ? filtroClienteSelect.options[filtroClienteSelect.selectedIndex].text : null;
+
         allActivity.forEach(a => {
+            if (a.anulado || a.eliminado) return;
             const logicalDateStr = a.fechaOperacion || (a.rawPayload && (a.rawPayload.fecha || a.rawPayload.fechaRecepcion || a.rawPayload.fechaDespacho || a.rawPayload.fechaTransferencia)) || a.date || new Date().toISOString();
             const d = new Date(logicalDateStr.slice(0, 10) + 'T12:00:00');
+            
             if (d >= startDate && d <= endDate) {
                 if (a.operacion === 'Desp. Cliente' || a.operacion === 'Despacho a Cliente') {
+                    if (selectedClienteId !== 'todos') {
+                        const actClienteId = a.rawPayload?.clienteId || a.clienteId || null;
+                        const actClienteNombre = a.rawPayload?.clienteNombre || a.clienteNombre || null;
+                        let matchC = (actClienteId === selectedClienteId) || (actClienteNombre && actClienteNombre === selectedClienteNombre);
+                        
+                        if (!matchC && a.detalle) {
+                            if (!a.detalle.includes(`cliente: ${selectedClienteNombre}`) && !a.detalle.includes(`Cliente: ${selectedClienteNombre}`)) {
+                                return; // Skip
+                            }
+                        } else if (!matchC) {
+                            return; // Skip
+                        }
+                    }
+
                     if (a.rawPayload) {
                         const items = a.rawPayload.detalles || a.rawPayload.lotes || [];
                         let addedAnyProd = false;
@@ -786,21 +879,52 @@ const Charts = {
                         this._parseDetailToTotals(a.detalle, productos, totals);
                     }
                 } else if ((a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas') && a.detalle && a.detalle.includes('Llenas')) {
-                    if (a.rawPayload && a.rawPayload.tipoOrigen === 'cliente' && a.rawPayload.productoId) {
-                        const cant = parseInt(a.rawPayload.cantidad) || 0;
-                        totals[a.rawPayload.productoId] = (totals[a.rawPayload.productoId] || 0) - cant;
-                    } else if (!a.rawPayload && a.detalle.includes('De Cliente')) {
-                        // Fallback parsing for legacy records without rawPayload
-                        const match = a.detalle.match(/Llenas de (.*?)\)/);
-                        if (match) {
-                            const prodName = match[1].trim();
-                            const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
-                            if (foundProd) {
-                                const qtyMatch = String(a.cantidad || '').match(/\d+/);
-                                const qty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
-                                totals[foundProd.id] = (totals[foundProd.id] || 0) - qty;
+                    let isCliente = false;
+                    let foundProdId = null;
+                    let foundQty = 0;
+
+                    if (a.rawPayload) {
+                        if (a.rawPayload.tipoOrigen === 'cliente' && a.rawPayload.productoId) {
+                            isCliente = true;
+                            
+                            if (selectedClienteId !== 'todos') {
+                                const actClienteId = a.rawPayload.clienteId || null;
+                                const actClienteNombre = a.rawPayload.clienteNombre || null;
+                                if (actClienteId !== selectedClienteId && actClienteNombre !== selectedClienteNombre) {
+                                    isCliente = false;
+                                }
+                            }
+
+                            if (isCliente) {
+                                foundProdId = a.rawPayload.productoId;
+                                foundQty = parseInt(a.rawPayload.cantidad) || 0;
                             }
                         }
+                    } else if (a.detalle && a.detalle.includes('De Cliente')) {
+                        isCliente = true;
+                        
+                        if (selectedClienteId !== 'todos') {
+                            if (!a.detalle.includes(`Cliente: ${selectedClienteNombre}`) && !a.detalle.includes(selectedClienteNombre)) {
+                                isCliente = false;
+                            }
+                        }
+                        
+                        if (isCliente) {
+                            const match = a.detalle.match(/Llenas de (.*?)\)/);
+                            if (match) {
+                                const prodName = match[1].trim();
+                                const foundProd = productos.find(p => p.nombre.toLowerCase() === prodName.toLowerCase());
+                                if (foundProd) {
+                                    foundProdId = foundProd.id;
+                                    const qtyMatch = String(a.cantidad || '').match(/\d+/);
+                                    foundQty = qtyMatch ? parseInt(qtyMatch[0], 10) : 0;
+                                }
+                            }
+                        }
+                    }
+
+                    if (isCliente && foundProdId && foundQty > 0) {
+                        totals[foundProdId] = (totals[foundProdId] || 0) - foundQty;
                     }
                 }
             }
@@ -1437,13 +1561,24 @@ window.verDetalleBalanceSemanal = function (tipo) {
     const listaDProd = document.getElementById('db-lista-dprod');
     const productores = window.appStore.getProductores();
     let htmlDProd = '';
-    const dProdArr = Object.entries(data.deudaProductor || {})
-        .filter(([id, qty]) => qty !== 0)
-        .sort((a, b) => b[1] - a[1]); // Sort by highest debt first
+    const aggregatedDProd = {};
+    Object.entries(data.deudaProductor || {}).forEach(([uid, qty]) => {
+        let uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || uid);
+        let key = uName.trim().toUpperCase();
+        if (!aggregatedDProd[key]) {
+            aggregatedDProd[key] = { name: uName.trim(), qty: 0 };
+        }
+        aggregatedDProd[key].qty += qty;
+    });
+
+    const dProdArr = Object.values(aggregatedDProd)
+        .filter(item => item.qty !== 0)
+        .sort((a, b) => b.qty - a.qty); // Sort by highest debt first
 
     if (dProdArr.length > 0) {
-        dProdArr.forEach(([uid, qty]) => {
-            const uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || `Inactivo (${uid.substring(0, 4)})`);
+        dProdArr.forEach(item => {
+            const uName = item.name;
+            const qty = item.qty;
             const color = qty < 0 ? 'text-success' : 'text-danger';
             htmlDProd += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-1 last:pb-0"><span class="truncate pr-2" title="${uName}">${uName}</span><span class="font-bold cursor-default ${color}" title="Un número negativo significa que el productor prestó canastas">${qty.toLocaleString()}</span></div>`;
         });
@@ -1456,13 +1591,25 @@ window.verDetalleBalanceSemanal = function (tipo) {
     const listaDCli = document.getElementById('db-lista-dcli');
     const clientes = window.appStore.getClientes();
     let htmlDCli = '';
-    const dCliArr = Object.entries(data.deudaCliente || {})
-        .filter(([id, qty]) => qty !== 0)
-        .sort((a, b) => b[1] - a[1]);
+    
+    const aggregatedDCli = {};
+    Object.entries(data.deudaCliente || {}).forEach(([uid, qty]) => {
+        let uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || uid);
+        let key = uName.trim().toUpperCase();
+        if (!aggregatedDCli[key]) {
+            aggregatedDCli[key] = { name: uName.trim(), qty: 0 };
+        }
+        aggregatedDCli[key].qty += qty;
+    });
+
+    const dCliArr = Object.values(aggregatedDCli)
+        .filter(item => item.qty !== 0)
+        .sort((a, b) => b.qty - a.qty);
 
     if (dCliArr.length > 0) {
-        dCliArr.forEach(([uid, qty]) => {
-            const uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || `Inactivo (${uid.substring(0, 4)})`);
+        dCliArr.forEach(item => {
+            const uName = item.name;
+            const qty = item.qty;
             const color = qty < 0 ? 'text-success' : 'text-danger';
             htmlDCli += `<div class="flex justify-between border-b border-border/30 last:border-0 pb-1 last:pb-0"><span class="truncate pr-2" title="${uName}">${uName}</span><span class="font-bold cursor-default ${color}" title="Un número negativo significa que el cliente tiene canastas a favor">${qty.toLocaleString()}</span></div>`;
         });
@@ -1507,25 +1654,45 @@ window.compartirDetalleBalanceWhatsApp = function () {
         message += `\n`;
 
         message += `⚠️ *DEUDA PRODUCTORES: ${data.totalDespProd.toLocaleString()}*\n`;
-        const dProdArr = Object.entries(data.deudaProductor || {})
-            .filter(([id, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
+        const aggregatedDProd = {};
+        Object.entries(data.deudaProductor || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || uid);
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDProd[key]) {
+                aggregatedDProd[key] = { name: uName.trim(), qty: 0 };
+            }
+            aggregatedDProd[key].qty += qty;
+        });
+
+        const dProdArr = Object.values(aggregatedDProd)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
         if (dProdArr.length > 0) {
-            dProdArr.forEach(([uid, qty]) => {
-                const uName = uid === 'no-especificado' ? 'S/N' : (productores.find(p => p.id === uid)?.nombre || `Inactivo`);
-                message += `  • ${uName}: ${qty.toLocaleString()}\n`;
+            dProdArr.forEach(item => {
+                message += `  • ${item.name}: ${item.qty.toLocaleString()}\n`;
             });
         }
         message += `\n`;
 
         message += `⚠️ *DEUDA CLIENTES: ${data.totalDespCli.toLocaleString()}*\n`;
-        const dCliArr = Object.entries(data.deudaCliente || {})
-            .filter(([id, qty]) => qty !== 0)
-            .sort((a, b) => b[1] - a[1]);
+        const aggregatedDCli = {};
+        Object.entries(data.deudaCliente || {}).forEach(([uid, qty]) => {
+            let uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || uid);
+            let key = uName.trim().toUpperCase();
+            if (!aggregatedDCli[key]) {
+                aggregatedDCli[key] = { name: uName.trim(), qty: 0 };
+            }
+            aggregatedDCli[key].qty += qty;
+        });
+
+        const dCliArr = Object.values(aggregatedDCli)
+            .filter(item => item.qty !== 0)
+            .sort((a, b) => b.qty - a.qty);
+
         if (dCliArr.length > 0) {
-            dCliArr.forEach(([uid, qty]) => {
-                const uName = uid === 'no-especificado' ? 'S/N' : (clientes.find(c => c.id === uid)?.nombre || `Inactivo`);
-                message += `  • ${uName}: ${qty.toLocaleString()}\n`;
+            dCliArr.forEach(item => {
+                message += `  • ${item.name}: ${item.qty.toLocaleString()}\n`;
             });
         }
 
