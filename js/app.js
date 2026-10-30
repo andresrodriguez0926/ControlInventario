@@ -432,7 +432,11 @@ window.exportarRecepcionesExcel = function (startDateStr = '', endDateStr = '') 
 
 // ==========================================
 window.verDocumentoOrigen = function (idActividad) {
-    const actividad = window.appStore.getActividad(2000).find(a => a.id === idActividad);
+    const allActivity = [
+        ...(window.appStore.actividadCache || []),
+        ...((window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [])
+    ];
+    const actividad = allActivity.find(a => a && a.id === idActividad);
     if (!actividad) {
         window.UI.showToast("Documento no encontrado.", "error");
         return;

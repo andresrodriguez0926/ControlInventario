@@ -485,7 +485,7 @@ window.appModules['recepcion-canastas'] = () => {
     // Opciones para Radio Button
     const optProducts = generateSelectOptions(productos, 'Seleccione producto...');
     const optAlmacenes = generateSelectOptions(almacenes, 'Seleccione almacén destino...');
-    const historial = window.appStore.getActividad(300).filter(a => a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas').sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaRecepcion) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date));
+    const historial = (window.appStore.actividadCache || []).filter(a => !a.anulado && (a.operacion === 'Devolución' || a.operacion === 'Devolución de Canastas')).sort((a,b) => new Date(b.fechaOperacion || (b.rawPayload && b.rawPayload.fechaRecepcion) || b.date) - new Date(a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date));
 
     return `
         <div class="animate-fade-in max-w-4xl mx-auto">
@@ -529,7 +529,7 @@ window.appModules['recepcion-canastas'] = () => {
                         <label class="form-label mb-1">Nombre del Cliente</label>
                         <select id="dev-cliente" class="form-select" required>
                             <option value="" disabled selected>Seleccione un cliente...</option>
-                            ${clientes.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('')}
+                            ${clientes.map(c => `<option value="${c.nombre}" data-id="${c.id}" data-prestadas="${Math.max(0, Number(c.canastasPrestadas) || 0)}">${c.nombre} (Prestadas: ${Math.max(0, Number(c.canastasPrestadas) || 0)})</option>`).join('')}
                         </select>
                     </div>
 
@@ -537,13 +537,16 @@ window.appModules['recepcion-canastas'] = () => {
                         <label class="form-label mb-1">Nombre del Productor</label>
                         <select id="dev-productor" class="form-select">
                             <option value="" disabled selected>Seleccione un productor...</option>
-                            ${productores.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
+                            ${productores.map(p => `<option value="${p.id}" data-prestadas="${Math.max(0, Number(p.canastasPrestadas) || 0)}">${p.nombre} (Prestadas: ${Math.max(0, Number(p.canastasPrestadas) || 0)})</option>`).join('')}
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label mb-1">Cantidad Total de Canastas</label>
                         <input type="number" id="dev-cantidad" class="form-input text-lg font-bold" min="1" required placeholder="Ej: 20">
+                        <div id="dev-prestadas-info" class="text-xs mt-1.5 text-text-muted font-medium">
+                            Seleccione un cliente o productor para ver sus canastas pendientes.
+                        </div>
                     </div>
 
                     <div class="form-group md:col-span-2 mt-2">
@@ -605,6 +608,48 @@ window.appModules['recepcion-canastas'] = () => {
 
             <!-- TAB 2: HISTORIAL -->
             <div id="tab-content-historial-dev" class="hidden">
+                <!-- Barra de Búsqueda y Filtros Históricos -->
+                <div class="surface-card p-4 mb-4 border border-border">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                        <div class="form-group mb-0 lg:col-span-2">
+                            <label class="form-label mb-1 text-xs text-text-secondary">Buscar (Productor, Cliente, Doc #)</label>
+                            <div class="relative">
+                                <input type="text" id="dev-hist-search" class="form-input text-sm py-1.5 pl-8 pr-3 w-full" placeholder="Ej: Banapi, DOC-9450...">
+                                <i data-lucide="search" class="w-4 h-4 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            </div>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label mb-1 text-xs text-text-secondary">Tipo de Origen</label>
+                            <select id="dev-hist-origen" class="form-select text-sm py-1.5">
+                                <option value="">Todos</option>
+                                <option value="productor">Productores</option>
+                                <option value="cliente">Clientes</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label mb-1 text-xs text-text-secondary">Desde Fecha</label>
+                            <input type="date" id="dev-hist-desde" class="form-input text-sm py-1.5">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label mb-1 text-xs text-text-secondary">Hasta Fecha</label>
+                            <input type="date" id="dev-hist-hasta" class="form-input text-sm py-1.5">
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-between items-center gap-3 mt-3 pt-3 border-t border-border/60 text-xs">
+                        <div class="flex items-center gap-3">
+                            <span id="dev-hist-summary" class="text-text-secondary font-medium">Mostrando registros...</span>
+                            <span id="dev-hist-loading" class="hidden text-primary flex items-center gap-1">
+                                <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Cargando historial completo...
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="dev-hist-btn-clear" class="btn btn-secondary text-xs py-1 px-3">
+                                Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="surface-card overflow-hidden">
                     <div class="overflow-x-auto p-0">
                         <table class="w-full text-left border-collapse">
@@ -618,32 +663,21 @@ window.appModules['recepcion-canastas'] = () => {
                                     <th class="py-3 px-4 font-semibold text-center w-24">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${historial.length === 0 ? `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No hay registros recientes.</td></tr>` :
-            historial.map(a => `
-                                    <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
-                                        <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date((a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date || '').slice(0, 10) + 'T12:00:00').toLocaleDateString()}</td>
-                                        <td class="py-2.5 px-4 text-white">${a.detalle}</td>
-                                        <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
-                                        <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
-                                        <td class="py-2.5 px-4 text-center">
-                                            <div class="flex items-center justify-center gap-2">
-                                                <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
-                                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
-                                                </button>
-                                                ${(window.appStore.currentUser?.rol?.toLowerCase() === 'admin' || window.appStore.currentUser?.rol?.toLowerCase() === 'administrador') ? `
-                                                    <button type="button" onclick="window.confirmarEliminarRecepcionCanastas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Anular Registro">
-                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                    </button>
-                                                ` : ''}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    `).join('')
-        }
+                            <tbody id="tbody-historial-devoluciones">
                             </tbody>
                         </table>
+                    </div>
+                    <!-- Controles de Paginación para ir hacia atrás/adelante -->
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 px-4 py-3 bg-surface border-t border-border text-xs">
+                        <span id="dev-hist-page-info" class="text-text-secondary">Página 1</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="dev-hist-prev" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-40">
+                                <i data-lucide="chevron-left" class="w-4 h-4"></i> Ir Atrás (Anteriores)
+                            </button>
+                            <button type="button" id="dev-hist-next" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-40">
+                                Más Recientes <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -686,6 +720,141 @@ window.appModuleEvents['recepcion-canastas'] = () => {
     const contentNueva = document.getElementById('tab-content-nueva-dev');
     const contentHistorial = document.getElementById('tab-content-historial-dev');
 
+    // Estado de búsqueda y paginación del historial de devoluciones
+    let devCurrentPage = 1;
+    const devPageSize = 25;
+    let fullHistoryLoadedForDev = false;
+
+    const getLogicalDateYMD = (a) => {
+        const raw = a.fechaOperacion || (a.rawPayload && a.rawPayload.fechaRecepcion) || a.date || '';
+        return String(raw).slice(0, 10);
+    };
+
+    const renderHistorialDevoluciones = () => {
+        const tbody = document.getElementById('tbody-historial-devoluciones');
+        if (!tbody) return;
+
+        const searchVal = (document.getElementById('dev-hist-search')?.value || '').trim().toLowerCase();
+        const origenVal = document.getElementById('dev-hist-origen')?.value || '';
+        const desdeVal = document.getElementById('dev-hist-desde')?.value || '';
+        const hastaVal = document.getElementById('dev-hist-hasta')?.value || '';
+
+        const allMap = new Map();
+        const cache = window.appStore.actividadCache || [];
+        const fromState = (window.appStore.data && window.appStore.data.actividad) ? window.appStore.data.actividad : [];
+        [...cache, ...fromState].forEach(a => {
+            if (a && a.id) allMap.set(a.id, a);
+        });
+
+        const isAdmin = window.appStore.currentUser?.rol?.toLowerCase() === 'admin' || window.appStore.currentUser?.rol?.toLowerCase() === 'administrador';
+
+        const filtered = Array.from(allMap.values())
+            .filter(a => {
+                if (a.anulado) return false;
+                if (a.operacion !== 'Devolución' && a.operacion !== 'Devolución de Canastas') return false;
+
+                const ymd = getLogicalDateYMD(a);
+                if (desdeVal && ymd < desdeVal) return false;
+                if (hastaVal && ymd > hastaVal) return false;
+
+                if (origenVal === 'productor') {
+                    const isProd = (a.rawPayload && a.rawPayload.tipoOrigen === 'productor') || (a.detalle && a.detalle.toLowerCase().includes('de productor:'));
+                    if (!isProd) return false;
+                } else if (origenVal === 'cliente') {
+                    const isCli = (a.rawPayload && a.rawPayload.tipoOrigen === 'cliente') || (a.detalle && a.detalle.toLowerCase().includes('de cliente:'));
+                    if (!isCli) return false;
+                }
+
+                if (searchVal) {
+                    const docStr = (a.numeroDocumento || '').toLowerCase();
+                    const detStr = (a.detalle || '').toLowerCase();
+                    const usrStr = (a.usuario || '').toLowerCase();
+                    if (!docStr.includes(searchVal) && !detStr.includes(searchVal) && !usrStr.includes(searchVal)) {
+                        return false;
+                    }
+                }
+                return true;
+            })
+            .sort((a, b) => {
+                const dateA = new Date(getLogicalDateYMD(a) + 'T12:00:00');
+                const dateB = new Date(getLogicalDateYMD(b) + 'T12:00:00');
+                if (dateB - dateA !== 0) return dateB - dateA;
+                return new Date(b.date || 0) - new Date(a.date || 0);
+            });
+
+        const totalRecords = filtered.length;
+        const totalCanastas = filtered.reduce((acc, a) => {
+            const n = parseInt(String(a.cantidad || '0').replace(/[^0-9]/g, ''), 10);
+            return acc + (isNaN(n) ? 0 : n);
+        }, 0);
+
+        const totalPages = Math.max(1, Math.ceil(totalRecords / devPageSize));
+        if (devCurrentPage > totalPages) devCurrentPage = totalPages;
+        if (devCurrentPage < 1) devCurrentPage = 1;
+
+        const startIdx = (devCurrentPage - 1) * devPageSize;
+        const pageItems = filtered.slice(startIdx, startIdx + devPageSize);
+
+        const summaryEl = document.getElementById('dev-hist-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = `Encontrados: <strong class="text-white">${totalRecords}</strong> registros | Total devuelto: <strong class="text-success">+${totalCanastas.toLocaleString()} canastas</strong>`;
+        }
+
+        const pageInfoEl = document.getElementById('dev-hist-page-info');
+        if (pageInfoEl) {
+            pageInfoEl.textContent = totalRecords > 0
+                ? `Mostrando ${startIdx + 1}-${Math.min(startIdx + devPageSize, totalRecords)} de ${totalRecords} (Página ${devCurrentPage} de ${totalPages})`
+                : 'Sin registros para mostrar';
+        }
+
+        const prevBtn = document.getElementById('dev-hist-prev');
+        const nextBtn = document.getElementById('dev-hist-next');
+        if (prevBtn) prevBtn.disabled = devCurrentPage >= totalPages;
+        if (nextBtn) nextBtn.disabled = devCurrentPage <= 1;
+
+        if (pageItems.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-text-secondary italic">No se encontraron devoluciones con los filtros seleccionados.</td></tr>`;
+        } else {
+            tbody.innerHTML = pageItems.map(a => `
+                <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
+                    <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
+                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${new Date(getLogicalDateYMD(a) + 'T12:00:00').toLocaleDateString()}</td>
+                    <td class="py-2.5 px-4 text-white">${a.detalle}</td>
+                    <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
+                    <td class="py-2.5 px-4 font-bold text-success">${a.cantidad}</td>
+                    <td class="py-2.5 px-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="btn btn-secondary text-xs py-1.5 px-3 flex items-center justify-center gap-1 whitespace-nowrap opacity-100 transition-opacity" title="Ver Documento Origen">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver
+                            </button>
+                            ${isAdmin ? `
+                                <button type="button" onclick="window.confirmarEliminarRecepcionCanastas('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger ml-2" title="Anular Registro">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons({ root: tbody });
+        }
+    };
+
+    const ensureFullHistoryForDev = async () => {
+        if (fullHistoryLoadedForDev) return;
+        const loadingEl = document.getElementById('dev-hist-loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+        try {
+            await window.appStore.loadFullActivity();
+            fullHistoryLoadedForDev = true;
+            renderHistorialDevoluciones();
+        } catch (err) {
+            console.error('Error cargando historial completo de devoluciones:', err);
+        } finally {
+            if (loadingEl) loadingEl.classList.add('hidden');
+        }
+    };
+
     if (btnNueva && btnHistorial) {
         btnNueva.addEventListener('click', () => {
             btnNueva.className = 'pb-3 px-2 font-semibold text-primary border-b-2 border-primary transition-colors';
@@ -703,8 +872,52 @@ window.appModuleEvents['recepcion-canastas'] = () => {
             contentHistorial.classList.add('block');
             contentNueva.classList.add('hidden');
             contentNueva.classList.remove('block');
+            renderHistorialDevoluciones();
+            ensureFullHistoryForDev();
         });
     }
+
+    // Eventos de búsqueda, filtros y paginación
+    document.getElementById('dev-hist-search')?.addEventListener('input', () => {
+        devCurrentPage = 1;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-origen')?.addEventListener('change', () => {
+        devCurrentPage = 1;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-desde')?.addEventListener('change', () => {
+        devCurrentPage = 1;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-hasta')?.addEventListener('change', () => {
+        devCurrentPage = 1;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-btn-clear')?.addEventListener('click', () => {
+        const s = document.getElementById('dev-hist-search');
+        const o = document.getElementById('dev-hist-origen');
+        const d = document.getElementById('dev-hist-desde');
+        const h = document.getElementById('dev-hist-hasta');
+        if (s) s.value = '';
+        if (o) o.value = '';
+        if (d) d.value = '';
+        if (h) h.value = '';
+        devCurrentPage = 1;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-prev')?.addEventListener('click', () => {
+        devCurrentPage++;
+        renderHistorialDevoluciones();
+    });
+    document.getElementById('dev-hist-next')?.addEventListener('click', () => {
+        if (devCurrentPage > 1) {
+            devCurrentPage--;
+            renderHistorialDevoluciones();
+        }
+    });
+
+    renderHistorialDevoluciones();
 
     const form = document.getElementById('form-dev-canastas');
     if (!form) return;
@@ -731,6 +944,56 @@ window.appModuleEvents['recepcion-canastas'] = () => {
     const containerProductor = document.getElementById('container-dev-productor');
     const selCliente = document.getElementById('dev-cliente');
     const selProductor = document.getElementById('dev-productor');
+    const inputDevCantidad = document.getElementById('dev-cantidad');
+    const infoPrestadasEl = document.getElementById('dev-prestadas-info');
+
+    const getEntidadSeleccionadaInfo = () => {
+        const tipoOrigen = document.querySelector('input[name="dev-tipo-origen"]:checked')?.value || 'cliente';
+        if (tipoOrigen === 'cliente') {
+            const val = selCliente?.value;
+            if (!val) return null;
+            const opt = selCliente.options[selCliente.selectedIndex];
+            const cliId = opt?.dataset?.id || null;
+            const cliObj = window.appStore.getClientes().find(c =>
+                (cliId && c.id === cliId) ||
+                (c.nombre || '').trim().toLowerCase() === String(val).trim().toLowerCase()
+            );
+            const prestadas = cliObj ? Math.max(0, Number(cliObj.canastasPrestadas) || 0) : Math.max(0, Number(opt?.dataset?.prestadas) || 0);
+            return { tipo: 'cliente', id: cliObj?.id || cliId, nombre: cliObj?.nombre || val, prestadas };
+        } else {
+            const val = selProductor?.value;
+            if (!val) return null;
+            const prodObj = window.appStore.getProductores().find(p => p.id === val);
+            const opt = selProductor.options[selProductor.selectedIndex];
+            const prestadas = prodObj ? Math.max(0, Number(prodObj.canastasPrestadas) || 0) : Math.max(0, Number(opt?.dataset?.prestadas) || 0);
+            return { tipo: 'productor', id: prodObj?.id || val, nombre: prodObj?.nombre || 'Productor', prestadas };
+        }
+    };
+
+    const actualizarLimitePrestadasUI = () => {
+        const info = getEntidadSeleccionadaInfo();
+        if (!infoPrestadasEl || !inputDevCantidad) return;
+
+        if (!info) {
+            inputDevCantidad.removeAttribute('max');
+            infoPrestadasEl.className = 'text-xs mt-1.5 text-text-muted font-medium';
+            infoPrestadasEl.textContent = 'Seleccione un cliente o productor para ver sus canastas pendientes.';
+            return;
+        }
+
+        if (info.prestadas <= 0) {
+            inputDevCantidad.max = '0';
+            infoPrestadasEl.className = 'text-xs mt-1.5 text-danger font-semibold';
+            infoPrestadasEl.textContent = `⚠️ ${info.nombre} tiene 0 canastas despachadas/prestadas pendientes. No puede devolver canastas.`;
+        } else {
+            inputDevCantidad.max = String(info.prestadas);
+            infoPrestadasEl.className = 'text-xs mt-1.5 text-warning font-semibold';
+            infoPrestadasEl.textContent = `Máximo permitido a devolver por ${info.nombre}: ${info.prestadas} canastas prestadas/despachadas.`;
+        }
+    };
+
+    selCliente?.addEventListener('change', actualizarLimitePrestadasUI);
+    selProductor?.addEventListener('change', actualizarLimitePrestadasUI);
 
     radiosOrigen.forEach(r => {
         r.addEventListener('change', (e) => {
@@ -745,6 +1008,7 @@ window.appModuleEvents['recepcion-canastas'] = () => {
                 selCliente.required = false;
                 selProductor.required = true;
             }
+            actualizarLimitePrestadasUI();
         });
     });
 
@@ -780,12 +1044,25 @@ window.appModuleEvents['recepcion-canastas'] = () => {
         try {
             const esLlena = document.querySelector('input[name="dev-estado"]:checked').value === 'llena';
             const tipoOrigen = document.querySelector('input[name="dev-tipo-origen"]:checked').value;
+            const cantIngresada = parseInt(document.getElementById('dev-cantidad').value, 10);
+            const infoEntidad = getEntidadSeleccionadaInfo();
+
+            if (!infoEntidad) {
+                throw new Error(`Debe seleccionar un ${tipoOrigen === 'cliente' ? 'cliente' : 'productor'} válido.`);
+            }
+            if (infoEntidad.prestadas <= 0) {
+                throw new Error(`El ${tipoOrigen === 'cliente' ? 'cliente' : 'productor'} ${infoEntidad.nombre} tiene 0 canastas despachadas/prestadas pendientes. No puede devolver canastas.`);
+            }
+            if (cantIngresada > infoEntidad.prestadas) {
+                throw new Error(`No puede devolver ${cantIngresada} canastas. ${infoEntidad.nombre} solo tiene ${infoEntidad.prestadas} canastas despachadas/prestadas pendientes.`);
+            }
 
             await window.appStore.recepcionCanastas({
                 tipoOrigen: tipoOrigen,
-                clienteNombre: tipoOrigen === 'cliente' ? selCliente.value : null,
+                clienteId: tipoOrigen === 'cliente' ? infoEntidad.id : null,
+                clienteNombre: tipoOrigen === 'cliente' ? infoEntidad.nombre : null,
                 productorId: tipoOrigen === 'productor' ? selProductor.value : null,
-                cantidad: document.getElementById('dev-cantidad').value,
+                cantidad: cantIngresada,
                 esLlena: esLlena,
                 productoId: esLlena ? selProducto.value : null,
                 almacenDestinoId: document.getElementById('dev-almacen').value,

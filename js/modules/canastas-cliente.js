@@ -38,14 +38,15 @@ window.CanastasClienteController = {
         const findOrCreate = (clienteId, clienteNombre) => {
             if (clienteId && mapaClientes[clienteId]) return mapaClientes[clienteId];
             if (clienteNombre) {
-                const found = clientes.find(c => c.nombre === clienteNombre);
+                const targetName = String(clienteNombre).trim().toLowerCase();
+                const found = clientes.find(c => (c.nombre || '').trim().toLowerCase() === targetName);
                 if (found && mapaClientes[found.id]) return mapaClientes[found.id];
             }
-            const key = 'u_' + (clienteNombre || 'SinNombre').replace(/\s+/g, '_');
+            const key = 'u_' + (clienteNombre || 'SinNombre').trim().replace(/\s+/g, '_');
             if (!mapaClientes[key]) {
                 mapaClientes[key] = {
                     id: key,
-                    nombre: clienteNombre || 'Sin Nombre',
+                    nombre: (clienteNombre || 'Sin Nombre').trim(),
                     canastasPrestadas: 0,
                     movimientos: []
                 };
@@ -54,11 +55,12 @@ window.CanastasClienteController = {
         };
 
         actividad.forEach(a => {
+            if (a.anulado) return;
             const raw = a.rawPayload;
             if (!raw) return;
             const operacion = a.operacion || '';
 
-            if (operacion === 'Despacho a Cliente') {
+            if (operacion === 'Despacho a Cliente' || operacion === 'Desp. Cliente') {
                 const fechaStr = a.fechaOperacion
                     ? String(a.fechaOperacion).substring(0, 10)
                     : (raw.fecha ? String(raw.fecha).substring(0, 10) : null);
@@ -76,7 +78,7 @@ window.CanastasClienteController = {
                 });
             }
 
-            if (operacion === 'Devolución de Canastas') {
+            if (operacion === 'Devolución de Canastas' || operacion === 'Devolución') {
                 if (raw.tipoOrigen !== 'cliente') return;
                 const fechaStr = a.fechaOperacion
                     ? String(a.fechaOperacion).substring(0, 10)
@@ -119,8 +121,12 @@ window.CanastasClienteController = {
         const mapaClientes = this._getMovimientosCliente(actividad, clientes);
 
         const resultado = Object.values(mapaClientes).map(c => {
-            // Balance actual autoritativo del sistema
-            const balanceActual = c.canastasPrestadas;
+            // Calcular balance real a partir de todas las entregas y devoluciones registradas
+            const totalEntregadasHist = c.movimientos.filter(m => m.sign > 0).reduce((s, m) => s + m.cantidad, 0);
+            const totalDevueltasHist = c.movimientos.filter(m => m.sign < 0).reduce((s, m) => s + m.cantidad, 0);
+            const balanceActual = (c.movimientos.length > 0 || (c.canastasPrestadas || 0) === 0)
+                ? Math.max(0, totalEntregadasHist - totalDevueltasHist)
+                : Math.max(0, Number(c.canastasPrestadas) || 0);
 
             // Clasificar movimientos
             const movsPostHasta = [];
@@ -401,6 +407,21 @@ window.appModules['canastas-cliente'] = () => {
 // ===== EVENTOS DEL MÓDULO =====
 window.appModuleEvents['canastas-cliente'] = () => {
     window.CanastasClienteController.renderTabla(null, null, null);
+
+    // Cargar historial completo y sincronizar balances reales en segundo plano
+    window.appStore.loadFullActivity().then(() => {
+        if (typeof window.appStore.reconciliarBalancesClientes === 'function') {
+            window.appStore.reconciliarBalancesClientes();
+        }
+        const clienteId = document.getElementById('canastas-filtro-cliente')?.value;
+        const desde = document.getElementById('canastas-filtro-desde')?.value;
+        const hasta = document.getElementById('canastas-filtro-hasta')?.value;
+        window.CanastasClienteController.renderTabla(
+            (!clienteId || clienteId === 'TODOS') ? null : clienteId,
+            desde || null,
+            hasta || null
+        );
+    }).catch(console.error);
 
     document.getElementById('btn-filtrar-canastas')?.addEventListener('click', () => {
         const clienteId = document.getElementById('canastas-filtro-cliente').value;

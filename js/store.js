@@ -116,6 +116,18 @@ class Store {
                 if (this.isLoaded) this.dbRef.set({ usuarios: this.data.usuarios }, { merge: true }); // Salvar seguramente solo este array
             }
 
+            // Normalizar canastasPrestadas en productores y clientes para evitar valores undefined/NaN
+            if (Array.isArray(this.data.productores)) {
+                this.data.productores.forEach(p => {
+                    p.canastasPrestadas = Math.max(0, Number(p.canastasPrestadas) || 0);
+                });
+            }
+            if (Array.isArray(this.data.clientes)) {
+                this.data.clientes.forEach(c => {
+                    c.canastasPrestadas = Math.max(0, Number(c.canastasPrestadas) || 0);
+                });
+            }
+
             this.isLoaded = true;
             // Disparar siempre que se actualicen los datos base para no bloquear la UI
             window.dispatchEvent(new Event('store:updated'));
@@ -157,6 +169,11 @@ class Store {
 
             this.actividadLoaded = true;
             window.dispatchEvent(new Event('store:updated'));
+            if (!this._loadingFullCompleted && !this._loadingFullInProgress) {
+                this.loadFullActivity().then(() => this.reconciliarBalancesClientes()).catch(console.error);
+            } else if (this._loadingFullCompleted) {
+                this.reconciliarBalancesClientes();
+            }
         }, (error) => {
             console.error("Error escuchando Firebase actividad:", error);
         });
@@ -681,9 +698,78 @@ class Store {
 
     // --- Mantenimientos ---
 
+    reconciliarBalancesClientes() {
+        if (!this.isLoaded || !this._loadingFullCompleted || !Array.isArray(this.data.clientes) || !Array.isArray(this.actividadCache) || this.actividadCache.length === 0) return;
+
+        const entregadasMap = new Map();
+        const devueltasMap = new Map();
+
+        this.actividadCache.forEach(a => {
+            if (!a || a.anulado || !a.rawPayload) return;
+            const raw = a.rawPayload;
+            const op = a.operacion || '';
+
+            if (op === 'Despacho a Cliente' || op === 'Desp. Cliente') {
+                const total = parseInt(raw.total, 10) || 0;
+                if (total <= 0) return;
+                const cli = this._findCliente(this.data.clientes, raw.clienteId, raw.clienteNombre);
+                if (cli) {
+                    entregadasMap.set(cli.id, (entregadasMap.get(cli.id) || 0) + total);
+                }
+            } else if ((op === 'Devolución de Canastas' || op === 'Devolución') && raw.tipoOrigen === 'cliente') {
+                const cant = parseInt(raw.cantidad, 10) || 0;
+                if (cant <= 0) return;
+                const cli = this._findCliente(this.data.clientes, raw.clienteId, raw.clienteNombre);
+                if (cli) {
+                    devueltasMap.set(cli.id, (devueltasMap.get(cli.id) || 0) + cant);
+                }
+            }
+        });
+
+        let changed = false;
+        this.data.clientes.forEach(c => {
+            const ent = entregadasMap.get(c.id) || 0;
+            const dev = devueltasMap.get(c.id) || 0;
+            const realPendiente = Math.max(0, ent - dev);
+            const actualGuardado = Math.max(0, Number(c.canastasPrestadas) || 0);
+            if (actualGuardado !== realPendiente) {
+                console.log(`[STORE] Corrigiendo saldo pendiente de cliente "${c.nombre}": ${actualGuardado} -> ${realPendiente} (Entregadas: ${ent}, Devueltas: ${dev})`);
+                c.canastasPrestadas = realPendiente;
+                changed = true;
+            }
+        });
+
+        const totalDespClientes = this.data.clientes.reduce((sum, c) => sum + (Math.max(0, Number(c.canastasPrestadas) || 0)), 0);
+        if (this.data.inventario && this.data.inventario.despachadasCliente !== totalDespClientes) {
+            this.data.inventario.despachadasCliente = totalDespClientes;
+            changed = true;
+        }
+
+        if (changed) {
+            this.dbRef.update({
+                clientes: this.data.clientes,
+                'inventario.despachadasCliente': totalDespClientes
+            }).then(() => {
+                window.dispatchEvent(new Event('store:updated'));
+            }).catch(err => console.error('Error sincronizando balances de clientes:', err));
+        }
+    }
+
+    _findCliente(clientes, idOrNombre, nombreFallback = null) {
+        if (!Array.isArray(clientes)) return null;
+        const rawId = idOrNombre ? String(idOrNombre).trim() : '';
+        const rawName = (nombreFallback || idOrNombre || '').trim().toLowerCase();
+        return clientes.find(c =>
+            (rawId && c.id === rawId) ||
+            (rawName && (c.nombre || '').trim().toLowerCase() === rawName)
+        ) || null;
+    }
+
     async addProductor(productor) {
         await this.runTransaction((state, transaction) => {
             productor.id = this.generateId();
+            productor.nombre = (productor.nombre || '').trim();
+            productor.canastasPrestadas = Math.max(0, Number(productor.canastasPrestadas) || 0);
             productor.numeroId = state.nextProductorId || 1;
             state.nextProductorId = (state.nextProductorId || 1) + 1;
             productor.createdAt = new Date().toISOString();
@@ -726,6 +812,8 @@ class Store {
     async addCliente(cliente) {
         await this.runTransaction((state, transaction) => {
             cliente.id = this.generateId();
+            cliente.nombre = (cliente.nombre || '').trim();
+            cliente.canastasPrestadas = Math.max(0, Number(cliente.canastasPrestadas) || 0);
             cliente.numeroId = state.nextClienteId || 1;
             state.nextClienteId = (state.nextClienteId || 1) + 1;
             cliente.createdAt = new Date().toISOString();
@@ -1272,15 +1360,18 @@ class Store {
                 const pName = state.productos.find(p => p.id === det.productoId)?.nombre || 'Producto';
                 frutasDespachadas[pName] = (frutasDespachadas[pName] || 0) + cant;
             }
-            state.inventario.despachadasCliente = (state.inventario.despachadasCliente || 0) + total;
+            const cliente = this._findCliente(state.clientes, null, clienteNombre);
+            if (!cliente) {
+                throw new Error(`No se encontró el cliente "${clienteNombre || ''}" en el catálogo.`);
+            }
 
-            const cliente = state.clientes.find(c => c.nombre === clienteNombre);
-            if (cliente) cliente.canastasPrestadas = (cliente.canastasPrestadas || 0) + total;
+            state.inventario.despachadasCliente = (state.inventario.despachadasCliente || 0) + total;
+            cliente.canastasPrestadas = (Number(cliente.canastasPrestadas) || 0) + total;
 
             const detallesStr = Object.entries(frutasDespachadas).map(([f, c]) => `${f} (${c})`).join(', ');
 
-            const rawPayload = { clienteNombre, clienteId: cliente?.id || null, detalles, total, fecha };
-            this._registrarActividad(state, transaction, 'Despacho a Cliente', `A cliente: ${clienteNombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
+            const rawPayload = { clienteNombre: cliente.nombre, clienteId: cliente.id, detalles, total, fecha };
+            this._registrarActividad(state, transaction, 'Despacho a Cliente', `A cliente: ${cliente.nombre} | ${detallesStr}`, `-${total} llenas`, fecha, rawPayload);
         });
     }
 
@@ -1311,12 +1402,12 @@ class Store {
             state.inventario.canastasLlenas += cantAntigua;
             state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - cantAntigua);
 
-            const oldCliente = state.clientes.find(c => c.nombre === old.clienteNombre);
+            const oldCliente = this._findCliente(state.clientes, old.clienteId, old.clienteNombre);
             if (oldCliente) {
-                if ((oldCliente.canastasPrestadas || 0) < cantAntigua) {
-                    throw new Error(`Error al revertir: La deuda del cliente ${oldCliente.nombre} quedaría negativa.`);
+                if ((Number(oldCliente.canastasPrestadas) || 0) < cantAntigua) {
+                    throw new Error(`Error al revertir: El cliente ${oldCliente.nombre} solo tiene ${Number(oldCliente.canastasPrestadas) || 0} canastas pendientes (ya devolvió canastas de este despacho).`);
                 }
-                oldCliente.canastasPrestadas -= cantAntigua;
+                oldCliente.canastasPrestadas = (Number(oldCliente.canastasPrestadas) || 0) - cantAntigua;
             }
 
             // 2. APLICAR NUEVO IMPACTO
@@ -1338,16 +1429,17 @@ class Store {
 
             state.inventario.despachadasCliente += nuevaCantidadTotal;
 
-            const newCliente = state.clientes.find(c => c.nombre === nuevoPayload.clienteNombre);
-            if (newCliente) {
-                newCliente.canastasPrestadas = (newCliente.canastasPrestadas || 0) + nuevaCantidadTotal;
+            const newCliente = this._findCliente(state.clientes, nuevoPayload.clienteId, nuevoPayload.clienteNombre);
+            if (!newCliente) {
+                throw new Error(`No se encontró el cliente "${nuevoPayload.clienteNombre || ''}" en el catálogo.`);
             }
+            newCliente.canastasPrestadas = (Number(newCliente.canastasPrestadas) || 0) + nuevaCantidadTotal;
 
             // 3. ACTUALIZAR REGISTRO DE ACTIVIDAD
             const detallesStr = Object.entries(frutasDespachadas).map(([f, c]) => `${f} (${c})`).join(', ');
-            actividadObj.detalle = `A cliente: ${nuevoPayload.clienteNombre} | ${detallesStr} (EDITADO)`;
+            actividadObj.detalle = `A cliente: ${newCliente.nombre} | ${detallesStr} (EDITADO)`;
             actividadObj.cantidad = `-${nuevaCantidadTotal} llenas`;
-            actividadObj.rawPayload = { ...nuevoPayload };
+            actividadObj.rawPayload = { ...nuevoPayload, clienteId: newCliente.id, clienteNombre: newCliente.nombre };
 
             if (nuevoPayload.fecha) {
                 actividadObj.fechaOperacion = nuevoPayload.fecha;
@@ -1371,6 +1463,11 @@ class Store {
             const payload = actividadObj.rawPayload;
             const cantAntigua = parseInt(payload.total);
 
+            const oldCliente = this._findCliente(state.clientes, payload.clienteId, payload.clienteNombre);
+            if (oldCliente && (Number(oldCliente.canastasPrestadas) || 0) < cantAntigua) {
+                throw new Error(`No se puede anular este despacho porque el cliente ${oldCliente.nombre} ya devolvió canastas de este envío (solo tiene ${Number(oldCliente.canastasPrestadas) || 0} pendientes).`);
+            }
+
             // 1. REVERTIR IMPACTO EN INVENTARIO ALMACENES
             payload.detalles.forEach(det => {
                 const invAlmacenOld = state.inventario.porAlmacen[det.almacenOrigenId];
@@ -1383,9 +1480,8 @@ class Store {
             state.inventario.canastasLlenas += cantAntigua;
             state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - cantAntigua);
 
-            const oldCliente = state.clientes.find(c => c.nombre === payload.clienteNombre);
             if (oldCliente) {
-                oldCliente.canastasPrestadas = Math.max(0, (oldCliente.canastasPrestadas || 0) - cantAntigua);
+                oldCliente.canastasPrestadas = Math.max(0, (Number(oldCliente.canastasPrestadas) || 0) - cantAntigua);
             }
 
             // 3. ANULAR EL DOCUMENTO EN LUGAR DE BORRARLO
@@ -1404,50 +1500,69 @@ class Store {
     }
 
     // --- Módulo Devoluciones / Recepción de Canastas ---
-    async recepcionCanastas({ tipoOrigen = 'cliente', clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion }) {
-        cantidad = parseInt(cantidad);
+    async recepcionCanastas({ tipoOrigen = 'cliente', clienteId = null, clienteNombre, productorId, cantidad, esLlena, productoId, almacenDestinoId, fechaRecepcion }) {
+        cantidad = parseInt(cantidad, 10);
+        if (!cantidad || isNaN(cantidad) || cantidad <= 0) {
+            throw new Error("La cantidad de canastas a devolver debe ser mayor a 0.");
+        }
         await this.runTransaction((state, transaction) => {
             let entidadName = 'Desconocido';
             let cliente = null;
             let productor = null;
 
             if (tipoOrigen === 'productor') {
-                productor = state.productores.find(p => p.id === productorId);
-                entidadName = productor?.nombre || 'Productor';
+                productor = (state.productores || []).find(p =>
+                    p.id === productorId ||
+                    (p.nombre || '').trim().toLowerCase() === String(productorId || '').trim().toLowerCase()
+                );
+                if (!productor) {
+                    throw new Error("No se encontró el productor seleccionado en el catálogo.");
+                }
+                entidadName = productor.nombre || 'Productor';
+                const prestadasProd = Math.max(0, Number(productor.canastasPrestadas) || 0);
+                if (prestadasProd <= 0) {
+                    throw new Error(`El productor ${entidadName} no tiene canastas prestadas pendientes por devolver (0 canastas).`);
+                }
+                if (cantidad > prestadasProd) {
+                    throw new Error(`El productor ${entidadName} solo tiene ${prestadasProd} canastas prestadas pendientes. No puede devolver ${cantidad}.`);
+                }
             } else {
-                cliente = state.clientes.find(c => c.nombre === clienteNombre);
-                entidadName = clienteNombre;
+                cliente = this._findCliente(state.clientes, clienteId, clienteNombre);
+                if (!cliente) {
+                    throw new Error(`No se encontró el cliente "${clienteNombre || ''}" en el catálogo.`);
+                }
+                entidadName = cliente.nombre || clienteNombre;
+                const prestadasCli = Math.max(0, Number(cliente.canastasPrestadas) || 0);
+                if (prestadasCli <= 0) {
+                    throw new Error(`El cliente ${entidadName} no tiene canastas despachadas o prestadas pendientes por devolver (0 canastas).`);
+                }
+                if (cantidad > prestadasCli) {
+                    throw new Error(`El cliente ${entidadName} solo tiene ${prestadasCli} canastas despachadas/prestadas pendientes. No puede devolver ${cantidad}.`);
+                }
             }
 
             if (!state.inventario.porAlmacen[almacenDestinoId]) state.inventario.porAlmacen[almacenDestinoId] = { vacias: 0 };
             const invAlmacen = state.inventario.porAlmacen[almacenDestinoId];
-
-            if (productor && productor.canastasPrestadas < cantidad) {
-                throw new Error(`El productor ${entidadName} solo debe ${productor.canastasPrestadas || 0} canastas. No puede devolver ${cantidad}.`);
-            }
-            if (cliente && cliente.canastasPrestadas < cantidad) {
-                throw new Error(`El cliente ${entidadName} solo debe ${cliente.canastasPrestadas || 0} canastas. No puede devolver ${cantidad}.`);
-            }
 
             if (esLlena && productoId) {
                 invAlmacen[productoId] = (invAlmacen[productoId] || 0) + cantidad;
                 state.inventario.canastasLlenas += cantidad;
                 const pName = state.productos.find(p => p.id === productoId)?.nombre || 'Producto';
 
-                const rawPayload = { tipoOrigen, clienteNombre: clienteNombre || null, clienteId: cliente?.id || null, productorId: productorId || null, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion, cantidad };
-                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${clienteNombre} (Llenas de ${pName})`;
+                const rawPayload = { tipoOrigen, clienteNombre: cliente ? cliente.nombre : (clienteNombre || null), clienteId: cliente?.id || null, productorId: productor?.id || productorId || null, esLlena, productoId, almacenDestinoId, pName, fechaRecepcion, cantidad };
+                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Llenas de ${pName})` : `De Cliente: ${entidadName} (Llenas de ${pName})`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} llenas`, fechaRecepcion, rawPayload);
             } else {
                 invAlmacen.vacias = (invAlmacen.vacias || 0) + cantidad;
                 state.inventario.canastasVacias += cantidad;
 
-                const rawPayload = { tipoOrigen, clienteNombre: clienteNombre || null, clienteId: cliente?.id || null, productorId: productorId || null, esLlena, productoId: productoId || null, almacenDestinoId, fechaRecepcion, cantidad };
-                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${clienteNombre} (Vacías)`;
+                const rawPayload = { tipoOrigen, clienteNombre: cliente ? cliente.nombre : (clienteNombre || null), clienteId: cliente?.id || null, productorId: productor?.id || productorId || null, esLlena, productoId: productoId || null, almacenDestinoId, fechaRecepcion, cantidad };
+                const dtStr = tipoOrigen === 'productor' ? `De Productor: ${entidadName} (Vacías)` : `De Cliente: ${entidadName} (Vacías)`;
                 this._registrarActividad(state, transaction, 'Devolución de Canastas', dtStr, `+${cantidad} vacías`, fechaRecepcion, rawPayload);
             }
 
-            if (productor) productor.canastasPrestadas = Math.max(0, (productor.canastasPrestadas || 0) - cantidad);
-            if (cliente) cliente.canastasPrestadas = Math.max(0, (cliente.canastasPrestadas || 0) - cantidad);
+            if (productor) productor.canastasPrestadas = Math.max(0, (Number(productor.canastasPrestadas) || 0) - cantidad);
+            if (cliente) cliente.canastasPrestadas = Math.max(0, (Number(cliente.canastasPrestadas) || 0) - cantidad);
 
             state.inventario.despachadasProductor = Math.max(0, (state.inventario.despachadasProductor || 0) - (tipoOrigen === 'productor' ? cantidad : 0));
             state.inventario.despachadasCliente = Math.max(0, (state.inventario.despachadasCliente || 0) - (tipoOrigen === 'cliente' ? cantidad : 0));
