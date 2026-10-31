@@ -74,14 +74,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 window.modificarRecepcion = function (idActividad) {
     const user = window.appStore.currentUser;
-    if (!user || user.rol !== 'admin') {
+    const isAdmin = user && (user.rol?.toLowerCase() === 'admin' || user.rol?.toLowerCase() === 'administrador');
+    if (!isAdmin) {
         window.UI.showToast("No tienes permisos para editar registros.", "error");
         return;
     }
 
-    const actividad = window.appStore.getActividad(1000).find(a => a.id === idActividad);
+    const actividad = window.appStore.getActividad(2000).find(a => a.id === idActividad);
     if (!actividad || !actividad.rawPayload) {
         window.UI.showToast("Este registro es muy antiguo y no contiene los datos técnicos necesarios para revertirlo.", "error");
+        return;
+    }
+    if (actividad.anulado) {
+        window.UI.showToast("No se puede modificar una recepción que ya ha sido anulada.", "error");
         return;
     }
 

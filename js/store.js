@@ -62,6 +62,7 @@ class Store {
         this.dbRef = db.collection('appData').doc('mainState');
         this.actividadRef = db.collection('actividad'); // Referencia a la nueva colección
         this.actividadCache = []; // Caché local para la actividad
+        this.updatedActividadMap = new Map(); // Registro de actividades modificadas/anuladas en la sesión
         this.actividadLoaded = false;
         this.isLoaded = false;
 
@@ -146,11 +147,36 @@ class Store {
         });
     }
 
+    _syncActividadCacheItem(idActividad, actividadObj) {
+        if (!idActividad || !actividadObj) return;
+        const normalized = { ...actividadObj, id: idActividad };
+        if (!this.updatedActividadMap) this.updatedActividadMap = new Map();
+        this.updatedActividadMap.set(idActividad, normalized);
+
+        const cachedIdx = this.actividadCache.findIndex(a => a && a.id === idActividad);
+        if (cachedIdx > -1) {
+            this.actividadCache[cachedIdx] = normalized;
+        } else {
+            this.actividadCache.unshift(normalized);
+        }
+    }
+
     // Escucha la colección de Actividad (Snapshot de los últimos 800 para la UI rápida)
     listenToActividad() {
         if (this.unsubscribeActividad) this.unsubscribeActividad();
         this.unsubscribeActividad = this.actividadRef.orderBy('date', 'desc').limit(800).onSnapshot((snapshot) => {
-            const latest = snapshot.docs.map(doc => doc.data());
+            const latest = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            if (this.actividadLoaded) {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'modified' || change.type === 'added') {
+                        const d = { id: change.doc.id, ...change.doc.data() };
+                        if (d.anulado || change.type === 'modified') {
+                            this.updatedActividadMap.set(d.id, d);
+                        }
+                    }
+                });
+            }
             
             // Merge into local cache avoiding duplicates, prioritizing existing deep cache
             const cacheMap = new Map();
@@ -164,6 +190,16 @@ class Store {
             latest.forEach(a => {
                 if (a.id) cacheMap.set(a.id, a);
             });
+
+            // 3. Preservar modificaciones/anulaciones recientes frente a datos en caché antiguos
+            if (this.updatedActividadMap) {
+                this.updatedActividadMap.forEach((val, key) => {
+                    const current = cacheMap.get(key);
+                    if (!current || val.anulado || !current.anulado) {
+                        cacheMap.set(key, val);
+                    }
+                });
+            }
             
             this.actividadCache = Array.from(cacheMap.values()).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
 
@@ -205,7 +241,7 @@ class Store {
                     hasMore = false;
                 } else {
                     snap.docs.forEach(doc => {
-                        const data = doc.data();
+                        const data = { id: doc.id, ...doc.data() };
                         if (data.id) cacheMap.set(data.id, data);
                     });
                     
@@ -217,10 +253,23 @@ class Store {
                 }
             }
 
+            // Re-aplicar cualquier actividad que haya sido anulada o modificada en tiempo real mientras paginábamos
+            this.actividadCache.forEach(a => {
+                if (a && a.id && a.anulado) {
+                    cacheMap.set(a.id, a);
+                }
+            });
+            if (this.updatedActividadMap) {
+                this.updatedActividadMap.forEach((val, key) => {
+                    cacheMap.set(key, val);
+                });
+            }
+
             this.actividadCache = Array.from(cacheMap.values()).sort((a, b) => new Date(b.date || b.fecha) - new Date(a.date || a.fecha));
             console.log(`[STORE] Carga profunda finalizada: ${this.actividadCache.length} registros totales.`);
             this._loadingFullCompleted = true;
             this._loadingFullInProgress = false;
+            window.dispatchEvent(new Event('store:updated'));
             return this.actividadCache;
         })();
         
@@ -334,6 +383,7 @@ class Store {
 
         // Analizar TODO el historial disponible
         this.actividadCache.forEach(act => {
+            if (act.anulado) return;
             let raw = act.rawPayload;
             if (!raw) {
                 // Soporte para registros antiguos sin rawPayload
@@ -1179,7 +1229,131 @@ class Store {
             }
 
             transaction.update(docRef, actividadObj);
+            this._syncActividadCacheItem(idActividad, actividadObj);
         });
+    }
+
+    async eliminarRecepcion(idActividad) {
+        const user = this.currentUser;
+        const isAdmin = user && (user.rol?.toLowerCase() === 'admin' || user.rol?.toLowerCase() === 'administrador');
+        if (!isAdmin) {
+            throw new Error("Solo los usuarios con acceso total pueden eliminar transacciones.");
+        }
+
+        let updatedActividadObj = null;
+        let wasAlreadyAnulado = false;
+
+        await this.runTransaction(async (state, transaction) => {
+            const docRef = db.collection('actividad').doc(idActividad);
+            const docSnap = await transaction.get(docRef);
+            if (!docSnap.exists) throw new Error("No se encontró el registro de actividad para eliminar.");
+
+            const actividadObj = { id: docSnap.id, ...docSnap.data() };
+            if (actividadObj.anulado) {
+                // Si ya estaba anulado en Firestore pero la caché local estaba desactualizada,
+                // aseguramos formato en 0 y sincronizamos la vista sin revertir inventario dos veces.
+                let needsDocFix = false;
+                if (!String(actividadObj.detalle || '').includes('(ANULADO)')) {
+                    actividadObj.detalle = (actividadObj.detalle || '') + ' (ANULADO)';
+                    needsDocFix = true;
+                }
+                if (actividadObj.cantidad !== '0 (ANULADO)') {
+                    actividadObj.cantidad = '0 (ANULADO)';
+                    needsDocFix = true;
+                }
+                if (actividadObj.rawPayload) {
+                    if (Array.isArray(actividadObj.rawPayload.lotes)) {
+                        actividadObj.rawPayload.lotes.forEach(l => {
+                            if (l.cantidad !== 0) { l.cantidad = 0; needsDocFix = true; }
+                        });
+                    }
+                    if (actividadObj.rawPayload.cantidad !== 0) {
+                        actividadObj.rawPayload.cantidad = 0;
+                        needsDocFix = true;
+                    }
+                }
+                if (needsDocFix) {
+                    transaction.update(docRef, actividadObj);
+                }
+                updatedActividadObj = actividadObj;
+                wasAlreadyAnulado = true;
+                return;
+            }
+
+            if (!actividadObj.rawPayload) {
+                throw new Error("No se puede eliminar: Este registro es antiguo y no contiene los datos técnicos necesarios para revertir el inventario.");
+            }
+
+            const old = actividadObj.rawPayload;
+            let lotesOld = old.lotes;
+            if (!lotesOld) {
+                lotesOld = [{
+                    productoId: old.productoId,
+                    cantidad: old.cantidad,
+                    almacenId: old.almacenDestinoId
+                }];
+            }
+
+            let cantAntigua = parseInt(old.cantidad);
+            if (isNaN(cantAntigua)) {
+                cantAntigua = lotesOld.reduce((sum, l) => sum + (parseInt(l.cantidad) || 0), 0);
+            }
+
+            if (cantAntigua > 0) {
+                // 1. REVERTIR DEUDA DEL PRODUCTOR (volver a sumar las canastas prestadas)
+                const oldProductor = state.productores.find(p => p.id === old.productorId);
+                if (oldProductor) {
+                    oldProductor.canastasPrestadas = (oldProductor.canastasPrestadas || 0) + cantAntigua;
+                }
+
+                // 2. REVERTIR INVENTARIO EN ALMACENES
+                for (const lote of lotesOld) {
+                    const almId = lote.almacenId || old.almacenDestinoId;
+                    const invAlmacenOld = state.inventario.porAlmacen[almId];
+                    const productoId = lote.productoId;
+                    const cantLote = parseInt(lote.cantidad) || 0;
+                    if (cantLote <= 0) continue;
+
+                    if (!invAlmacenOld || (invAlmacenOld[productoId] || 0) < cantLote) {
+                        const pName = state.productos.find(p => p.id === productoId)?.nombre || productoId;
+                        const almName = state.almacenes.find(a => a.id === almId)?.nombre || almId;
+                        throw new Error(`Error al eliminar: No hay suficientes existencias de ${pName} en ${almName} para revertir esta recepción.`);
+                    }
+                    invAlmacenOld[productoId] -= cantLote;
+                }
+
+                // 3. REVERTIR INVENTARIO GLOBAL
+                if ((state.inventario.canastasLlenas || 0) < cantAntigua) {
+                    throw new Error("Error al eliminar: El inventario global de canastas llenas quedaría negativo.");
+                }
+                state.inventario.canastasLlenas -= cantAntigua;
+                state.inventario.despachadasProductor = (state.inventario.despachadasProductor || 0) + cantAntigua;
+            }
+
+            // 4. DEJAR LA TRANSACCIÓN CON CANTIDAD CERO EN LUGAR DE BORRARLA
+            actividadObj.anulado = true;
+            if (!String(actividadObj.detalle || '').includes('(ANULADO)')) {
+                actividadObj.detalle = (actividadObj.detalle || '') + ' (ANULADO)';
+            }
+            actividadObj.cantidad = '0 (ANULADO)';
+
+            if (old.lotes && Array.isArray(old.lotes)) {
+                old.lotes.forEach(l => l.cantidad = 0);
+            }
+            old.cantidad = 0;
+            actividadObj.rawPayload = old;
+
+            transaction.update(docRef, actividadObj);
+            updatedActividadObj = actividadObj;
+            this._syncActividadCacheItem(idActividad, actividadObj);
+        });
+
+        if (updatedActividadObj) {
+            this._syncActividadCacheItem(idActividad, updatedActividadObj);
+            window.dispatchEvent(new Event('store:updated'));
+        }
+
+        return { alreadyAnulado: wasAlreadyAnulado };
     }
 
     async despachoVacias({ personaRetira, cantidad, productorId, almacenOrigenId, fechaDespacho }) {

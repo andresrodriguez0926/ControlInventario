@@ -1,5 +1,5 @@
 // VERSION: bump this number on every deploy to force cache refresh
-const CACHE_VERSION = 'v46';
+const CACHE_VERSION = 'v48';
 const CACHE_NAME = `inventariopro-${CACHE_VERSION}`;
 
 // Archivos que se cachean solo como fallback (Network-First)

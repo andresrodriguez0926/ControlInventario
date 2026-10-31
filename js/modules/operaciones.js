@@ -167,17 +167,20 @@ window.appModules['recepcion'] = () => {
                                     <tr class="border-b border-border/50 hover:bg-surface-light/30 transition-colors text-sm group">
                                         <td class="py-2.5 px-4 font-mono text-xs text-text-secondary">${a.numeroDocumento || 'S/N'}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${(a.rawPayload && a.rawPayload.fechaRecepcion) ? new Date(a.rawPayload.fechaRecepcion + 'T12:00:00').toLocaleDateString() : new Date(a.date).toLocaleDateString()}</td>
-                                        <td class="py-2.5 px-4 text-white">${a.detalle}</td>
+                                        <td class="py-2.5 px-4 ${a.anulado ? 'text-text-muted' : 'text-white'}">${a.anulado && !String(a.detalle || '').includes('(ANULADO)') ? (a.detalle + ' (ANULADO)') : a.detalle}</td>
                                         <td class="py-2.5 px-4 text-text-secondary whitespace-nowrap">${a.usuario || 'Sistema'}</td>
-                                        <td class="py-2.5 px-4 text-right font-bold text-success">${a.cantidad}</td>
+                                        <td class="py-2.5 px-4 text-right font-bold ${a.anulado ? 'text-danger' : 'text-success'}">${a.anulado ? '0 (ANULADO)' : a.cantidad}</td>
                                         <td class="py-2.5 px-4 text-center">
                                             <div class="flex items-center justify-center gap-2 opacity-100 transition-opacity">
                                                 <button type="button" onclick="window.verDocumentoOrigen('${a.id}')" class="text-text-secondary hover:text-white tooltip-trigger" title="Ver Documento">
                                                     <i data-lucide="file-text" class="w-4 h-4"></i>
                                                 </button>
-                                                ${isAdmin ? `
+                                                ${isAdmin && !a.anulado ? `
                                                     <button type="button" onclick="window.modificarRecepcion('${a.id}')" class="text-primary hover:text-primary-hover tooltip-trigger" title="Modificar Registro">
                                                         <i data-lucide="edit" class="w-4 h-4"></i>
+                                                    </button>
+                                                    <button type="button" onclick="window.confirmarEliminarRecepcion('${a.id}')" class="text-danger hover:text-red-400 tooltip-trigger" title="Eliminar Transacción">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
                                                     </button>
                                                 ` : ''}
                                             </div>
@@ -355,6 +358,27 @@ window.appModuleEvents['recepcion'] = () => {
             }
         }
     });
+
+    window.confirmarEliminarRecepcion = async (idActividad) => {
+        const isAdmin = window.appStore.currentUser && (window.appStore.currentUser.rol?.toLowerCase() === 'admin' || window.appStore.currentUser.rol?.toLowerCase() === 'administrador');
+        if (!isAdmin) {
+            window.UI.showToast('Solo los usuarios con acceso total pueden eliminar transacciones.', 'error');
+            return;
+        }
+        if (!confirm('¿Estás seguro de que deseas eliminar (anular) esta recepción de mercancía? La transacción quedará con cantidad de canastas en cero (0) y se revertirán sus efectos en el inventario y en la cuenta del productor.')) return;
+        try {
+            const res = await window.appStore.eliminarRecepcion(idActividad);
+            if (res && res.alreadyAnulado) {
+                window.UI.showToast('Esta transacción ya estaba anulada en la nube. Vista actualizada a 0 canastas.');
+            } else {
+                window.UI.showToast('Transacción anulada (canastas en cero) e inventario revertido.');
+            }
+            window.UI.renderModuleContainer('recepcion');
+            document.getElementById('tab-btn-historial')?.click();
+        } catch (err) {
+            window.UI.showToast(err.message, 'error');
+        }
+    };
 
     if (window.lucide) window.lucide.createIcons();
 };
